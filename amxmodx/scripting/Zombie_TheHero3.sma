@@ -29,12 +29,6 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 #define MAIN_HUD_X -1.0
 #define MAIN_HUD_Y 0.30
 
-const OFFSET_MODELINDEX = 491
-const OFFSET_PAINSHOCK = 108
-const OFFSET_CSDEATHS = 444
-
-const OFFSET_LINUX = 5 // offsets 5 higher in Linux builds
-
 // Speed Problem
 new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame
 new g_UsingCustomSpeed[33]
@@ -85,7 +79,7 @@ const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_F
 
 // Game Vars
 new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
-g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count, g_freeze_time,
+g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD]
 new g_zombie[33], g_hero[33], g_hero_locked[33], g_iRespawning[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
@@ -171,9 +165,6 @@ new const WEAPONENTNAMES[][] = { "", "weapon_p228", "", "weapon_scout", "weapon_
 			"weapon_m3", "weapon_m4a1", "weapon_tmp", "weapon_g3sg1", "weapon_flashbang", "weapon_deagle", "weapon_sg552",
 			"weapon_ak47", "weapon_knife", "weapon_p90" }
 
-// CS Player PData Offsets (win32)
-#define PDATA_SAFE 2
-#define OFFSET_CSTEAMS 114
 
 // Spawn Point Research
 #define MAX_SPAWN_POINT 100
@@ -181,64 +172,11 @@ new const WEAPONENTNAMES[][] = { "", "weapon_p228", "", "weapon_scout", "weapon_
 new Float:player_spawn_point[MAX_SPAWN_POINT][3]
 new player_spawn_point_count
 
-enum
-{
-	OFFSET_AMMO_AWP = 377,
-	OFFSET_AMMO_SCOUT, // AK47, G3SG1
-	OFFSET_AMMO_M249,
-	OFFSET_AMMO_M4A1, // FAMAS, AUG, SG550, GALIL, SG552
-	OFFSET_AMMO_M3, // XM1014
-	OFFSET_AMMO_USP, // UMP45, MAC10
-	OFFSET_AMMO_FIVESEVEN, // P90
-	OFFSET_AMMO_DEAGLE,
-	OFFSET_AMMO_P228,
-	OFFSET_AMMO_GLOCK18, // MP5NAVY, TMP, ELITE
-	OFFSET_AMMO_FLASHBANG,
-	OFFSET_AMMO_HEGRENADE,
-	OFFSET_AMMO_SMOKEGRENADE,
-	OFFSET_AMMO_C4
-};
-
-static const _CSW_to_offset[] =
-{
-	0, OFFSET_AMMO_P228, OFFSET_AMMO_SCOUT, OFFSET_AMMO_HEGRENADE, OFFSET_AMMO_M3, OFFSET_AMMO_C4, OFFSET_AMMO_USP, OFFSET_AMMO_SMOKEGRENADE,
-	OFFSET_AMMO_GLOCK18, OFFSET_AMMO_FIVESEVEN, OFFSET_AMMO_USP, OFFSET_AMMO_M4A1, OFFSET_AMMO_M4A1, OFFSET_AMMO_M4A1, OFFSET_AMMO_USP, OFFSET_AMMO_GLOCK18,
-	OFFSET_AMMO_AWP, OFFSET_AMMO_GLOCK18, OFFSET_AMMO_M249, OFFSET_AMMO_M3, OFFSET_AMMO_M4A1, OFFSET_AMMO_GLOCK18, OFFSET_AMMO_SCOUT, OFFSET_AMMO_FLASHBANG,
-	OFFSET_AMMO_DEAGLE, OFFSET_AMMO_M4A1, OFFSET_AMMO_SCOUT, 0, OFFSET_AMMO_FIVESEVEN
-};
-
-#define EXTRAOFFSET			5
-#define EXTRAOFFSET_WEAPONS		4
-
-#define OFFSET_WEAPONID			43
-#define OFFSET_WEAPONCLIP		52
-
-#define OFFSET_ARMORTYPE		112
-#define OFFSET_TEAM			114
-#define OFFSET_MONEY			115
-#define OFFSET_INTERALMODEL		126
-
-#define OFFSET_DEATHS			555
-
-// Team API (Thank to WiLS)
-enum
-{
-	FM_CS_TEAM_T = 1,
-	FM_CS_TEAM_CT = 2
-}
-
-#define TEAMCHANGE_DELAY 0.1
-
 #define TASK_TEAMMSG 200
 #define ID_TEAMMSG (taskid - TASK_TEAMMSG)
 
-// CS Player PData Offsets (win32)
-#define PDATA_SAFE 2
-#define OFFSET_CSTEAMS 114
-
 new const CS_TEAM_NAMES[][] = { "UNASSIGNED", "TERRORIST", "CT", "SPECTATOR" }
 
-new Float:g_TeamMsgTargetTime
 new g_MsgTeamInfo, g_MsgScoreInfo
 
 
@@ -971,9 +909,6 @@ public client_disconnect(id)
 // ================================================================
 public Event_NewRound()
 {
-	// Special Var
-	g_freeze_time = 1
-	
 	if(GetTotalPlayer(TEAM_ALL, 0) < 2)
 	{
 		g_game_playable = 0
@@ -994,8 +929,6 @@ public Event_NewRound()
 
 public Event_RoundStart()
 {
-	g_freeze_time = 0
-	
 	if(!g_game_playable || g_endround || g_gamestart)
 		return
 		
@@ -1012,23 +945,18 @@ public Event_RoundEnd()
 	if(!g_game_playable || !g_gamestart)
 		return	
 	
+	static iZombie
 	g_endround = 1
 	
 	// Update Score
 	for(new i = 0; i < g_MaxPlayers; i++)
 	{
-		if(!is_user_connected(i))
+		if(!is_user_alive(i))
 			continue
-			
-		if(is_user_alive(i))
-		{
-			if(!g_zombie[i])
-			{
-				UpdateFrags(i, -1, 2, -1, 1)
-			} else {
-				UpdateFrags(i, -1, 1, -1, 1)
-			}
-		}
+
+		iZombie = g_zombie[i]
+
+		UpdateFrags(i, -1, iZombie ? 1 : 2, -1, 1)
 	}
 }
 
@@ -1052,27 +980,17 @@ public Event_CheckWeapon(id)
 	if(!g_zombie[id])
 		return
 	
-	static current_weapon; current_weapon = fm_get_user_weapon(id)
-	if(current_weapon == CSW_FLASHBANG || current_weapon == CSW_HEGRENADE || current_weapon == CSW_SMOKEGRENADE) 
-		return
-		
-	if(current_weapon == CSW_KNIFE)
+	static current_weapon; current_weapon = get_user_weapon(id)
+	static ViewModel[64], Buffer[128]
+
+	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_clawsmodel_host : zombie_clawsmodel_origin, g_zombie_class[id], ViewModel, sizeof(ViewModel))
+	formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ViewModel)
+
+	switch(current_weapon)
 	{
-		static ViewModel[64], Buffer[128]
-		if(g_zombie_type[id] == ZOMBIE_ORIGIN)
-		{
-			ArrayGetString(zombie_clawsmodel_origin, g_zombie_class[id], ViewModel, sizeof(ViewModel))
-			formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ViewModel)
-		} else if(g_zombie_type[id] == ZOMBIE_HOST) {
-			ArrayGetString(zombie_clawsmodel_host, g_zombie_class[id], ViewModel, sizeof(ViewModel))
-			formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ViewModel)
-		}
-		
-		set_pev(id, pev_viewmodel2, Buffer)
-		set_pev(id, pev_weaponmodel2, "")
-	} else {
-		fm_reset_user_weapon(id)
-		return
+		case CSW_HEGRENADE,CSW_FLASHBANG,CSW_SMOKEGRENADE: return
+		case CSW_KNIFE: { set_pev(id, pev_viewmodel2, Buffer); set_pev(id, pev_weaponmodel2, "") ;}
+		default: { fm_reset_user_weapon(id); return; }
 	}
 }
 
@@ -1305,10 +1223,13 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 		return HAM_IGNORED	
 	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
 		return HAM_IGNORED
-		
+
+	static Float:zb_class_painshock
+	zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+
 	if(!g_zombie[attacker] && g_zombie[victim]) 
 	{ // Human Attack Zombie
-		if(pev_valid(victim) == 2) set_pdata_float(victim, OFFSET_PAINSHOCK, ArrayGetCell(zombie_painshock, g_zombie_class[victim]), 5)
+		if(pev_valid(victim) == 2) set_member(victim, m_flVelocityModifier, zb_class_painshock)
 		if(g_restore_health[victim]) g_restore_health[victim] = 0
 	}		
 		
@@ -1520,8 +1441,8 @@ public set_team(id, {PlayerTeams,_}:team)
 	
 	switch(team)
 	{
-		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != FM_CS_TEAM_CT) fm_cs_set_user_team(id, FM_CS_TEAM_CT, 1)
-		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != FM_CS_TEAM_T) fm_cs_set_user_team(id, FM_CS_TEAM_T, 1)
+		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != TEAM_CT) fm_cs_set_user_team(id, TEAM_CT, 1)
+		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != TEAM_TERRORIST) fm_cs_set_user_team(id, TEAM_TERRORIST, 1)
 	}
 }
 
@@ -1610,7 +1531,7 @@ public fw_TraceLine(Float:vector_start[3], Float:vector_end[3], ignored_monster,
 {
 	if (!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
-	if (fm_get_user_weapon(id) != CSW_KNIFE)
+	if (get_user_weapon(id) != CSW_KNIFE)
 		return FMRES_IGNORED
 		
 	static buttons
@@ -1647,7 +1568,7 @@ public fw_TraceHull(Float:vector_start[3], Float:vector_end[3], ignored_monster,
 {
 	if (!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
-	if (fm_get_user_weapon(id) != CSW_KNIFE)
+	if (get_user_weapon(id) != CSW_KNIFE)
 		return FMRES_IGNORED
 		
 	static buttons
@@ -2254,8 +2175,8 @@ public set_user_hero(id, player_sex)
 	// Reset Player
 	reset_player(id, 0, 0)
 	
-	drop_weapons(id, 1)
-	drop_weapons(id, 2)
+	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_PRIMARY)
+	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_SECONDARY)
 	
 	// Set Var
 	g_hero_locked[id] = 0
@@ -2395,8 +2316,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 			g_StartHealth[id] = zombie_random_health = g_StartHealth[attacker] / 2
 			g_StartArmor[id] = zombie_random_armor = g_StartHealth[attacker] / 2
 			
-			UpdateFrags(attacker, id, 1, 1, 1)
-			
 			if(!g_hero_victim && !g_normal_evolution)
 				g_normal_evolution = 1
 		} else {
@@ -2463,7 +2382,7 @@ public show_menu_zombieclass(id, page)
 	if(!g_zombie[id])
 		return
 		
-	if(pev_valid(id) == 2) set_pdata_int(id, 205, 0, OFFSET_LINUX)	
+	if(pev_valid(id) == 2) set_member(id, m_iMenu, CS_Menu_OFF)
 
 	new menuwpn_title[64], temp_string[128]
 	format(menuwpn_title, 63, "%L:", LANG_PLAYER, "MENU_CLASSZOMBIE_TITLE")
@@ -2764,7 +2683,7 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 			write_short(pev(attacker, pev_frags)) // frags
 			write_short(fm_cs_get_user_deaths(attacker)) // deaths
 			write_short(0) // class?
-			write_short(get_pdata_int(attacker, OFFSET_CSTEAMS, OFFSET_LINUX)) // team
+			write_short(get_member(attacker, m_iTeam)) // team
 			message_end()
 		}
 		
@@ -2775,7 +2694,7 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 			write_short(pev(victim, pev_frags)) // frags
 			write_short(fm_cs_get_user_deaths(victim)) // deaths
 			write_short(0) // class?
-			write_short(get_pdata_int(victim, OFFSET_CSTEAMS, OFFSET_LINUX)) // team
+			write_short(get_member(victim, m_iTeam)) // team
 			message_end()
 		}
 	}
@@ -2815,43 +2734,6 @@ stock get_color_level(id, num)
 	}
 	
 	return color[num];
-}
-
-stock fm_get_user_weapon(id, &clip=0, &ammo=0)
-{
-	static ent
-	ent = get_pdata_cbase(id, 373, 5)
-	
-	if (!pev_valid(ent)) return -1;
-	
-	new wpnid
-	wpnid = fm_cs_get_weapon_id(ent)
-	clip = fm_cs_get_weapon_ammo(ent)
-	if (wpnid != CSW_KNIFE) ammo = fm_cs_get_user_bpammo(id, wpnid)
-	
-	return wpnid;
-}
-
-stock fm_cs_reset_user_maxspeed(id)
-{
-	if(!is_user_alive(id))
-		return
-	
-	new Float:MaxSpeed
-	switch(fm_get_user_weapon(id))
-	{
-		case CSW_SG550, CSW_AWP, CSW_G3SG1: MaxSpeed = 210.0
-		case CSW_M249: MaxSpeed = 220.0
-		case CSW_AK47: MaxSpeed = 221.0
-		case CSW_M3, CSW_M4A1: MaxSpeed = 230.0
-		case CSW_SG552: MaxSpeed = 235.0
-		case CSW_XM1014, CSW_AUG, CSW_GALIL, CSW_FAMAS: MaxSpeed = 240.0
-		case CSW_P90: MaxSpeed = 245.0
-		case CSW_SCOUT: MaxSpeed = 260.0
-		default: MaxSpeed = 250.0
-	}
-	
-	set_pev(id, pev_maxspeed, MaxSpeed)
 }
 
 stock client_printc(index, const text[], any:...)
@@ -2910,10 +2792,15 @@ stock create_blood(const Float:origin[3])
 stock fm_cs_set_user_deaths(id, value)
 {
 	// Prevent server crash if entity's private data not initalized
-	if (pev_valid(id) != PDATA_SAFE)
+	if (pev_valid(id) != 2)
 		return;
 	
-	set_pdata_int(id, OFFSET_CSDEATHS, value, OFFSET_LINUX)
+	set_member(id, m_iDeaths, value);
+}
+
+stock fm_cs_get_user_deaths(id)
+{
+	return get_member(id, m_iDeaths);
 }
 
 stock set_scoreboard_attrib(id, attrib = 0) // 0 - Nothing; 1 - Dead; 2 - VIP
@@ -2964,39 +2851,22 @@ stock fm_reset_user_speed(id)
 {
 	if(!is_user_alive(id))
 		return
-	if(g_freeze_time)
-	{
-		g_UsingCustomSpeed[id] = 0
-		set_pev(id, pev_maxspeed, 0.01)
-		return
-	}
-	
-	if (!g_zombie[id])
-	{
-		g_UsingCustomSpeed[id] = 0
-		fm_cs_reset_user_maxspeed(id)
-	}
-	else
-	{
-		g_UsingCustomSpeed[id] = 1
-		
-		new Float:speed
-		speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
-		g_PlayerMaxSpeed[id] = speed
-	}		
-		
-	//ExecuteHamB(Ham_Player_ResetMaxSpeed, id)
+	static Float:speed
+	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
+
+	g_UsingCustomSpeed[id] = g_zombie[id] ? 1 : 0
+
+	if(g_zombie[id]) g_PlayerMaxSpeed[id] = speed
+	else rg_reset_maxspeed(id)
 }
 
 stock fm_reset_user_weapon(id)
 {
 	if(!is_user_alive(id))
 		return
-		
-	fm_strip_user_weapons(id)
-	set_pdata_int(id, 116, EXTRAOFFSET)
-	
-	fm_give_item(id, "weapon_knife")
+	rg_remove_all_items(id, false)
+	if(!g_zombie[id]) rg_give_default_items(id)
+	else rg_give_item(id, "weapon_knife")
 }
 
 stock round(num)
@@ -3098,122 +2968,41 @@ stock is_hull_vacant(Float:origin[3], hull)
 	return false;
 }
 
-// Drop primary/secondary weapons
-stock drop_weapons(id, dropwhat)
-{
-	// Get user weapons
-	static weapons[32], num, i, weaponid
-	num = 0 // reset passed weapons count (bugfix)
-	get_user_weapons(id, weapons, num)
-	
-	// Loop through them and drop primaries or secondaries
-	for (i = 0; i < num; i++)
-	{
-		// Prevent re-indexing the array
-		weaponid = weapons[i]
-		
-		if ((dropwhat == 1 && ((1<<weaponid) & PRIMARY_WEAPONS_BIT_SUM)) || (dropwhat == 2 && ((1<<weaponid) & SECONDARY_WEAPONS_BIT_SUM)))
-		{
-			// Get weapon entity
-			static wname[32], weapon_ent
-			get_weaponname(weaponid, wname, charsmax(wname))
-			weapon_ent = find_ent_by_owner(-1, wname, id)
-			
-			// Hack: store weapon bpammo on PEV_ADDITIONAL_AMMO
-			set_pev(weapon_ent, pev_iuser1, fm_cs_get_user_bpammo(id, weaponid))
-			
-			// Player drops the weapon and looses his bpammo
-			engclient_cmd(id, "drop", wname)
-			fm_cs_set_user_bpammo(id, weaponid, 0)
-		}
-	}
-}
-
-stock fm_cs_get_user_bpammo(client, weapon)
-{
-	return get_pdata_int(client, _CSW_to_offset[weapon], EXTRAOFFSET);
-}
-
-stock fm_cs_set_user_bpammo(client, weapon, ammo)
-{
-	set_pdata_int(client, _CSW_to_offset[weapon], ammo, EXTRAOFFSET);
-}
-
-stock fm_cs_get_user_armor(client, &CsArmorType:armortype)
-{
-	armortype = CsArmorType:get_pdata_int(client, OFFSET_ARMORTYPE, EXTRAOFFSET);
-	
-	static Float:armorvalue;
-	pev(client, pev_armorvalue, armorvalue);
-	return floatround(armorvalue);
-}
-
 stock fm_cs_set_user_armor(client, armorvalue, ArmorType:armortype)
 {
 	rg_set_user_armor(client, armorvalue, armortype);
 }
 
-stock fm_cs_get_user_team(client, &{CsInternalModel,_}:model=CS_DONTCHANGE)
-{
-	model = CsInternalModel:get_pdata_int(client, OFFSET_INTERALMODEL, EXTRAOFFSET);
-	
-	return get_pdata_int(client, OFFSET_TEAM, EXTRAOFFSET);
-}
-
 stock fm_cs_get_user_money(client)
 {
-	return get_pdata_int(client, OFFSET_MONEY, EXTRAOFFSET);
+	return get_member(client, m_iAccount);
 }
 
 stock fm_cs_set_user_money(client, money, flash=1)
 {
-	set_pdata_int(client, OFFSET_MONEY, money, EXTRAOFFSET);
-	
-	static Money;
-	if( Money || (Money = get_user_msgid("Money")) )
-	{
-		emessage_begin(MSG_ONE_UNRELIABLE, Money, _, client);
-		ewrite_long(money);
-		ewrite_byte(flash ? 1 : 0);
-		emessage_end();
-	}
+	rg_add_account(client, money, AS_SET, flash ? true : false )
 }
 
 stock fm_cs_get_weapon_id(entity)
 {
-	return get_pdata_int(entity, OFFSET_WEAPONID, EXTRAOFFSET_WEAPONS);
+	return rg_get_iteminfo(entity, ItemInfo_iId)
 }
 
-stock fm_cs_get_user_deaths(client)
+stock TeamName:fm_cs_get_user_team(client)
 {
-	return get_pdata_int(client, OFFSET_DEATHS, EXTRAOFFSET);
+	if(!pev_valid(client))
+		return TEAM_UNASSIGNED
+
+	return get_member(client, m_iTeam);
 }
 
-stock fm_cs_get_weapon_ammo(entity)
+stock fm_cs_set_user_team(id, TeamName:team, send_message)
 {
-	return get_pdata_int(entity, OFFSET_WEAPONCLIP, EXTRAOFFSET_WEAPONS);
-}
-
-
-// Set a Player's Team
-stock fm_cs_set_user_team(id, team, send_message)
-{
-	// Prevent server crash if entity's private data not initalized
-	if (pev_valid(id) != PDATA_SAFE)
-		return;
-	
-	// Already belongs to the team
-	if (fm_cs_get_user_team(id) == team)
-		return;
-	
-	// Remove previous team message task
 	remove_task(id+TASK_TEAMMSG)
-	
-	// Set team offset
-	set_pdata_int(id, OFFSET_CSTEAMS, _:team)
-	
+	set_member(id, m_iTeam, team);
+
 	// Send message to update team?
-	if (send_message) fm_user_team_update(id)
+	if (send_message) set_task(0.1, "fm_cs_set_user_team_msg", id+TASK_TEAMMSG)
 }
 
 // Send User Team Message (Note: this next message can be received by other plugins)
@@ -3235,23 +3024,6 @@ public fm_cs_set_user_team_msg(taskid)
 	emessage_end()
 }
 
-// Update Player's Team on all clients (adding needed delays)
-stock fm_user_team_update(id)
-{	
-	new Float:current_time
-	current_time = get_gametime()
-	
-	if (current_time - g_TeamMsgTargetTime >= TEAMCHANGE_DELAY)
-	{
-		set_task(0.1, "fm_cs_set_user_team_msg", id+TASK_TEAMMSG)
-		g_TeamMsgTargetTime = current_time + TEAMCHANGE_DELAY
-	}
-	else
-	{
-		set_task((g_TeamMsgTargetTime + TEAMCHANGE_DELAY) - current_time, "fm_cs_set_user_team_msg", id+TASK_TEAMMSG)
-		g_TeamMsgTargetTime = g_TeamMsgTargetTime + TEAMCHANGE_DELAY
-	}
-}
 
 // ======================== Round Terminator ======================
 // ================================================================
