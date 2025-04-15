@@ -5,7 +5,6 @@
 #include <fakemeta>
 #include <fakemeta_util>
 #include <hamsandwich>
-#include <sockets>
 #include <xs>
 
 // New
@@ -172,34 +171,9 @@ new const WEAPONENTNAMES[][] = { "", "weapon_p228", "", "weapon_scout", "weapon_
 			"weapon_m3", "weapon_m4a1", "weapon_tmp", "weapon_g3sg1", "weapon_flashbang", "weapon_deagle", "weapon_sg552",
 			"weapon_ak47", "weapon_knife", "weapon_p90" }
 
-// Set Model Problem
-#define MODELCHANGE_DELAY 0.2 // Delay between model changes (increase if getting SVC_BAD kicks)
-#define ROUNDSTART_DELAY random_float(0.25, 0.75) // Delay after roundstart (increase if getting kicks at round start)
-#define SET_MODELINDEX_OFFSET // Enable custom hitboxes (experimental, might lag your server badly with some models)
-
-#define MAXPLAYERS 32
-#define MODELNAME_MAXLENGTH 32
-
-#define TASK_MODELCHANGE 100
-#define ID_MODELCHANGE (taskid - TASK_MODELCHANGE)
-
-new const DEFAULT_MODELINDEX_T[] = "models/player/terror/terror.mdl"
-new const DEFAULT_MODELINDEX_CT[] = "models/player/urban/urban.mdl"
-
 // CS Player PData Offsets (win32)
 #define PDATA_SAFE 2
 #define OFFSET_CSTEAMS 114
-
-#define flag_get(%1,%2)		(%1 & (1 << (%2 & 31)))
-#define flag_set(%1,%2)		(%1 |= (1 << (%2 & 31)));
-#define flag_unset(%1,%2)	(%1 &= ~(1 << (%2 & 31)));
-
-new g_HasCustomModel
-new Float:g_ModelChangeTargetTime
-new g_CustomPlayerModel[MAXPLAYERS+1][MODELNAME_MAXLENGTH]
-#if defined SET_MODELINDEX_OFFSET
-new g_CustomModelIndex[MAXPLAYERS+1]
-#endif
 
 // Spawn Point Research
 #define MAX_SPAWN_POINT 100
@@ -299,7 +273,6 @@ public plugin_init()
 	
 	// Forward
 	unregister_forward(FM_Spawn, g_BlockedObj_Forward)
-	register_forward(FM_SetClientKeyValue, "fw_SetClientKeyValue")
 	register_forward(FM_Touch, "fw_Touch")
 	register_forward(FM_EmitSound, "fw_EmitSound")
 	register_forward(FM_PlayerPreThink, "fw_PlayerPreThink")
@@ -1015,7 +988,6 @@ public Event_NewRound()
 
 	remove_game_task()
 	StopSound(0)
-	set_newround_configplayer()
 	
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_NEWROUND)
 }
@@ -2682,11 +2654,7 @@ public set_human_model(id)
 		ArrayGetString(human_model_female, get_random_array(human_model_female), Model, sizeof(Model))
 	}
 	
-	static CurrentModel[64]
-	fm_cs_get_user_model(id, CurrentModel, sizeof(CurrentModel))
-	
-	if(!equal(CurrentModel, Model))
-		set_model(id, Model)
+	set_model(id, Model)
 }
 
 public reset_player(id, new_player, zombie_respawn)
@@ -2815,144 +2783,14 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 
 // ======================== SET MODELS ============================
 // ================================================================
-public set_newround_configplayer()
-{
-	g_ModelChangeTargetTime = get_gametime() + ROUNDSTART_DELAY
-
-	for(new i = 0; i < g_MaxPlayers; i++)
-	{
-		if(!is_user_connected(i))
-			continue
-			
-		if(task_exists(i+TASK_MODELCHANGE))
-		{
-			remove_task(i+TASK_MODELCHANGE)
-			fm_cs_user_model_update(i+TASK_MODELCHANGE)
-		}
-		
-		set_team(i, TEAM_HUMAN)
-	}	
-}
-
-public fw_SetClientKeyValue(id, const infobuffer[], const key[], const value[])
-{
-	if (flag_get(g_HasCustomModel, id) && equal(key, "model"))
-	{
-		static currentmodel[MODELNAME_MAXLENGTH]
-		fm_cs_get_user_model(id, currentmodel, charsmax(currentmodel))
-		
-		if (!equal(currentmodel, g_CustomPlayerModel[id]) && !task_exists(id+TASK_MODELCHANGE))
-			fm_cs_set_user_model(id+TASK_MODELCHANGE)
-		
-#if defined SET_MODELINDEX_OFFSET
-		fm_cs_set_user_model_index(id)
-#endif
-		
-		return FMRES_SUPERCEDE
-	}
-	
-	return FMRES_IGNORED
-}
 
 public set_model(id, const model[])
 {
 	if(!is_user_alive(id))
-		return false
+		return
 
-	new newmodel[MODELNAME_MAXLENGTH]
-	copy(newmodel, sizeof(newmodel), model)
-	
-	remove_task(id+TASK_MODELCHANGE)
-	flag_set(g_HasCustomModel, id)
-	
-	copy(g_CustomPlayerModel[id], charsmax(g_CustomPlayerModel[]), newmodel)
-	
-#if defined SET_MODELINDEX_OFFSET	
-	new modelpath[32+(2*MODELNAME_MAXLENGTH)]
-	formatex(modelpath, charsmax(modelpath), "models/player/%s/%s.mdl", newmodel, newmodel)
-	g_CustomModelIndex[id] = engfunc(EngFunc_ModelIndex, modelpath)
-#endif
-	
-	new currentmodel[MODELNAME_MAXLENGTH]
-	fm_cs_get_user_model(id, currentmodel, charsmax(currentmodel))
-	
-	if (!equal(currentmodel, newmodel))
-		fm_cs_user_model_update(id+TASK_MODELCHANGE)	
-	
-	return true;	
+	rg_set_user_model(id, model, true);
 }
-
-public fm_cs_set_user_model(taskid)
-{
-	set_user_info(ID_MODELCHANGE, "model", g_CustomPlayerModel[ID_MODELCHANGE])
-}
-
-stock fm_cs_set_user_model_index(id)
-{
-	if (pev_valid(id) != PDATA_SAFE)
-		return;
-	
-	set_pdata_int(id, OFFSET_MODELINDEX, g_CustomModelIndex[id], 5)
-}
-
-stock fm_cs_reset_user_model_index(id)
-{
-	if (pev_valid(id) != PDATA_SAFE)
-		return;
-	
-	switch (fm_fm_cs_get_user_team(id))
-	{
-		case CS_TEAM_T:
-		{
-			set_pdata_int(id, OFFSET_MODELINDEX, engfunc(EngFunc_ModelIndex, DEFAULT_MODELINDEX_T), 5)
-		}
-		case CS_TEAM_CT:
-		{
-			set_pdata_int(id, OFFSET_MODELINDEX, engfunc(EngFunc_ModelIndex, DEFAULT_MODELINDEX_CT), 5)
-		}
-	}
-}
-
-stock fm_cs_get_user_model(id, model[], len)
-{
-	get_user_info(id, "model", model, len)
-}
-
-stock fm_cs_reset_user_model(id)
-{
-	// Set some generic model and let CS automatically reset player model to default
-	copy(g_CustomPlayerModel[id], charsmax(g_CustomPlayerModel[]), "gordon")
-	fm_cs_user_model_update(id+TASK_MODELCHANGE)
-#if defined SET_MODELINDEX_OFFSET
-	fm_cs_reset_user_model_index(id)
-#endif
-}
-
-stock fm_cs_user_model_update(taskid)
-{
-	new Float:current_time
-	current_time = get_gametime()
-	
-	if (current_time - g_ModelChangeTargetTime >= MODELCHANGE_DELAY)
-	{
-		fm_cs_set_user_model(taskid)
-		g_ModelChangeTargetTime = current_time
-	}
-	else
-	{
-		set_task((g_ModelChangeTargetTime + MODELCHANGE_DELAY) - current_time, "fm_cs_set_user_model", taskid)
-		g_ModelChangeTargetTime = g_ModelChangeTargetTime + MODELCHANGE_DELAY
-	}
-}
-
-stock fm_fm_cs_get_user_team(id)
-{
-	if (pev_valid(id) != PDATA_SAFE)
-		return CS_TEAM_UNASSIGNED;
-	
-	return get_pdata_int(id, OFFSET_CSTEAMS, 5);
-}
-
 // ========================= GAME STOCKS ==========================
 // ================================================================
 stock get_color_level(id, num)
