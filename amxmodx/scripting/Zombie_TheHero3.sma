@@ -1267,11 +1267,12 @@ public fw_PlayerTraceAttack(victim, attacker, Float:Damage, Float:direction[3], 
 		fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(Damage), 0)
 
 		// Zombie Victim Evolution Code Here!!!
-		if(g_level[victim] < 3)
+		switch(g_level[victim])
 		{
-			g_iEvolution[victim] += (g_level[victim] < 2) ? Damage / 2000.0 : Damage / 1000.0
-			UpdateLevelZombie(victim)
-		}	
+			case 1: g_iEvolution[victim] += Damage * 0.001 // / 1000.0
+			case 2: g_iEvolution[victim] += Damage * 0.0005 // / 2000.0
+		}
+		if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
 		
 		// KnockBack Handle
 		if (g_kbEnabled)
@@ -1931,22 +1932,13 @@ public set_user_nvision(id)
 	if(g_nvg[id]) alpha = g_NvgAlpha
 	else alpha = 0
 	
-	message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("ScreenFade"), _, id)
+	message_begin(MSG_ONE_UNRELIABLE, g_MsgScreenFade, _, id)
 	write_short(0) // duration
 	write_short(0) // hold time
 	write_short(0x0004) // fade type
-	if(g_zombie[id])
-	{
-		write_byte(g_NvgColor[TEAM_ZOMBIE][0]) // r
-		write_byte(g_NvgColor[TEAM_ZOMBIE][1]) // g
-		write_byte(g_NvgColor[TEAM_ZOMBIE][2]) // b
-	}
-	else
-	{
-		write_byte(g_NvgColor[TEAM_HUMAN][0]) // r
-		write_byte(g_NvgColor[TEAM_HUMAN][1]) // g
-		write_byte(g_NvgColor[TEAM_HUMAN][2]) // b
-	}
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][0]) // r
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][1]) // g
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][2]) // b
 	write_byte(alpha) // alpha
 	message_end()
 	
@@ -1960,12 +1952,14 @@ public set_user_nvision(id)
 		}
 	}
 
-	if(g_nvg[id])
-	{
-		set_player_light(id, "z")
-	} else {
-		set_player_light(id, g_light)
-	}
+	/*
+	LightStyle outside a-z (i.e 0) set fullbright for single player.
+	exactly what CSO Zombie NVG do but quite buggy in 1.6,
+	since embedded map light entity is not disabled.
+	alternatively use LightStyle "z" for safer and closer to style "0".
+	*/
+
+	set_player_light(id, g_nvg[id] ? "z" : g_light)
 }
 
 public change_human_nvgcolor(id)
@@ -1984,22 +1978,13 @@ public change_human_nvgcolor(id)
 	if(g_nvg[id]) alpha = random_num(g_NvgAlpha - 10, g_NvgAlpha + 10)
 	else alpha = 0
 	
-	message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("ScreenFade"), _, id)
+	message_begin(MSG_ONE_UNRELIABLE, g_MsgScreenFade, _, id)
 	write_short(0) // duration
 	write_short(0) // hold time
 	write_short(0x0004) // fade type
-	if(g_zombie[id])
-	{
-		write_byte(g_NvgColor[TEAM_ZOMBIE][0]) // r
-		write_byte(g_NvgColor[TEAM_ZOMBIE][1]) // g
-		write_byte(g_NvgColor[TEAM_ZOMBIE][2]) // b
-	}
-	else
-	{
-		write_byte(g_NvgColor[TEAM_HUMAN][0]) // r
-		write_byte(g_NvgColor[TEAM_HUMAN][1]) // g
-		write_byte(g_NvgColor[TEAM_HUMAN][2]) // b
-	}
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][0]) // r
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][1]) // g
+	write_byte(g_NvgColor[g_zombie[id] ? TEAM_ZOMBIE : TEAM_HUMAN][2]) // b
 	write_byte(alpha) // alpha
 	message_end()	
 	
@@ -2011,7 +1996,11 @@ public set_player_light(id, const LightStyle[])
 	if(!is_user_connected(id))
 		return
 	
-	message_begin(MSG_ONE_UNRELIABLE, SVC_LIGHTSTYLE, .player = id)
+	if(id != 0)
+		message_begin(MSG_ONE, SVC_LIGHTSTYLE, .player = id)
+	else
+		message_begin(MSG_BROADCAST, SVC_LIGHTSTYLE)
+
 	write_byte(0)
 	write_string(LightStyle)
 	message_end()
@@ -2314,7 +2303,7 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 		if(is_user_connected(attacker) && is_user_alive(attacker) && !Respawn)
 		{
 			g_StartHealth[id] = zombie_random_health = g_StartHealth[attacker] / 2
-			g_StartArmor[id] = zombie_random_armor = g_StartHealth[attacker] / 2
+			g_StartArmor[id] = zombie_random_armor = g_StartArmor[attacker] / 2
 			
 			if(!g_hero_victim && !g_normal_evolution)
 				g_normal_evolution = 1
@@ -2349,16 +2338,16 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	set_model(id, PlayerModel)
 	
 	// Check Victim is Hero
-	if(is_user_alive(attacker) && g_zombie[attacker] && g_hero_victim)
+	if(is_user_alive(attacker) && g_zombie[attacker])
 	{	
-		if (g_level[attacker] == 1) g_iEvolution[attacker] += 10.0
-		else if (g_level[attacker] == 2) g_iEvolution[attacker] += 5.0
-	} else if(is_user_alive(attacker) && g_zombie[attacker] && g_normal_evolution) {
-		if (g_level[attacker] == 1) g_iEvolution[attacker] += 3.0
-		else if (g_level[attacker] == 2) g_iEvolution[attacker] += 2.0
+		switch(g_level[attacker])
+		{
+			case 1: g_iEvolution[attacker] += g_hero[id] ? 10.0 : 3.0
+			case 2: g_iEvolution[attacker] += g_hero[id] ? 5.0  : 2.0
+		}
+		if(g_iEvolution[attacker] > 9.0) UpdateLevelZombie(attacker)
 	}
 	
-	if(is_user_alive(attacker)) UpdateLevelZombie(attacker)
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, 1)
 
 	gameplay_check()
@@ -2370,7 +2359,7 @@ public SendDeathMsg(attacker, victim)
 	write_byte(attacker) // killer
 	write_byte(victim) // victim
 	write_byte(0) // headshot flag
-	write_string("infection") // killer's weapon
+	write_string("knife") // killer's weapon
 	message_end()
 }
 
