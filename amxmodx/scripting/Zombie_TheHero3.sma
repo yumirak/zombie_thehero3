@@ -9,12 +9,8 @@
 #include <xs>
 
 // New
+#include <reapi>
 #include <zombie_thehero2>
-
-// Orpheu
-#include <orpheu>
-#include <orpheu_stocks>
-#include <orpheu_memory>
 
 #define PLUGIN "Zombie: The Hero"
 #define VERSION "3.0"
@@ -89,7 +85,7 @@ const SECONDARY_WEAPONS_BIT_SUM = (1<<CSW_P228)|(1<<CSW_ELITE)|(1<<CSW_FIVESEVEN
 const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_FLASHBANG))
 
 // Game Vars
-new bool:isLinuxServer, g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
+new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
 g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count, g_freeze_time,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD]
 new g_zombie[33], g_hero[33], g_hero_locked[33], g_iRespawning[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
@@ -211,39 +207,6 @@ new g_CustomModelIndex[MAXPLAYERS+1]
 new Float:player_spawn_point[MAX_SPAWN_POINT][3]
 new player_spawn_point_count
 
-// Orpheu
-new g_pGameRules
-new OrpheuHook:handleHookCheckMapConditions
-new OrpheuHook:handleHookCheckWinConditions
-new OrpheuHook:handleHookHasRoundTimeExpired
-new memoryIdentifierRoundTime[] = "roundTimeCheck"
-
-const m_szAnimExtention = 492
-
-// FM CStrike
-enum CsArmorType
-{
-	CS_ARMOR_NONE,
-	CS_ARMOR_KEVLAR,
-	CS_ARMOR_VESTHELM
-};
-
-enum CsInternalModel
-{
-	CS_DONTCHANGE, // 0
-	CS_CT_URBAN, // 1
-	CS_T_TERROR, // 2
-	CS_T_LEET, // 3
-	CS_T_ARCTIC, // 4
-	CS_CT_GSG9, // 5
-	CS_CT_GIGN, // 6
-	CS_CT_SAS, // 7
-	CS_T_GUERILLA, // 8
-	CS_CT_VIP, // 9
-	CZ_T_MILITIA, // 10
-	CZ_CT_SPETSNAZ // 11
-};
-
 enum
 {
 	OFFSET_AMMO_AWP = 377,
@@ -355,11 +318,6 @@ public plugin_init()
 	RegisterHam(Ham_Player_ResetMaxSpeed, "player", "fw_PlayerResetMaxSpeed")
 	RegisterHam(Ham_AddPlayerItem, "player", "fw_AddPlayerItem")
 	
-	// Orpheus
-	//OrpheuRegisterHookFromObject(g_pGameRules,"FlPlayerFallDamage","CGameRules","fw_PlayerFallDamage")
-	//OrpheuRegisterHookFromObject(g_pGameRules,"IPointsForKill","CGameRules","fw_IPointsForKill")
-	
-	isLinuxServer = bool:is_linux_server()
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	g_Msg_SayText = get_user_msgid("SayText")
@@ -398,7 +356,9 @@ public plugin_init()
 		ArrayGetString(g_sky, get_random_array(g_sky), sky, 63)
 		set_cvar_string("sv_skyname", sky)
 	}
-	
+	// Block Round End
+	set_cvar_num("mp_round_infinite", 1)
+
 	set_cvar_num("sv_skycolor_r", 0)
 	set_cvar_num("sv_skycolor_g", 0)
 	set_cvar_num("sv_skycolor_b", 0)
@@ -411,9 +371,6 @@ public plugin_init()
 	register_clcmd("drop", "cmd_drop")
 	
 	set_task(1.0, "Time_Change", _, _, _, "b")
-	
-	// Patch Round Infinity
-	PatchRoundInfinity()
 }
 
 public cmd_infect(id)
@@ -475,8 +432,6 @@ public cmd_block(id)
 
 public plugin_precache()
 {
-	OrpheuRegisterHook(OrpheuGetFunction("InstallGameRules"),"OnInstallGameRules", OrpheuHookPost)
-	
 	// Register Forward
 	g_BlockedObj_Forward = register_forward(FM_Spawn, "fw_BlockedObj_Spawn")
 	
@@ -690,10 +645,6 @@ public plugin_natives()
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
 }
-
-public plugin_end() UnPatchRoundInfinity()
-public plugin_pause() UnPatchRoundInfinity()
-public plugin_unpause() PatchRoundInfinity()
 
 public plugin_cfg()
 {
@@ -1344,7 +1295,7 @@ public fw_PlayerSpawn_Post(id)
 	fm_set_rendering(id)
 	
 	fm_set_user_health(id, human_health)
-	fm_cs_set_user_armor(id, human_armor, CS_ARMOR_KEVLAR)	
+	fm_cs_set_user_armor(id, human_armor, ARMOR_KEVLAR)
 	
 	fm_reset_user_speed(id)
 	set_user_nightvision(id, 0, 1, 1)
@@ -1590,25 +1541,6 @@ public fw_AddPlayerItem(id, iEnt)
 	return HAM_IGNORED
 }
 
-public OrpheuHookReturn:fw_PlayerFallDamage(gameRules, id)
-{
-	if (!g_gamestart || !g_game_playable || g_endround)
-	{
-		OrpheuSetReturn(0.0)
-		return OrpheuSupercede
-	}
-	
-	return OrpheuIgnored
-}
-
-public OrpheuHookReturn:fw_IPointsForKill(gameRules, attacker, victim)
-{
-	if(is_user_connected(attacker) && !g_zombie[attacker])
-		return OrpheuSupercede
-	
-	return OrpheuIgnored
-}
-
 public set_team(id, {PlayerTeams,_}:team)
 {
 	if(!is_user_connected(id))
@@ -1850,7 +1782,7 @@ public UpdateLevelZombie(id)
 	
 	// Update Health & Armor
 	fm_set_user_health(id, g_StartHealth[id])
-	fm_cs_set_user_armor(id, g_StartArmor[id], CS_ARMOR_KEVLAR)
+	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
 	
 	// Update Speed
 	new Float:speed = ArrayGetCell(zombie_speed_origin, g_zombie_class[id])
@@ -2444,8 +2376,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 		}
 	}
 	
-	set_pdata_string(id, m_szAnimExtention * 4, "knife", -1 , 20)
-	
 	// Fix "Dead" Atrib
 	set_scoreboard_attrib(id, 0)
 	
@@ -2480,7 +2410,7 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 		
 		fm_set_user_health(id, zombie_random_health)
 		set_pev(id, pev_max_health, float(zombie_random_health))
-		fm_cs_set_user_armor(id, zombie_random_armor, CS_ARMOR_KEVLAR)
+		fm_cs_set_user_armor(id, zombie_random_armor, ARMOR_KEVLAR)
 		
 		fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
 		ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
@@ -2510,7 +2440,7 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 		
 		fm_set_user_health(id, zombie_random_health)
 		set_pev(id, pev_max_health, float(zombie_random_health))
-		fm_cs_set_user_armor(id, zombie_random_armor, CS_ARMOR_KEVLAR)
+		fm_cs_set_user_armor(id, zombie_random_armor, ARMOR_KEVLAR)
 		
 		fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
 		ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
@@ -3380,22 +3310,9 @@ stock fm_cs_get_user_armor(client, &CsArmorType:armortype)
 	return floatround(armorvalue);
 }
 
-stock fm_cs_set_user_armor(client, armorvalue, CsArmorType:armortype)
+stock fm_cs_set_user_armor(client, armorvalue, ArmorType:armortype)
 {
-	set_pdata_int(client, OFFSET_ARMORTYPE, _:armortype, EXTRAOFFSET);
-	
-	set_pev(client, pev_armorvalue, float(armorvalue));
-	
-	if( armortype != CS_ARMOR_NONE )
-	{
-		static ArmorType;
-		if(ArmorType || (ArmorType = get_user_msgid("ArmorType")) )
-		{
-			emessage_begin(MSG_ONE_UNRELIABLE, ArmorType, _, client);
-			ewrite_byte((armortype == CS_ARMOR_VESTHELM) ? 1 : 0);
-			emessage_end();
-		}
-	}
+	rg_set_user_armor(client, armorvalue, armortype);
 }
 
 stock fm_cs_get_user_team(client, &{CsInternalModel,_}:model=CS_DONTCHANGE)
@@ -3502,16 +3419,16 @@ stock fm_user_team_update(id)
 // ================================================================
 stock bool:TerminateRound({PlayerTeams,_}:team)
 {
-	new winStatus
-	new event
+	new WinStatus:winStatus
+	new ScenarioEventEndRound:event
 	new sound[64]
 	
 	switch(team)
 	{
 		case TEAM_ZOMBIE:
 		{
-			winStatus         = WinStatus_Zombie
-			event             = Event_ZombieWin
+			winStatus         = WINSTATUS_TERRORISTS
+			event             = ROUND_GAME_OVER
 			
 			g_TeamScore[TEAM_ZOMBIE]++
 			ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
@@ -3524,8 +3441,8 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 		}
 		case TEAM_HUMAN:
 		{
-			winStatus         = WinStatus_Human
-			event             = Event_HumanWin
+			winStatus         = WINSTATUS_CTS
+			event             = ROUND_GAME_OVER
 			
 			g_TeamScore[TEAM_HUMAN]++
 			ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
@@ -3538,16 +3455,15 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 		}
 		case TEAM_ALL:
 		{
-			winStatus         = WinStatus_RoundDraw
-			event             = Event_RoundDraw
-			sound             = "radio/rounddraw.wav"
+			winStatus         = WINSTATUS_DRAW
+			event             = ROUND_END_DRAW
 			
 			client_print(0, print_center, g_WinText[TEAM_ALL])
 		}
 		case TEAM_START:
 		{
-			winStatus         = WinStatus_RoundDraw
-			event             = Event_RoundDraw
+			winStatus         = WINSTATUS_NONE
+			event             = ROUND_GAME_COMMENCE
 			
 			client_print(0, print_center, g_WinText[TEAM_START])
 		}
@@ -3560,93 +3476,13 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 	g_endround = 1
 	StopSound(0)
 	
-	Event_RoundEnd()
-	//EndRoundMessage(g_WinText[team], event)
-	
-	RoundTerminating(winStatus, team == TEAM_START ? 3.0 : 5.0)
+	rg_round_end(team == TEAM_START ? 3.0 : 5.0, winStatus, event, g_WinText[team]);
 	PlaySound(0, sound)
 	
 	ExecuteForward(g_Forwards[FWD_GAME_END], g_fwResult, team)
 	
 	return true;
 }
-
-stock RoundTerminating(const winStatus, const Float:delay)
-{
-	OrpheuMemorySetAtAddress(g_pGameRules, "m_iRoundWinStatus", 1, winStatus)
-	OrpheuMemorySetAtAddress(g_pGameRules, "m_fTeamCount", 1, get_gametime() + delay)
-	OrpheuMemorySetAtAddress(g_pGameRules, "m_bRoundTerminating", 1, true)
-}
-
-stock EndRoundMessage( const message[], const event, const bool:notifyAllPlugins = false )
-{
-	static OrpheuFunction:handleFuncEndRoundMessage;
-	
-	if (!handleFuncEndRoundMessage)
-		handleFuncEndRoundMessage = OrpheuGetFunction("EndRoundMessage")
-	
-	(notifyAllPlugins) ?
-	OrpheuCallSuper( handleFuncEndRoundMessage, message, event ) :
-	OrpheuCall( handleFuncEndRoundMessage, message, event );
-}
-
-// ========================== Orpheu ==============================
-// ================================================================
-public OnInstallGameRules()
-{
-	g_pGameRules = OrpheuGetReturn() 
-}
-
-public PatchRoundInfinity()
-{
-	handleHookCheckMapConditions = OrpheuRegisterHook( OrpheuGetFunction( "CheckMapConditions" , "CHalfLifeMultiplay" ), "CheckConditions" );
-	handleHookCheckWinConditions = OrpheuRegisterHook( OrpheuGetFunction( "CheckWinConditions" , "CHalfLifeMultiplay" ), "CheckConditions" );
-	
-	if ( isLinuxServer )
-	{
-		handleHookHasRoundTimeExpired = OrpheuRegisterHook( OrpheuGetFunction( "HasRoundTimeExpired" , "CHalfLifeMultiplay" ), "CheckConditions" );
-	}
-	else
-	{
-		BytesToReplace( memoryIdentifierRoundTime, { 0x90, 0x90, 0x90 } );
-	}
-}
-
-public UnPatchRoundInfinity()
-{
-	OrpheuUnregisterHook( handleHookCheckMapConditions );
-	OrpheuUnregisterHook( handleHookCheckWinConditions );
-	
-	if ( isLinuxServer )
-	{
-		OrpheuUnregisterHook( handleHookHasRoundTimeExpired );
-	}
-	else
-	{
-		BytesToReplace( memoryIdentifierRoundTime, { 0xF6, 0xC4, 0x41 } );
-	}
-}
-
-public OrpheuHookReturn:CheckConditions()
-{
-	OrpheuSetReturn(false)
-	return OrpheuSupercede
-}
-
-stock BytesToReplace ( identifier[], const bytes[], const bytesLength = sizeof bytes )
-{
-	new address;
-	OrpheuMemoryGet( identifier, address );
-	
-	for ( new i; i < bytesLength; i++)
-	{
-		OrpheuMemorySetAtAddress( address, "roundTimeCheck|dummy", 1, bytes[ i ], address );
-		address++;
-	}
-
-	server_cmd( "sv_restart 1" );
-}
-
 // ========================= DATA LOADER ==========================
 // ================================================================
 public load_config_file()
