@@ -48,12 +48,12 @@ public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
-	//register_event("CurWeapon", "event_CurWeapon", "be", "1=1")
-	//register_forward(FM_SetModel, "fw_SetModel")	
+	register_event("CurWeapon", "event_CurWeapon", "be", "1=1")
+	register_forward(FM_SetModel, "fw_SetModel")
 	
-	//RegisterHam(Ham_Think, "grenade", "fw_ThinkGrenade")
+	RegisterHam(Ham_Think, "grenade", "fw_ThinkGrenade")
 	
-	//g_sync_hud1 = zb3_get_synchud_id(SYNCHUD_HUMANZOMBIE_ITEM)
+	g_sync_hud1 = zb3_get_synchud_id(SYNCHUD_HUMANZOMBIE_ITEM)
 }
 
 public plugin_precache()
@@ -82,9 +82,9 @@ public plugin_precache()
 		engfunc(EngFunc_PrecacheModel, Temp_String)
 	}
 	
-	//g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
-	//zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
-	//g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
+	g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
+	zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
+	g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
 }
 
 public plugin_natives()
