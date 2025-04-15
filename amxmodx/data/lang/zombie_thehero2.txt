@@ -1,0 +1,77 @@
+[en]
+GAME_COUNTDOWN = Remaining Time for Zombie Selection: %i Second(s)
+GAME_SCORE_HUD = Human - Zombie^n%i -------- %i
+ZOMBIE_RESPAWN = You will be Revived after: %i Second(s)
+ZOMBIE_NORESPAWN = You can't revive if you got headshot...
+ZOMBIE_SELECTCLASS_NOTICE = You only have %i Second(s) to Choose Class !!!
+NOTICE_HUMAN_LEVELUP = Attack Power Up to %i%% !!!
+NOTICE_ZOMBIE_LEVELUP = Evolution Up to Level %i !!!
+HUMAN_EVOL_HUD = ATK: %i%%^n[%s%s]
+ZOMBIE_EVOL_HUD = Evolution Level: %i^n[%s%s]
+NOTICE_HERO_FOR_ALL = %s is the Hero !!!
+NOTICE_HERO_FOR_ANDREY = You have become the Hero: Andrey !!!
+NOTICE_HERO_FOR_KATE = You have become the Hero: Kate !!!
+ZOMBIE_COMING = Another Zombie Is Coming !!!
+
+NOTICE_ITEM_PICKUP = Accquired (%s) Supply Item
+NOTICE_ITEM_PICKUP_BROADCAST = %s has accquired (%s) Supply Item
+
+SHOP_BUY_START = You only can buy when the game is not started !!!
+SHOP_PERMANENT_ITEM = Permanent
+SHOP_ITEM_ONCETIME_USE = One-Time Use
+SHOP_BOUGHT = Bought
+SHOP_BUY = You bought: !g%s!n with cost: !g$%i!n. Item Type: !g%s!n
+SHOP_BUY_DESC = [!g%s!n] Description: !g%s!n
+SHOP_NOT_ENOUGH_MONEY = You don't have Enough money to buy: !g%s!n (Required: !g$%i!n)
+
+WIN_HUMAN = Human Win !!!
+WIN_ZOMBIE = Zombie Win !!!
+
+MENU_CLASSZOMBIE_TITLE = Zombie Class Selection
+MENU_LOCKED = Locked
+MENU_UNLOCK_COST = Unlock Cost
+MENU_CANT_SELECT_CLASS = You only can choose class before %i Second(s) after get infect...
+MENU_UNLOCKED_CLASS = You have !gUnlocked!n this class zombie. Now you can use it for !gAll Round!n !!!
+MENU_CANT_UNLOCK_CLASS = You !gDon't Have Enough Money!n to unlock this class.
+
+ZOMBIE_REGULAR_CANTBERSERK = Your Health is Too Low... Need bigger than 500
+ZOMBIE_BANSHEE_NODUCK = You can't use your Skill when you are ducking ...
+
+[ru]
+GAME_COUNTDOWN = Осталось времени до появления зомби: %i Сек.
+GAME_SCORE_HUD = Люди - Зомби^n%i -------- %i
+ZOMBIE_RESPAWN = Вы возродитесь через: %i Сек.
+ZOMBIE_NORESPAWN = Вы не возродитесь, потому что вас убили в голову...
+ZOMBIE_SELECTCLASS_NOTICE = У вас есть %i Сек. чтобы выбрать Зомби Класс !!!
+NOTICE_HUMAN_LEVELUP = Уровень Урона повысился до %i%% !!!
+NOTICE_ZOMBIE_LEVELUP = Уровень Эволюции повисился до %i !!!
+HUMAN_EVOL_HUD = ATK: %i%%^n[%s%s]
+ZOMBIE_EVOL_HUD = Уровень Эволюции: %i^n[%s%s]
+NOTICE_HERO_FOR_ALL = %s стал Героем !!!
+NOTICE_HERO_FOR_ANDREY = Вы стали Героем: Andrey !!!
+NOTICE_HERO_FOR_KATE = Вы стали Героиней: Kate !!!
+ZOMBIE_COMING = Another Zombie Is Coming !!!
+
+NOTICE_ITEM_PICKUP = Вы получили (%s) из Подарка !!!
+NOTICE_ITEM_PICKUP_BROADCAST = %s получил (%s) из Подарка !!!
+
+SHOP_BUY_START = Вы можете купить, когда игра не начата!!!
+SHOP_PERMANENT_ITEM = Навсегда
+SHOP_ITEM_ONCETIME_USE = Один Раз
+SHOP_BOUGHT = Купить
+SHOP_BUY = Вы купили: !g%s!n Стоимость: !g$%i!n. Итем: !g%s!n
+SHOP_BUY_DESC = [!g%s!n] Осталось: !g%s!n
+SHOP_NOT_ENOUGH_MONEY = У вас не хватает денег чтобы купить: !g%s!n (Нужно: !g$%i!n)
+
+WIN_HUMAN = Люди Победили !!!
+WIN_ZOMBIE = Зомби Победили !!!
+
+MENU_CLASSZOMBIE_TITLE = Выберите Зомби Класс
+MENU_LOCKED = Закрыто
+MENU_UNLOCK_COST = Стоимость Открытия
+MENU_CANT_SELECT_CLASS = Вы можете выбрать Зомби Класс %i Сек. до инфекции...
+MENU_UNLOCKED_CLASS = Вы !gОткрыли!n этот Зомби Класс.Теперь вы можете его брать !gВ любое время!n !!!
+MENU_CANT_UNLOCK_CLASS = У вас !gНе хватает денег!n чтобы открыть Зомби Класс.
+
+ZOMBIE_REGULAR_CANTBERSERK = Чтобы использовать способность, нужно более 500 ед. здоровья
+ZOMBIE_BANSHEE_NODUCK = Чтобы использовать способность, нужно стоять на поверхности...
