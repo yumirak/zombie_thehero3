@@ -26,7 +26,7 @@ new const Float:zclass_gravity = 0.8
 new const Float:zclass_speedhost = 280.0
 new const Float:zclass_speedorigin = 280.0
 new const Float:zclass_knockback = 1.5
-new const Float:zclass_painshock = 0.8
+new const Float:zclass_painshock = 0.2
 new const DeathSound[2][] =
 {
 	"zombie_thehero/zombi_death_stamper_1.wav",

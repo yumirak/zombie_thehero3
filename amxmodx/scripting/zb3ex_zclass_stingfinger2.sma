@@ -16,7 +16,7 @@ new const zclass_name[] = "Sting Finger"
 new const zclass_desc[] = "Tentacle"
 new const zclass_desc2[] = "High Jump"
 new const zclass_sex = SEX_FEMALE
-new const zclass_lockcost = 10000
+new const zclass_lockcost = 0
 new const zclass_hostmodel[] = "resident_zombi_host"
 new const zclass_originmodel[] = "resident_zombi_origin"
 new const zclass_clawsmodelhost[] = "v_knife_resident_zombi.mdl"
@@ -27,7 +27,7 @@ new const Float:zclass_gravity = 0.85
 new const Float:zclass_speedhost = 280.0
 new const Float:zclass_speedorigin = 290.0
 new const Float:zclass_knockback = 2.75
-new const Float:zclass_painshock = 0.7
+new const Float:zclass_painshock = 0.1
 new const DeathSound[2][] =
 {
 	"zombie_thehero/resident_death.wav",

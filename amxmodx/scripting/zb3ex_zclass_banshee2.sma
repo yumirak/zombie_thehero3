@@ -15,7 +15,7 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 new const zclass_name[] = "Banshee"
 new const zclass_desc[] = "Summon Bats"
 new const zclass_sex = SEX_FEMALE
-new const zclass_lockcost = 5000
+new const zclass_lockcost = 0
 new const zclass_hostmodel[] = "witch_zombi_host"
 new const zclass_originmodel[] = "witch_zombi_origin"
 new const zclass_clawsmodelhost[] = "v_knife_witch2_zombi_host.mdl"
@@ -26,7 +26,7 @@ new const Float:zclass_gravity = 0.8
 new const Float:zclass_speedhost = 280.0
 new const Float:zclass_speedorigin = 280.0
 new const Float:zclass_knockback = 2.0
-new const Float:zclass_painshock = 0.8
+new const Float:zclass_painshock = 0.1
 new const DeathSound[2][] =
 {
 	"zombie_thehero/zombi_banshee_death.wav",

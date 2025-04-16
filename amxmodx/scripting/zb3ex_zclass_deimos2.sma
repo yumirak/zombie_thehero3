@@ -15,7 +15,7 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 new const zclass_name[] = "Deimos"
 new const zclass_desc[] = "Shock"
 new const zclass_sex = SEX_MALE
-new const zclass_lockcost = 7000
+new const zclass_lockcost = 0
 new const zclass_hostmodel[] = "deimoss_zombi_host"
 new const zclass_originmodel[] = "deimoss_zombi_origin"
 new const zclass_clawsmodelhost[] = "v_knife_deimoss_zombi_host.mdl"
@@ -26,7 +26,7 @@ new const Float:zclass_gravity = 0.8
 new const Float:zclass_speedhost = 280.0
 new const Float:zclass_speedorigin = 280.0
 new const Float:zclass_knockback = 0.75
-new const Float:zclass_painshock = 0.5
+new const Float:zclass_painshock = 0.25
 new const DeathSound[2][] =
 {
 	"zombie_thehero/zombi_death_1.wav",
