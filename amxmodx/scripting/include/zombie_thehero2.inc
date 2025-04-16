@@ -4,6 +4,15 @@
 	---------------------------------------
 ###################################################### */ 
 
+#if defined _zb3_included
+#endinput
+#endif
+
+#define _zb3_included
+
+#define GAMENAME "Zombie: The Hero"
+#define GAMESYSTEMNAME "zombie_thehero2"
+
 // Enum
 enum PlayerTeams
 {
@@ -105,6 +114,13 @@ native zb3_register_zbgre_model(const v_model_host[], const v_model_origin[]);
 
 native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
+
+// NEW NATIVES
+native Float:zb3_get_player_spawn_cord( num, type );
+native zb3_get_player_spawn_count();
+native zb3_set_player_spawn_used( num, bool:status );
+native zb3_get_player_spawn_used( num );
+// END NEW NATIVES
 
 // Forwards
 forward zb3_user_infected(id, infector, really_infect); // Call when a guy get infect

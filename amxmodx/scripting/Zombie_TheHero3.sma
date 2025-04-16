@@ -15,7 +15,6 @@
 #define VERSION "3.0"
 #define AUTHOR "Dias"
 
-#define GAMENAME "Zombie: The Hero III"
 #define LANG_OFFICIAL LANG_PLAYER
 
 // Configs
@@ -166,11 +165,7 @@ new const WEAPONENTNAMES[][] = { "", "weapon_p228", "", "weapon_scout", "weapon_
 			"weapon_ak47", "weapon_knife", "weapon_p90" }
 
 
-// Spawn Point Research
-#define MAX_SPAWN_POINT 100
 #define MAX_RETRY 33
-new Float:player_spawn_point[MAX_SPAWN_POINT][3]
-new player_spawn_point_count
 
 #define TASK_TEAMMSG 200
 #define ID_TEAMMSG (taskid - TASK_TEAMMSG)
@@ -559,9 +554,6 @@ public plugin_natives()
 
 public plugin_cfg()
 {
-	// Scan Map
-	research_map()	
-	
 	new cfgdir[32]
 	get_configsdir(cfgdir, charsmax(cfgdir))
 	
@@ -590,28 +582,6 @@ public fw_BlockedObj_Spawn(ent)
 	}
 	
 	return FMRES_IGNORED
-}
-
-public research_map()
-{
-	static player
-	
-	while((player = find_ent_by_class(player, "info_player_deathmatch")) != 0)
-	{
-		if(!pev_valid(player))
-			continue
-			
-		pev(player, pev_origin, player_spawn_point[player_spawn_point_count])
-		player_spawn_point_count++
-	}
-	while((player = find_ent_by_class(player, "info_player_start")) != 0)
-	{
-		if(!pev_valid(player))
-			continue		
-		
-		pev(player, pev_origin, player_spawn_point[player_spawn_point_count])
-		player_spawn_point_count++
-	}	
 }
 
 // ========================== AMXX NATIVES ========================
@@ -2611,17 +2581,17 @@ public sex_selection(id)
 
 public do_random_spawn(id, retry_count)
 {
-	if(!pev_valid(id))
+	if(!pev_valid(id) && !zb3_get_player_spawn_count() )
 		return
 
 	static hull, Float:Origin[3], random_mem
 	hull = (pev(id, pev_flags) & FL_DUCKING) ? HULL_HEAD : HULL_HUMAN
 	
-	random_mem = random_num(0, player_spawn_point_count - 1)
-	Origin[0] = player_spawn_point[random_mem][0]
-	Origin[1] = player_spawn_point[random_mem][1]
-	Origin[2] = player_spawn_point[random_mem][2]
-	
+	random_mem = random_num(0, zb3_get_player_spawn_count())
+	Origin[0] = zb3_get_player_spawn_cord(random_mem,0)
+	Origin[1] = zb3_get_player_spawn_cord(random_mem,1)
+	Origin[2] = zb3_get_player_spawn_cord(random_mem,2)
+
 	if(is_hull_vacant(Origin, hull))
 	{
 		engfunc(EngFunc_SetOrigin, id, Origin)

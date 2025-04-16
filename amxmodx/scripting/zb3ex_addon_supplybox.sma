@@ -35,11 +35,7 @@ new const supplybox_icon_spr[] = "sprites/zombie_thehero/icon_supplybox.spr"
 new g_supplybox_num, g_supplybox_wait[33], supplybox_count, supplybox_ent[MAX_SUPPLYBOX_ENT],
 g_supplybox_icon_id, bool:made_supplybox, g_newround, g_endround, Float:g_hud_supplybox_delay[33]
 
-// Spawn Point Research
-#define MAX_SPAWN_POINT 40
 #define MAX_RETRY 33
-new Float:player_spawn_point[MAX_SPAWN_POINT][3]
-new player_spawn_point_count
 
 public plugin_init()
 {
@@ -57,33 +53,6 @@ public plugin_precache()
 	engfunc(EngFunc_PrecacheSound, supplybox_pickup_sound)
 	
 	g_supplybox_icon_id = engfunc(EngFunc_PrecacheModel, supplybox_icon_spr)
-}
-
-public plugin_cfg()
-{
-	research_map()
-}
-
-public research_map()
-{
-	static player
-	
-	while((player = find_ent_by_class(player, "info_player_deathmatch")) != 0)
-	{
-		if(!pev_valid(player))
-			continue
-			
-		pev(player, pev_origin, player_spawn_point[player_spawn_point_count])
-		player_spawn_point_count++
-	}
-	while((player = find_ent_by_class(player, "info_player_start")) != 0)
-	{
-		if(!pev_valid(player))
-			continue		
-		
-		pev(player, pev_origin, player_spawn_point[player_spawn_point_count])
-		player_spawn_point_count++
-	}	
 }
 
 public client_PostThink(id)
@@ -189,7 +158,6 @@ public create_supplybox2()
 	entity_set_size(ent,Float:{-2.0,-2.0,-2.0},Float:{5.0,5.0,5.0})
 	entity_set_int(ent,EV_INT_solid,1)
 	entity_set_int(ent,EV_INT_movetype,6)
-	//entity_set_int(ent, EV_INT_iuser1, item)
 	entity_set_int(ent, EV_INT_iuser2, supplybox_count)
 	
 	do_random_spawn(ent, MAX_RETRY)
@@ -213,6 +181,9 @@ public fw_Touch_SupplyBox(ent, id)
 	emit_sound(id, CHAN_VOICE, supplybox_pickup_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 
 	new num_box = entity_get_int(ent, EV_INT_iuser2)
+	new spawn_num_used = entity_get_int(ent, EV_INT_iuser1)
+
+	zb3_set_player_spawn_used(spawn_num_used, false) // reset used origin
 	supplybox_ent[num_box] = 0
 	remove_entity(ent)
 
@@ -249,13 +220,17 @@ public do_random_spawn(id, retry_count)
 	static hull, Float:Origin[3], random_mem
 	hull = (pev(id, pev_flags) & FL_DUCKING) ? HULL_HEAD : HULL_HUMAN
 	
-	random_mem = random_num(0, player_spawn_point_count - 1)
-	Origin[0] = player_spawn_point[random_mem][0]
-	Origin[1] = player_spawn_point[random_mem][1]
-	Origin[2] = player_spawn_point[random_mem][2]
+	random_mem = random_num(0, zb3_get_player_spawn_count())
+	Origin[0] = zb3_get_player_spawn_cord(random_mem,0)
+	Origin[1] = zb3_get_player_spawn_cord(random_mem,1)
+	Origin[2] = zb3_get_player_spawn_cord(random_mem,2)
 	
-	if(is_hull_vacant(Origin, hull))
+	if(is_hull_vacant(Origin, hull) && !zb3_get_player_spawn_used(random_mem))
+	{
 		engfunc(EngFunc_SetOrigin, id, Origin)
+		zb3_set_player_spawn_used(random_mem, true)
+		entity_set_int(id, EV_INT_iuser1, random_mem)
+	}
 	else
 	{
 		if(retry_count > 0)
