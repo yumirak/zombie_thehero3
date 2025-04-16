@@ -79,15 +79,16 @@ const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_F
 // Game Vars
 new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
 g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
-g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD]
+g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
+g_firstzombie, g_firsthuman
+
 new g_zombie[33], g_hero[33], g_hero_locked[33], g_iRespawning[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
 g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], g_zombie_respawn_time[33], g_free_gun
 
-new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor,
-zombie_maxhealth_random, zombie_minhealth_random, zombie_maxhealth, zombie_minhealth, zombie_minarmor,
+new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
 g_zombieorigin_defaultlevel, start_money, grenade_default_power, human_health, human_armor,
-g_respawn_time, g_respawn_icon[64], g_respawn_iconid, g_health_reduce_percent
+g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent
 
 // Array
 new Array:human_model_male, Array:human_model_female, Array:hero_model_male, Array:hero_model_female,
@@ -891,6 +892,7 @@ public Event_NewRound()
 		return
 	}	
 
+	g_firstzombie = g_firsthuman = 0
 	g_gamestart = 0
 	g_endround = 0
 
@@ -2040,23 +2042,12 @@ public start_game_now()
 	new Required_Zombie, Required_Hero, Total_Player
 	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
 	
-	if(Total_Player > 0 && Total_Player <= 5)
-	{
-		Required_Zombie = 1
-		Required_Hero = 0
-	} else if(Total_Player > 6 && Total_Player <= 10) {
-		Required_Zombie = 1
-		Required_Hero = 1
-	} else if(Total_Player > 11 && Total_Player <= 20) {
-		Required_Zombie = 2
-		Required_Hero = 2
-	} else if(Total_Player > 21 && Total_Player <= 32) {
-		Required_Zombie = 3
-		Required_Hero = 3
-	} else {
-		Required_Zombie = 1
-		Required_Hero = 1
-	}
+	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
+	Required_Hero = Total_Player / 16 // max 2 heroes
+
+	// used for consistent first zombie health
+	g_firstzombie = Required_Zombie
+	g_firsthuman  = Total_Player - Required_Zombie
 	
 	// Get and Set Zombie
 	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
@@ -2186,6 +2177,10 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	if(!is_user_alive(id))
 		return
 
+	static DeathSound[64], PlayerModel[64]
+	static zombie_maxhealth, zombie_maxarmor;
+	static start_zombie_health[2], start_zombie_armor[2] , respawn_zombie_health, respawn_zombie_armor
+
 	if(is_user_alive(attacker))
 	{
 		static inflictor
@@ -2237,8 +2232,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	// Fix "Dead" Atrib
 	set_scoreboard_attrib(id, 0)
 	
-	// Play Sound
-	static DeathSound[64]
 	switch(g_sex[id])
 	{
 		case SEX_MALE: ArrayGetString(sound_infect_male, get_random_array(sound_infect_male), DeathSound, sizeof(DeathSound))
@@ -2251,64 +2244,39 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	zombie_appear_sound(Respawn)	
 		
 	// Set Health
-	static zombie_random_health, zombie_random_armor, PlayerModel[64]
-	if(Origin_Zombie)
-	{
-		g_zombie_type[id] = ZOMBIE_ORIGIN
-		set_scoreboard_attrib(id, 2)
-		
-		if(!Respawn)
-		{
-			g_StartHealth[id] = zombie_random_health = clamp((GetTotalPlayer(TEAM_ALL, 1) / GetTotalPlayer(TEAM_ZOMBIE, 1)) * 1000, zombie_minhealth_random, zombie_maxhealth_random)
-			g_StartArmor[id] = zombie_random_armor = min(zombie_minarmor, GetTotalPlayer(TEAM_ALL, 1) * 100)
-		} else {
-			g_StartHealth[id] = zombie_random_health = clamp((g_StartHealth[id] / 100) * (100 - g_health_reduce_percent), zombie_minhealth, zombie_maxhealth)
-			g_StartArmor[id] = zombie_random_armor = 0
-		}
-		
-		fm_set_user_health(id, zombie_random_health)
-		set_pev(id, pev_max_health, float(zombie_random_health))
-		fm_cs_set_user_armor(id, zombie_random_armor, ARMOR_KEVLAR)
-		
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
-		ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	} else {
-		g_zombie_type[id] = ZOMBIE_HOST
-		set_scoreboard_attrib(id, 0)
-		
-		if(is_user_connected(attacker) && is_user_alive(attacker) && !Respawn)
-		{
-			g_StartHealth[id] = zombie_random_health = g_StartHealth[attacker] / 2
-			g_StartArmor[id] = zombie_random_armor = g_StartArmor[attacker] / 2
-			
-		} else {
-			if(!Respawn)
-			{
-				g_StartHealth[id] = zombie_random_health = clamp((GetTotalPlayer(TEAM_ALL, 1) / GetTotalPlayer(TEAM_ZOMBIE, 1)) * 1000, zombie_minhealth_random, zombie_maxhealth_random)
-				g_StartArmor[id] = zombie_random_armor = min(zombie_minarmor, GetTotalPlayer(TEAM_ALL, 1)* 100)
-			} else {
-				g_StartHealth[id] = zombie_random_health = clamp((g_StartHealth[id] / 100) * (100 - g_health_reduce_percent), zombie_minhealth, zombie_maxhealth)
-				g_StartArmor[id] = zombie_random_armor = 0
-			}
-		}
-		
-		fm_set_user_health(id, zombie_random_health)
-		set_pev(id, pev_max_health, float(zombie_random_health))
-		fm_cs_set_user_armor(id, zombie_random_armor, ARMOR_KEVLAR)
-		
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
-		ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	}
-	
+	zombie_maxhealth = g_level[id] > 2 ? zombie_level3_health : zombie_level2_health
+	zombie_maxarmor  = g_level[id] > 2 ? zombie_level3_armor  : zombie_level2_armor
+
+	start_zombie_health[ZOMBIE_ORIGIN] = floatround(float(g_firsthuman) / float(g_firstzombie) * 1000.0)
+	start_zombie_health[ZOMBIE_HOST]   = clamp( floatround( get_user_health(attacker) * 0.5 ), zombie_minhealth, zombie_maxhealth)
+
+	start_zombie_armor[ZOMBIE_ORIGIN]  = zombie_maxarmor
+	start_zombie_armor[ZOMBIE_HOST]    = clamp( floatround( get_user_armor(attacker)  * 0.5 ), zombie_minarmor, zombie_maxarmor)
+
+	respawn_zombie_health = clamp( floatround(g_StartHealth[id] * g_health_reduce_percent ), zombie_minhealth, zombie_maxhealth )
+	respawn_zombie_armor  = clamp( floatround(g_StartArmor[id]  * g_health_reduce_percent ), zombie_minarmor, zombie_maxarmor)
+
 	fm_set_rendering(id)
 	fm_reset_user_weapon(id)
 	
 	// Set Zombie
 	set_team(id, TEAM_ZOMBIE)
+	g_zombie_type[id] = Origin_Zombie ? ZOMBIE_ORIGIN : ZOMBIE_HOST
+
+	g_StartHealth[id] = Respawn ? respawn_zombie_health : start_zombie_health[ g_zombie_type[id] ]
+	g_StartArmor[id]  = Respawn ? respawn_zombie_armor  : start_zombie_armor [ g_zombie_type[id] ]
+
 	set_zombie_nvg(id, 1)
 	set_weapon_anim(id, 3)
 	
+	fm_set_user_health(id, g_StartHealth[id])
+	set_pev(id, pev_max_health, float(g_StartHealth[id]))
+	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
+
+	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] == ZOMBIE_HOST ? zombie_speed_host : zombie_speed_origin , g_zombie_class[id]))
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
+
+	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_model_host : zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
 	set_model(id, PlayerModel)
 	
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, 1)
@@ -3056,13 +3024,8 @@ public load_config_file()
 	zombie_level2_armor = amx_load_setting_int(SETTING_FILE, "Config Value", "ZB_LV2_ARMOR", zombie_level2_armor)
 	zombie_level3_health = amx_load_setting_int(SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", zombie_level3_health)
 	zombie_level3_armor = amx_load_setting_int(SETTING_FILE, "Config Value", "ZB_LV3_ARMOR", zombie_level3_armor)
-	
-	zombie_maxhealth_random = amx_load_setting_int(SETTING_FILE, "Config Value", "MAX_HEALTH_ZOMBIE_RANDOM", zombie_maxhealth_random)
-	zombie_minhealth_random = amx_load_setting_int(SETTING_FILE, "Config Value", "MIN_HEALTH_ZOMBIE_RANDOM", zombie_minhealth_random)
-	
-	zombie_maxhealth = amx_load_setting_int(SETTING_FILE, "Config Value", "MAX_HEALTH_ZOMBIE", zombie_maxhealth)
+
 	zombie_minhealth = amx_load_setting_int(SETTING_FILE, "Config Value", "MIN_HEALTH_ZOMBIE", zombie_minhealth)
-	
 	zombie_minarmor = amx_load_setting_int(SETTING_FILE, "Config Value", "MIN_ARMOR_ZOMBIE", zombie_minarmor)
 	
 	g_zombieorigin_defaultlevel = amx_load_setting_int(SETTING_FILE, "Config Value", "LEVEL_ZOMBIE_RANDOM", g_zombieorigin_defaultlevel)
@@ -3076,7 +3039,8 @@ public load_config_file()
 	
 	g_respawn_time = amx_load_setting_int(SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_TIME", g_respawn_time)
 	amx_load_setting_string(SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_SPR", g_respawn_icon, sizeof(g_respawn_icon))
-	g_health_reduce_percent = amx_load_setting_int(SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_HEALTH_REDUCE_PERCENT", g_health_reduce_percent)
+	amx_load_setting_string(SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_HEALTH_REDUCE_MULTI", buffer, charsmax(buffer))
+	g_health_reduce_percent = 1.0 - floatclamp( floatabs( str_to_float(buffer) ), 0.0, 0.9 )
 	
 	// Load Hero
 	amx_load_setting_string_arr(SETTING_FILE, "Hero Config", "HERO_MODEL", hero_model_male)
