@@ -116,6 +116,8 @@ native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
+native zb3_set_head_attachment(id, const Sprite[], Float:Time, Float:Scale, Float:FrameRate, TotalFrame)
+
 native Float:zb3_get_player_spawn_cord( num, type );
 native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );

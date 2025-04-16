@@ -565,7 +565,7 @@ public do_deadlyshot(id)
 		g_can_use_deadlyshot[id] = 0
 		g_using_deadlyshot[id] = 1
 		
-		make_deadlyshoot_icon(id)
+		zb3_set_head_attachment(id, g_deadlyshot_icon, g_deadlyshot_time, 1.0, 1.0, 0)
 		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
 		
 		if(!zb3_get_user_nvg(id))
@@ -722,7 +722,7 @@ public do_bloodyblade(id)
 	{
 		g_can_use_bloodyblade[id] = 0
 		g_using_bloodyblade[id] = 1
-		make_bloodblade_icon(id)
+		zb3_set_head_attachment(id, g_bloodyblade_icon, g_bloodyblade_time, 1.0, 1.0, 0)
 		
 		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
 		

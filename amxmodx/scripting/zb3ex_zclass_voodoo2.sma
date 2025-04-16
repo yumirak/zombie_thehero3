@@ -44,7 +44,6 @@ new const HealedSpr[] = "sprites/zombie_thehero/zombiheal_head.spr"
 new const Float:ClawsDistance1 = 1.0
 new const Float:ClawsDistance2 = 1.1
 
-new g_HealerSpr_Id, g_HealedSpr_Id
 new g_zombie_classid, g_can_heal[33], g_current_time[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
@@ -90,8 +89,8 @@ public plugin_precache()
 	engfunc(EngFunc_PrecacheSound, HealSound_Female)
 	engfunc(EngFunc_PrecacheSound, HealSkillSound)
 	
-	g_HealerSpr_Id = engfunc(EngFunc_PrecacheModel, HealerSpr)
-	g_HealedSpr_Id = engfunc(EngFunc_PrecacheModel, HealedSpr)
+	engfunc(EngFunc_PrecacheModel, HealerSpr)
+	engfunc(EngFunc_PrecacheModel, HealedSpr)
 }
 
 public zb3_user_infected(id, infector)
@@ -299,19 +298,7 @@ stock Heal_Icon(id, Healer)
 	if(!is_user_connected(id))
 		return
 	
-	static Float:origin[3];
-	pev(id,pev_origin,origin);
-    
-	message_begin(MSG_BROADCAST,SVC_TEMPENTITY); 
-	write_byte(TE_EXPLOSION); // TE_EXPLOSION
-	write_coord(floatround(origin[0])); // origin x
-	write_coord(floatround(origin[1])); // origin y
-	write_coord(floatround(origin[2]) + Healer == 1 ? 0 : 35); // origin z
-	write_short(Healer == 1 ? g_HealerSpr_Id : g_HealedSpr_Id); // sprites
-	write_byte(15); // scale in 0.1's
-	write_byte(12); // framerate
-	write_byte(14); // flags 
-	message_end(); // message end
+	zb3_set_head_attachment(id, Healer == 1 ? HealerSpr : HealedSpr, 2.0, 1.0, 0.5, 19)
 }
 
 stock EmitSound(id, chan, const file_sound[])

@@ -110,6 +110,8 @@ new g_sky_enabled, Array:g_sky, g_light[2]
 new g_NvgColor[PlayerTeams][3], g_NvgAlpha, g_nvg[33], g_HasNvg[33]
 new const sound_nvg[2][] = {"items/nvg_off.wav", "items/nvg_on.wav"}
 
+new const HealerSpr[] = "sprites/zombie_thehero/zombihealer.spr" // temp
+
 // Block Round Event
 new g_BlockedObj_Forward
 new g_BlockedObj[15][] =
@@ -504,6 +506,7 @@ public plugin_precache()
 	m_iBlood[1] = precache_model("sprites/bloodspray.spr")
 	
 	g_respawn_iconid = precache_model(g_respawn_icon)
+	precache_model(HealerSpr)
 	
 	//set_task(2.5, "Check_Available")
 	///set_task(300.0, "Check_Server", _, _, _, "b")	
@@ -1753,6 +1756,7 @@ public zombie_restore_health(id)
 			new sound_heal[64]
 			ArrayGetString(zombie_sound_heal, g_zombie_class[id], sound_heal, charsmax(sound_heal))
 			PlaySound(id, sound_heal)
+			zb3_set_head_attachment(id, HealerSpr, 1.0, 1.0, 0.5, 19)
 			
 			if(!g_nvg[id])
 			{

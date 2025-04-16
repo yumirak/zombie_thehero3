@@ -47,6 +47,7 @@ new const StampingSound[] = "zombie_thehero/zombi_stamper_iron_maiden_stamping.w
 new const CoffinExp[] = "zombie_thehero/zombi_stamper_iron_maiden_explosion.wav"
 new const CoffinHitSound[] = "zombie_thehero/zombi_attack_3.wav"
 new const CoffinExpSpr[] = "sprites/zombie_thehero/zombiebomb_exp.spr"
+new const CoffinSlow[] = "sprites/zombie_thehero/zbt_slow.spr"
 new const HandSound[2][] =
 {
 	"zombie_thehero/zombi_stamper_clap.wav",
@@ -132,6 +133,7 @@ public plugin_precache()
 	g_SprBeam_Id = precache_model("sprites/shockwave.spr")
 	g_SprExp_Id = precache_model("models/woodgibs.mdl")
 	g_SprBlast_Id = precache_model(CoffinExpSpr)
+	precache_model(CoffinSlow)
 	
 	for(new i = 0; i < sizeof(HandSound); i++)
 		engfunc(EngFunc_PrecacheSound, HandSound[i])
@@ -323,7 +325,8 @@ public Create_Coffin(id)
 				// Freeze Player
 				g_freezing[Victim] = 1
 				zb3_set_user_speed(Victim, HUMAN_SLOWSPEED)
-			
+
+				zb3_set_head_attachment(Victim, CoffinSlow, float(HUMAN_SLOWTIME), 1.0, 1.0, 0)
 				set_task(float(HUMAN_SLOWTIME), "ResetFreeze", Victim+TASK_FREEZING)
 			}
 		}
