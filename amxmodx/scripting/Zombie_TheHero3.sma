@@ -19,8 +19,8 @@
 #define LANG_OFFICIAL LANG_PLAYER
 
 // Configs
-new const SETTING_FILE[] = "zombie_thehero2.ini"
-new const CVAR_FILE[] = "zombie_thehero2.cfg"
+new const SETTING_FILE[] = "zombie_thehero2/config.ini"
+new const CVAR_FILE[] = "zombie_thehero2/zth_server.cfg"
 new const LANG_FILE[] = "zombie_thehero2.txt"
 
 #define DEF_COUNTDOWN 20
