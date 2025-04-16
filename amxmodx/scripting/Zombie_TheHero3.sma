@@ -159,10 +159,6 @@ new g_MsgScreenFade
 
 new g_Msg_SayText
 
-// KnockBack
-new Float:g_kbWpnPower[MAX_WEAPONS - 1], g_kbEnabled, g_kbDamage, g_kbPower, g_kbZVel
-
-
 #define MAX_RETRY 33
 
 #define TASK_TEAMMSG 200
@@ -217,8 +213,8 @@ public plugin_init()
 	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage")
 	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage_Post", 1)
 	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack")
-	//RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack_Post", 1)
-	RegisterHam(Ham_TraceAttack, "worldspawn", "fw_PlayerTraceAttack")
+	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack_Post", 1)
+	// RegisterHam(Ham_TraceAttack, "worldspawn", "fw_PlayerTraceAttack")
 	RegisterHam(Ham_Player_ResetMaxSpeed, "player", "fw_PlayerResetMaxSpeed")
 	RegisterHam(Ham_AddPlayerItem, "player", "fw_AddPlayerItem")
 	
@@ -1171,17 +1167,7 @@ public fw_PlayerTakeDamage(victim, inflictor, attacker, Float:Damage, damagebits
 {
 	if(!g_game_playable || !g_gamestart)
 		return HAM_SUPERCEDE
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
-		return HAM_IGNORED	
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED		
-		
-	const DMG_HEGRENADE = (1<<24)
-	if (damagebits & DMG_HEGRENADE)
-		Damage *= grenade_default_power
-		
-	SetHamParamFloat(4, Damage)
-		
+
 	return HAM_IGNORED
 }
 
@@ -1193,16 +1179,32 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 		return HAM_IGNORED	
 	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
 		return HAM_IGNORED
+	if(g_zombie[attacker] || !g_zombie[victim])  // Human Attack Zombie
+		return HAM_IGNORED
 
 	static Float:zb_class_painshock
 	zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
 
-	if(!g_zombie[attacker] && g_zombie[victim]) 
-	{ // Human Attack Zombie
-		if(pev_valid(victim) == 2) set_member(victim, m_flVelocityModifier, zb_class_painshock)
-		if(g_restore_health[victim]) g_restore_health[victim] = 0
-	}		
-		
+	if (damagebits & DMG_GRENADE)
+		damage *= grenade_default_power
+	if (damagebits & DMG_BULLET)
+		damage *= g_fDamageMulti[g_level[attacker]]
+
+	SetHamParamFloat(4, damage)
+
+	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(damage) / 8, true)
+	fm_cs_set_user_money(victim, fm_cs_get_user_money(victim) + floatround(damage) / 16, true)
+
+	switch(g_level[victim])
+	{
+		case 1: g_iEvolution[victim] += damage * 0.001 // / 1000.0
+		case 2: g_iEvolution[victim] += damage * 0.0005 // / 2000.0
+	}
+
+	if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
+	if(pev_valid(victim) == 2) set_member(victim, m_flVelocityModifier, zb_class_painshock)
+	if(g_restore_health[victim]) g_restore_health[victim] = 0
+
 	return HAM_IGNORED
 }
 
@@ -1213,164 +1215,48 @@ public fw_PlayerTraceAttack(victim, attacker, Float:Damage, Float:direction[3], 
 	if(!g_game_playable || !g_gamestart || g_endround)
 		return HAM_SUPERCEDE
 	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED		
-		
-	if(g_zombie[attacker] && !g_zombie[victim]) // Zombie Attack Human
-	{
-		if(Damage > 0.0 && get_user_weapon(attacker) == CSW_KNIFE)
-		{
-			set_user_zombie(victim, attacker, 0, 0)
-			
-			static Float:EndOrigin[3] 
-			get_tr2(tracehandle, TR_vecEndPos, EndOrigin)
+		return HAM_IGNORED
+	if(!g_zombie[attacker] || Damage < 0.0 || !(get_user_weapon(attacker) == CSW_KNIFE))
+		return HAM_IGNORED
 
-			create_blood(EndOrigin)
-			
-			return HAM_IGNORED
-		} else {
-			return HAM_SUPERCEDE
-		}
-	} else if(!g_zombie[attacker] && g_zombie[victim]) { // Human Attack Zombie
-		Damage *= g_fDamageMulti[g_level[attacker]]
+	set_user_zombie(victim, attacker, false, false)
+	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
 
-		SetHamParamFloat(3, Damage)
-		fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(Damage), 0)
-
-		// Zombie Victim Evolution Code Here!!!
-		switch(g_level[victim])
-		{
-			case 1: g_iEvolution[victim] += Damage * 0.001 // / 1000.0
-			case 2: g_iEvolution[victim] += Damage * 0.0005 // / 2000.0
-		}
-		if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
-		
-		// KnockBack Handle
-		if (g_kbEnabled)
-		{
-			// Get victim's velocity
-			static Float:velocity[3]
-			pev(victim, pev_velocity, velocity)
-		
-			// static Float:KnockBack_Power
-		
-			// Get whether the victim is in a crouch state
-			static ducking
-			ducking = pev(victim, pev_flags) & (FL_DUCKING | FL_ONGROUND) == (FL_DUCKING | FL_ONGROUND)
-			
-			/*
-			static Float:weapon_knockback
-			weapon_knockback = g_kbWpnPower[fm_get_user_weapon(attacker)]	
-			
-			if (g_kbDamage)
-			{
-				static Float:DamageMul
-				
-				if(Damage > 0.0 && Damage <= 50.0) DamageMul = 5.0
-				else if(Damage > 50.0 && Damage <= 100.0) DamageMul = 6.0
-				else if(Damage > 100.0 && Damage <= 200.0) DamageMul = 7.5
-				else if(Damage > 200.0 && Damage <= 300.0) DamageMul = 8.0
-				else if(Damage > 400.0 && Damage <= 400.0) DamageMul = 9.0
-				else if(Damage > 500.0 && Damage <= 99999.0) DamageMul = 10.0
-				
-				///KnockBack_Power += Damage
-				
-				xs_vec_mul_scalar(direction, DamageMul, direction)
-			}
-		
-			if (g_kbPower && weapon_knockback > 0.0)
-			{
-				//KnockBack_Power *= 2.0
-				xs_vec_mul_scalar(direction, weapon_knockback * 2.0, direction)
-			}*/
-				
-			if(ducking)
-			{
-				Damage /= 1.25
-				//xs_vec_mul_scalar(direction, 0.75, direction)
-			}
-				
-			/*
-			if (g_zombie[victim])
-			{
-				new Float:classzb_knockback
-				classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
-				
-				xs_vec_mul_scalar(direction, classzb_knockback * 1.5, direction)
-				//KnockBack_Power *= classzb_knockback
-			}*/
-			
-			// On Air?
-			if(!(pev(victim,pev_flags) & FL_ONGROUND))
-			{
-				Damage *= 2.0
-				//xs_vec_mul_scalar(direction, 2.0, direction)
-			}
-				
-			//xs_vec_add(velocity, direction, direction)
-			//direction[2] += 1.0
-			
-			//if(g_kbZVel)
-			//	direction[2] = velocity[2]
-
-			//set_pev(victim, pev_velocity, direction)
-			static Float:Origin[3]
-			pev(attacker, pev_origin, Origin)
-			
-			static Float:classzb_knockback
-			classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
-			
-			if(g_zombie_type[victim] == ZOMBIE_ORIGIN)
-				classzb_knockback /= 1.5
-			
-			hook_ent2(victim, Origin, Damage * classzb_knockback, 2)
-		}
-	}
-	
 	return HAM_IGNORED
 }
 
-
 public fw_PlayerTraceAttack_Post(victim, attacker, Float:Damage, Float:direction[3], tracehandle, damagebits)
 {
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
+	if(pev_valid(victim) != 2)
 		return HAM_IGNORED
 	if(!g_game_playable || !g_gamestart || g_endround)
 		return HAM_SUPERCEDE
 	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
 		return HAM_IGNORED		
-		
-	client_print(victim, print_chat, "Total Damage: %i", floatround(Damage))
-	client_print(victim, print_chat, "Health: %i - %i = %i", get_user_health(victim) + floatround(Damage), floatround(Damage), get_user_health(victim))
-		
-	return HAM_IGNORED
-}
+	if (!g_zombie[victim] || g_zombie[attacker] || victim == attacker)
+		return HAM_IGNORED
+	if (!(damagebits & DMG_BULLET))
+		return HAM_IGNORED
 
-stock hook_ent2(ent, Float:VicOrigin[3], Float:speed, type)
-{
-	static Float:fl_Velocity[3]
-	static Float:EntOrigin[3]
-	static Float:EntVelocity[3]
+	static ducking; ducking = pev(victim, pev_flags) & (FL_DUCKING | FL_ONGROUND) == (FL_DUCKING | FL_ONGROUND)
+	static flying; flying = !(pev(victim, pev_flags) & FL_ONGROUND)
+	static Float:Origin[3]; pev(attacker, pev_origin, Origin)
+	static Float:velocity[3]; pev(victim, pev_velocity, velocity)
+	static Float:classzb_knockback; classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
 	
-	pev(ent, pev_velocity, EntVelocity)
-	pev(ent, pev_origin, EntOrigin)
-	static Float:distance_f
-	distance_f = get_distance_f(EntOrigin, VicOrigin)
-	
-	static Float:fl_Time; fl_Time = distance_f / speed
-	
-	if(type == 1)
-	{
-		fl_Velocity[0] = ((VicOrigin[0] - EntOrigin[0]) / fl_Time) * 1.5
-		fl_Velocity[1] = ((VicOrigin[1] - EntOrigin[1]) / fl_Time) * 1.5
-		fl_Velocity[2] = (VicOrigin[2] - EntOrigin[2]) / fl_Time		
-	} else if(type == 2) {
-		fl_Velocity[0] = ((EntOrigin[0] - VicOrigin[0]) / fl_Time) * 1.5
-		fl_Velocity[1] = ((EntOrigin[1] - VicOrigin[1]) / fl_Time) * 1.5
-		fl_Velocity[2] = (EntOrigin[2] - VicOrigin[2]) / fl_Time
-	}
+	// Damage *= 0.5
+	floatclamp(Damage, 0.0, 100.0)
 
-	xs_vec_add(EntVelocity, fl_Velocity, fl_Velocity)
-	set_pev(ent, pev_velocity, fl_Velocity)
+	if(Damage) xs_vec_mul_scalar(direction, Damage, direction)
+	if(flying) xs_vec_mul_scalar(direction, 2.0, direction)
+	else if(ducking) xs_vec_mul_scalar(direction, 0.5, direction)
+	if(classzb_knockback > 0.0) xs_vec_mul_scalar(direction, classzb_knockback, direction)
+	
+	direction[2] *= 0.001
+
+	xs_vec_add(velocity, direction, direction)
+	set_pev(victim, pev_velocity, direction)
+	return HAM_SUPERCEDE;
 }
 
 public fw_PlayerResetMaxSpeed(id)
@@ -2688,21 +2574,6 @@ stock check_user_admin(id)
 	return 0
 }
 
-stock create_blood(const Float:origin[3])
-{
-	// Show some blood :)
-	message_begin(MSG_BROADCAST, SVC_TEMPENTITY) 
-	write_byte(TE_BLOODSPRITE)
-	engfunc(EngFunc_WriteCoord, origin[0])
-	engfunc(EngFunc_WriteCoord, origin[1])
-	engfunc(EngFunc_WriteCoord, origin[2])
-	write_short(m_iBlood[1])
-	write_short(m_iBlood[0])
-	write_byte(75)
-	write_byte(5)
-	message_end()
-}
-
 // Set User Deaths
 stock fm_cs_set_user_deaths(id, value)
 {
@@ -3012,7 +2883,7 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 // ================================================================
 public load_config_file()
 {
-	static buffer[128], buffer2[128], Array:DummyArray, iSlot
+	static buffer[128], Array:DummyArray
 	
 	// GamePlay Configs
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
@@ -3029,7 +2900,7 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "HUMAN_ARMOR", buffer, sizeof(buffer), DummyArray); human_armor = str_to_num(buffer)
 	
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "CLASS_CHOOSE_TIME", buffer, sizeof(buffer), DummyArray); g_classchoose_time = str_to_num(buffer)
-	
+
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_TIME", buffer, sizeof(buffer), DummyArray); g_respawn_time = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_SPR", g_respawn_icon, sizeof(g_respawn_icon), DummyArray)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_HEALTH_REDUCE_MULTI", buffer, charsmax(buffer), DummyArray)
@@ -3061,28 +2932,7 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Night Vision", "NVG_ZOMBIE_COLOR_R", buffer, sizeof(buffer), DummyArray); g_NvgColor[TEAM_ZOMBIE][0] = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Night Vision", "NVG_ZOMBIE_COLOR_G", buffer, sizeof(buffer), DummyArray); g_NvgColor[TEAM_ZOMBIE][1] = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Night Vision", "NVG_ZOMBIE_COLOR_B", buffer, sizeof(buffer), DummyArray); g_NvgColor[TEAM_ZOMBIE][2] = str_to_num(buffer)
-	
-	// Load Knocback Config
-	amx_load_setting_string( false, SETTING_FILE, "Knockback Power for Weapons", "KB_ENABLE", buffer, sizeof(buffer), DummyArray); g_kbEnabled = str_to_num(buffer)
-	amx_load_setting_string( false, SETTING_FILE, "Knockback Power for Weapons", "KB_DAMAGE", buffer, sizeof(buffer), DummyArray); g_kbDamage = str_to_num(buffer)
-	amx_load_setting_string( false, SETTING_FILE, "Knockback Power for Weapons", "KB_POWER", buffer, sizeof(buffer), DummyArray); g_kbPower = str_to_num(buffer)
-	amx_load_setting_string( false, SETTING_FILE, "Knockback Power for Weapons", "KB_ZVEL", buffer, sizeof(buffer), DummyArray); g_kbZVel = str_to_num(buffer)
 
-	for(new i = 1; i < sizeof g_kbWpnPower; i++)
-	{
-		iSlot = rg_get_weapon_info(i, WI_SLOT);
-
-		if( iSlot != CS_WEAPONSLOT_PRIMARY && iSlot != CS_WEAPONSLOT_SECONDARY  )
-			continue
-
-		rg_get_weapon_info(i, WI_NAME, buffer2, charsmax(buffer2));
-		replace( buffer2, charsmax(buffer2), "weapon_", "" );
-		strtoupper(buffer2)
-
-		amx_load_setting_string( false, SETTING_FILE, "Knockback Power for Weapons", buffer2, buffer, charsmax(buffer), DummyArray)
-		g_kbWpnPower[i] = str_to_float(buffer)
-	}
-	
 	// Load Human Models
 	amx_load_setting_string( true, SETTING_FILE, "Config Value", "PLAYER_MODEL_MALE", buffer, 0, human_model_male)
 	amx_load_setting_string( true, SETTING_FILE, "Config Value", "PLAYER_MODEL_FEMALE", buffer, 0, human_model_female)
