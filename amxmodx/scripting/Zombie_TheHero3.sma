@@ -2195,14 +2195,16 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 		{
 			SendDeathMsg(attacker, id)
 			UpdateFrags(attacker, id, 1, 1, 1)
-			
-			//OrpheuCall(OrpheuGetFunctionFromObject(g_pGameRules,"DeathNotice","CGameRules"), g_pGameRules, id, attacker, inflictor)
 		}
+
+		// Check Victim is Hero
+		switch(g_level[attacker])
+		{
+			case 1: g_iEvolution[attacker] += g_hero[id] ? 10.0 : 3.0
+			case 2: g_iEvolution[attacker] += g_hero[id] ? 5.0  : 2.0
+		}
+		if(g_iEvolution[attacker] > 9.0) UpdateLevelZombie(attacker)
 	}		
-		
-	static g_hero_victim, g_normal_evolution
-	if(g_hero[id]) g_hero_victim = 1
-	else g_hero_victim = 0
 	
 	reset_player(id, 0, Respawn)
 	g_zombie[id] = 1
@@ -2279,8 +2281,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 			g_StartHealth[id] = zombie_random_health = g_StartHealth[attacker] / 2
 			g_StartArmor[id] = zombie_random_armor = g_StartArmor[attacker] / 2
 			
-			if(!g_hero_victim && !g_normal_evolution)
-				g_normal_evolution = 1
 		} else {
 			if(!Respawn)
 			{
@@ -2310,17 +2310,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
 	set_model(id, PlayerModel)
-	
-	// Check Victim is Hero
-	if(is_user_alive(attacker) && g_zombie[attacker])
-	{	
-		switch(g_level[attacker])
-		{
-			case 1: g_iEvolution[attacker] += g_hero[id] ? 10.0 : 3.0
-			case 2: g_iEvolution[attacker] += g_hero[id] ? 5.0  : 2.0
-		}
-		if(g_iEvolution[attacker] > 9.0) UpdateLevelZombie(attacker)
-	}
 	
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, 1)
 
