@@ -127,6 +127,16 @@ native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
+native zb3_get_user_maxhealth(id);
+native zb3_get_user_maxarmor(id);
+
+native zb3_set_user_infect_mod(id, Float:multi);
+native zb3_reset_user_infect_mod(id);
+
+native zb3_set_user_maxlevel(id, maxlevel);
+native zb3_get_user_maxlevel(id);
+native zb3_reset_user_maxlevel(id);
+
 native zb3_get_user_gravity(id);
 native zb3_set_user_gravity(id, Float:fGravity);
 native zb3_reset_user_gravity(id);

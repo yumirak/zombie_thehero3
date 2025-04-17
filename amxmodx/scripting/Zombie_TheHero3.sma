@@ -89,7 +89,7 @@ g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolutio
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
 g_zombieorigin_defaultlevel, start_money, grenade_default_power, human_health, human_armor,
-g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent
+g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent, Float:g_flinfect_multi[33]
 
 // Array
 new Array:human_model_male, Array:human_model_female, Array:hero_model_male, Array:hero_model_female,
@@ -545,8 +545,18 @@ public plugin_natives()
 	register_native("zb3_set_user_startarmor", "native_set_startarmor", 1)	
 	register_native("zb3_get_user_gravity", "native_get_user_gravity", 1) 
 	register_native("zb3_set_user_gravity", "native_set_user_gravity", 1) 
-	register_native("zb3_reset_user_gravity", "native_reset_user_gravity", 1) 	
+	register_native("zb3_reset_user_gravity", "native_reset_user_gravity", 1) 
+
+	register_native("zb3_get_user_maxhealth", "native_get_maxhealth", 1) 
+	register_native("zb3_get_user_maxarmor", "native_get_maxarmor", 1) 
+
+	register_native("zb3_set_user_maxlevel", "native_set_maxlevel", 1)
+	register_native("zb3_get_user_maxlevel", "native_get_maxlevel", 1)
+	register_native("zb3_reset_user_maxlevel", "native_reset_maxlevel", 1)	
 	
+	register_native("zb3_set_user_infect_mod", "native_set_infect_multiplier", 1)
+	register_native("zb3_reset_user_infect_mod", "native_reset_infect_multiplier", 1)
+
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
 }
@@ -803,6 +813,66 @@ public native_reset_user_gravity(id)
 
 	if(g_zombie[id]) set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]) ) 
 	else set_pev(id, pev_gravity, 1.0 )
+}
+
+public native_get_maxhealth(id)
+{
+	if(!is_user_connected(id))
+		return 0
+
+	static zombie_maxhealth
+	zombie_maxhealth = g_level[id] > 2 ? zombie_level3_health : zombie_level2_health
+	
+	return g_zombie[id] ? zombie_maxhealth : human_health;
+}
+
+public native_get_maxarmor(id)
+{
+	if(!is_user_connected(id))
+		return 0
+	static zombie_maxarmor
+	zombie_maxarmor = g_level[id] > 2 ? zombie_level3_armor  : zombie_level2_armor
+	return g_zombie[id] ? zombie_maxarmor : human_armor;
+}
+
+public native_set_infect_multiplier(id, Float:multi)
+{
+	if(!is_user_connected(id))
+		return
+		
+	g_flinfect_multi[id] = multi
+}
+	
+public native_reset_infect_multiplier(id)
+{
+	if(!is_user_connected(id))
+		return
+		
+	g_flinfect_multi[id] = 0.5
+}
+
+public native_get_maxlevel(id)
+{
+	if(!is_user_connected(id))
+		return 0
+		
+	return g_iMaxLevel[id]
+}
+
+public native_set_maxlevel(id, maxlevel)
+{
+	if(!is_user_connected(id))
+		return
+		
+	g_iMaxLevel[id] = maxlevel
+}
+
+public native_reset_maxlevel(id)
+{
+	if(!is_user_connected(id))
+		return 
+		
+	g_iMaxLevel[id] = 10;
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
@@ -2147,10 +2217,10 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	zombie_maxarmor  = g_level[id] > 2 ? zombie_level3_armor  : zombie_level2_armor
 
 	start_zombie_health[ZOMBIE_ORIGIN] = floatround(float(g_firsthuman) / float(g_firstzombie) * 1000.0)
-	start_zombie_health[ZOMBIE_HOST]   = clamp( floatround( get_user_health(attacker) * 0.5 ), zombie_minhealth, zombie_maxhealth)
+	start_zombie_health[ZOMBIE_HOST]   = clamp( floatround( get_user_health(attacker) * g_flinfect_multi[id] ), zombie_minhealth, zombie_maxhealth)
 
 	start_zombie_armor[ZOMBIE_ORIGIN]  = zombie_maxarmor
-	start_zombie_armor[ZOMBIE_HOST]    = clamp( floatround( get_user_armor(attacker)  * 0.5 ), zombie_minarmor, zombie_maxarmor)
+	start_zombie_armor[ZOMBIE_HOST]    = clamp( floatround( get_user_armor(attacker)  * g_flinfect_multi[id] ), zombie_minarmor, zombie_maxarmor)
 
 	respawn_zombie_health = clamp( floatround(g_StartHealth[id] * g_health_reduce_percent ), zombie_minhealth, zombie_maxhealth )
 	respawn_zombie_armor  = clamp( floatround(g_StartArmor[id]  * g_health_reduce_percent ), zombie_minarmor, zombie_maxarmor)
@@ -2403,7 +2473,8 @@ public reset_player(id, new_player, zombie_respawn)
 		g_RespawnTime[id] = g_respawn_time
 		g_iMaxLevel[id] = 10
 		g_iEvolution[id] = 0.0
-		
+		g_flinfect_multi = 0.5
+
 		for(new i = 0; i < MAX_ZOMBIECLASS; i++)
 			g_unlocked_class[id][i] = 0
 	}
