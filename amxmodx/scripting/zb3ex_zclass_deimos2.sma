@@ -45,7 +45,7 @@ new const SkillHit[] = "zombie_thehero/deimos_skill_hit.wav"
 new const SkillExp[] = "zombie_thehero/zombi_bomb_exp.wav"
 new const SkillSpr[] = "sprites/zombie_thehero/deimosexp.spr"
 new const SkillTrail[] = "sprites/laserbeam.spr"
-new const SkillModel[] = "models/zombie_thehero/s_kunai.mdl"
+new const SkillModel[] = "models/zombie_thehero/w_hiddentail.mdl"
 
 new const Float:ClawsDistance1 = 1.1
 new const Float:ClawsDistance2 = 1.2
@@ -55,17 +55,17 @@ new g_zombie_classid, g_can_skill[33], g_current_time[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
-#define SHOCK_CLASSNAME "Speed_Of_Light"
+#define SHOCK_CLASSNAME "deimos_shock"
 #define SHOCK_FOV 100
 #define SHOCK_ANIM 8
 #define SHOCK_PLAYERANIM 10
 #define SHOCK_STARTTIME 0.75
-#define SHOCK_VELOCITY 500
-
+#define SHOCK_VELOCITY 1000
+#define SHOCK_RADIUS 8.0 // sphere
 #define SHOCK_DISTANCE_HOST 700
 #define SHOCK_DISTANCE_ORIGIN 1500
-#define SHOCK_COOLDOWN_HOST 20
-#define SHOCK_COOLDOWN_ORIGIN 18
+#define SHOCK_COOLDOWN_HOST 15
+#define SHOCK_COOLDOWN_ORIGIN 7
 
 #define TASK_COOLDOWN 12001
 #define TASK_SKILLING 12002
@@ -239,7 +239,7 @@ public Create_Light(id)
 	set_pev(ent, pev_mins, Float:{-1.0, -1.0, -1.0})
 	set_pev(ent, pev_maxs, Float:{1.0, 1.0, 1.0})
 
-	StartOrigin[2] += (pev(id, pev_flags) & FL_DUCKING) == 0 ? 45.0 : 25.0
+	StartOrigin[2] += (pev(id, pev_flags) & FL_DUCKING) == 0 ? 30.0 : 20.0
 	
 	set_pev(ent, pev_origin, StartOrigin)
 	set_pev(ent, pev_angles, Angles)
@@ -252,7 +252,7 @@ public Create_Light(id)
 	set_pev(ent, pev_solid, SOLID_BBOX)
 	
 	fm_set_rendering(ent, kRenderFxNone, 0, 0, 0, kRenderNormal, 255)
-	Make_TrailEffect(StartOrigin, ent)
+	Make_TrailEffect(ent)
 
 	set_pev(ent, pev_nextthink, get_gametime() + 0.1)	
 }
@@ -549,29 +549,23 @@ public do_fake_attack(id)
 	}
 }
 
-stock Make_TrailEffect(Float:StartOrigin[3], ent)
+stock Make_TrailEffect(ent)
 {
 	if(!pev_valid(ent))
 		return
 
-	message_begin(MSG_BROADCAST, SVC_TEMPENTITY)
-	write_byte(TE_BEAMENTPOINT)
-	write_short(ent)	// start entity
-	engfunc(EngFunc_WriteCoord, StartOrigin[0])
-	engfunc(EngFunc_WriteCoord, StartOrigin[1])
-	engfunc(EngFunc_WriteCoord, StartOrigin[2])
-	write_short(g_SkillTrail_Id)	// sprite index
-	write_byte(0)	// starting frame
-	write_byte(0)	// frame rate in 0.1's
-	write_byte(30)	// life in 0.1's
-	write_byte(10)	// line width in 0.1's
-	write_byte(0)	// noise amplitude in 0.01's
-	write_byte(255)
-	write_byte(212)
-	write_byte(0)
-	write_byte(255)	// brightness
-	write_byte(0)	// scroll speed in 0.1's
-	message_end()
+	// Make a Beam
+	message_begin(MSG_BROADCAST, SVC_TEMPENTITY);
+	write_byte(TE_BEAMFOLLOW);
+	write_short(ent); // entity
+	write_short(g_SkillTrail_Id); // sprite
+	write_byte(20);  // life
+	write_byte(1);  // width
+	write_byte(255); // r
+	write_byte(212);  // g
+	write_byte(0);  // b
+	write_byte(255); // brightness
+	message_end();
 }
 
 stock set_fov(id, num = 90)
