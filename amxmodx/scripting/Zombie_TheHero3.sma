@@ -27,6 +27,7 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 
 #define MAIN_HUD_X -1.0
 #define MAIN_HUD_Y 0.30
+#define MAIN_HUD_Y_BOTTOM 0.70
 
 // Speed Problem
 new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame
@@ -1110,7 +1111,7 @@ public Time_Change()
 		if(is_user_alive(i))
 			show_evolution_hud(i, g_zombie[i])
 			
-		show_score_hud(i)
+		// show_score_hud(i)
 		ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
 	}
 }
@@ -1484,7 +1485,7 @@ public show_evolution_hud(id, is_zombie)
 	level_color[2] = get_color_level(id, 2)	
 	
 	// Show Hud
-	set_dhudmessage(level_color[0], level_color[1], level_color[2], -1.0, 0.83, 0, 1.5, 1.5)
+	set_hudmessage(level_color[0], level_color[1], level_color[2], -1.0, 0.83, 0, 1.5, 1.5)
 	
 	// Get Damage Percent
 	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
@@ -1510,7 +1511,7 @@ public show_evolution_hud(id, is_zombie)
 		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "ZOMBIE_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
 	}
 	
-	show_dhudmessage(id, FullText)
+	ShowSyncHudMsg(id, g_SyncHud[SYNCHUD_ZBHM_SKILL3], FullText)
 }
 
 public UpdateLevelZombie(id)
@@ -1555,10 +1556,9 @@ public UpdateLevelZombie(id)
 	
 	// Show Hud
 	new szText[128]
-	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_ZOMBIE_LEVELUP", g_level[id])
-	client_print(id, print_center, szText)
+	format(szText, charsmax(szText), "%L", LANG_PLAYER, g_level[id] > 2 ? "NOTICE_ZOMBIE_LEVELUP3" : "NOTICE_ZOMBIE_LEVELUP2")
 
-	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 1, 3.0, 3.0)
+	set_dhudmessage(0, 160, 0, MAIN_HUD_X, MAIN_HUD_Y_BOTTOM , 2, 1.0, 3.0, 0.005 , 0.1)
 	show_dhudmessage(id, szText)
 	
 	// Exec Forward
@@ -1590,10 +1590,8 @@ public delay_UpdateLevelHuman(id)
 	fm_set_rendering(id, kRenderFxGlowShell, get_color_level(id, 0), get_color_level(id, 1), get_color_level(id, 2), kRenderNormal, 0)
 	
 	PlaySound(id, sound_human_levelup)
-	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_HUMAN_LEVELUP", floatround(g_fDamageMulti[g_level[id]] * 100.0))
-	
-	client_print(id, print_center, szText)
-	
+	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_HUMAN_LEVELUP", g_level[id])
+
 	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 1, 3.0, 3.0)
 	show_dhudmessage(0, szText)
 }
@@ -1963,9 +1961,7 @@ public start_game_now()
 	{
 		get_user_name(MyHero, Name, sizeof(Name))
 		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", Name)
-	} else {
-		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "ZOMBIE_COMING")
-	}
+	} 
 	
 	static Have_Hero
 	for(new i = 0; i < g_MaxPlayers; i++)
@@ -1986,9 +1982,6 @@ public start_game_now()
 			
 		if(Have_Hero)
 			continue
-
-		set_dhudmessage(0, 200, 0, -1.0, 0.30, 0, 2.5, 2.5)
-		show_dhudmessage(i, FullText)
 
 		client_print(i, print_center, FullText)
 	}
@@ -2032,11 +2025,6 @@ public set_user_hero(id, player_sex)
 		ArrayGetString(hero_model_female, get_random_array(hero_model_female), Model, sizeof(Model))
 	
 	set_model(id, Model)
-	
-	// Notice
-	set_dhudmessage(200, 200, 0, -1.0, 0.30, 0, 2.5, 2.5)
-	show_dhudmessage(id, "%L", LANG_OFFICIAL, g_hero[id] == HERO_ANDREY ? "NOTICE_HERO_FOR_ANDREY" : "NOTICE_HERO_FOR_KATE")
-
 	client_print(id, print_center, "%L", LANG_OFFICIAL, g_hero[id] == HERO_ANDREY ? "NOTICE_HERO_FOR_ANDREY" : "NOTICE_HERO_FOR_KATE")
 	
 	ExecuteForward(g_Forwards[FWD_USER_HERO], g_fwResult, id, g_hero[id])
@@ -2090,7 +2078,12 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	{
 		g_zombie_class[id] = 0
 		if(Origin_Zombie)
+		{
 			g_level[id] = 2
+
+			set_dhudmessage(0, 160, 0, MAIN_HUD_X, MAIN_HUD_Y_BOTTOM , 2, 1.0, 3.0, 0.005 , 0.1)
+			show_dhudmessage(id, "%L", LANG_PLAYER, "ZOMBIE_COMING")
+		}
 		else
 			g_level[id] = 1
 		g_iEvolution[id] = 0.0
@@ -2830,10 +2823,6 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 			ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
 		
 			client_print(0, print_center, g_WinText[TEAM_ZOMBIE])
-		
-			// Show DHUD
-			set_dhudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 3.0)
-			show_dhudmessage(0, g_WinText[TEAM_ZOMBIE])
 		}
 		case TEAM_HUMAN:
 		{
@@ -2844,10 +2833,6 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 			ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
 			
 			client_print(0, print_center, g_WinText[TEAM_HUMAN])
-			
-			// Show DHUD
-			set_dhudmessage(0, 255, 0, -1.0, 0.30, 0, 3.0, 3.0)
-			show_dhudmessage(0, g_WinText[TEAM_HUMAN])
 		}
 		case TEAM_ALL:
 		{
