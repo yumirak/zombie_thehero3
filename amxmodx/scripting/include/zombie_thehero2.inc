@@ -70,7 +70,11 @@ enum
 	SYNCHUD_ZBHM_SKILL3,
 	SYCHUDD_EFFECTKILLER
 }
-
+enum
+{
+	FWD_SUPPLY_ITEM_GIVE = 0,
+	FWD_SUPPLY_AMMO_GIVE
+}
 // Natives
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player
 
@@ -116,6 +120,8 @@ native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
+native zb3_register_supply_item(const Name[]);
+
 native zb3_set_head_attachment(id, const Sprite[], Float:Time, Float:Scale, Float:FrameRate, TotalFrame)
 
 native Float:zb3_get_player_spawn_cord( num, type );
