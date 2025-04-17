@@ -56,6 +56,13 @@ enum
 
 enum
 {
+	INFECT_VICTIM = 0,
+	INFECT_RESPAWN,
+	INFECT_CHANGECLASS
+}
+
+enum
+{
 	GAMESTART_NEWROUND = 0,
 	GAMESTART_COUNTING,
 	GAMESTART_ZOMBIEAPPEAR
@@ -120,6 +127,10 @@ native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
+native zb3_get_user_gravity(id);
+native zb3_set_user_gravity(id, Float:fGravity);
+native zb3_reset_user_gravity(id);
+
 native zb3_register_supply_item(const Name[]);
 
 native zb3_set_head_attachment(id, const Sprite[], Float:Time, Float:Scale, Float:FrameRate, TotalFrame)

@@ -543,6 +543,9 @@ public plugin_natives()
 	
 	register_native("zb3_get_user_startarmor", "native_get_startarmor", 1)
 	register_native("zb3_set_user_startarmor", "native_set_startarmor", 1)	
+	register_native("zb3_get_user_gravity", "native_get_user_gravity", 1) 
+	register_native("zb3_set_user_gravity", "native_set_user_gravity", 1) 
+	register_native("zb3_reset_user_gravity", "native_reset_user_gravity", 1) 	
 	
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
@@ -643,7 +646,7 @@ public native_set_lock_hero(id, lock)
 
 public native_get_user_sex(id)
 {
-	return g_sex[id]
+	return g_zombie[id] ? ArrayGetCell(zombie_sex, g_zombie_class[id]) : g_sex[id]
 }
 
 public native_set_user_sex(id, sex)
@@ -776,6 +779,30 @@ public native_get_startarmor(id)
 		return 0
 		
 	return g_StartArmor[id]
+}
+
+public native_get_user_gravity(id)
+{
+	if(!is_user_connected(id))
+		return 0
+		
+	if(g_zombie[id]) return ArrayGetCell(zombie_gravity, g_zombie_class[id])
+	else return pev(id, pev_gravity )
+}
+public native_set_user_gravity(id, Float:fGravity)
+{
+	if(!is_user_connected(id))
+		return 
+	
+	set_pev(id, pev_gravity, fGravity )
+}
+public native_reset_user_gravity(id)
+{
+	if(!is_user_connected(id))
+		return 
+
+	if(g_zombie[id]) set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]) ) 
+	else set_pev(id, pev_gravity, 1.0 )
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
@@ -2098,8 +2125,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 			
 			g_zombie_class[id] = classid
 			set_zombie_class(id, g_zombie_class[id])
-
-			ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, 0)	
 		}
 	}
 	
@@ -2153,7 +2178,7 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_model_host : zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
 	set_model(id, PlayerModel)
 	
-	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, 1)
+	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
 
 	gameplay_check()
 }
@@ -2270,7 +2295,7 @@ public menu_selectclass_handle(id, menu, item)
 		g_zombie_class[id] = classid
 		set_zombie_class(id, g_zombie_class[id])
 		
-		ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, 0)
+		ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
 		
 		set_weapon_anim(id, 3)
 		menu_destroy(menu)
@@ -2295,7 +2320,7 @@ public menu_selectclass_handle(id, menu, item)
 				
 				set_weapon_anim(id, 3)
 				
-				ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, 0)
+				ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
 				g_can_choose_class[id] = 0
 				
 				menu_destroy(menu)			
@@ -2319,7 +2344,7 @@ public menu_selectclass_handle(id, menu, item)
 				
 			set_weapon_anim(id, 3)
 			
-			ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, 0)
+			ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
 			menu_destroy(menu)
 			
 			g_can_choose_class[id] = 0

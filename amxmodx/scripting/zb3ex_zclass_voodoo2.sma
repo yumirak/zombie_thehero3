@@ -11,7 +11,7 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 
 // Zombie Configs
 new const zclass_name[] = "Voodoo"
-new const zclass_desc[] = "Heal-Self"
+new const zclass_desc[] = "Heal"
 new const zclass_sex = SEX_MALE
 new const zclass_lockcost = 0
 new const zclass_hostmodel[] = "heal_zombi_host"
@@ -35,8 +35,7 @@ new const HurtSound[2][] =
 	"zombie_thehero/zombi_hurt_01.wav",
 	"zombie_thehero/zombi_hurt_02.wav"	
 }
-new const HealSound[] = "zombie_thehero/zombi_heal.wav"
-new const HealSound_Female[] = "zombie_thehero/zombi_heal_female.wav"
+new const HealSound[2][] = { "zombie_thehero/zombi_heal.wav", "zombie_thehero/zombi_heal_female.wav" }
 new const EvolSound[] = "zombie_thehero/zombi_evolution.wav"
 new const HealSkillSound[] = "zombie_thehero/td_heal.wav"
 new const HealerSpr[] = "sprites/zombie_thehero/zombihealer.spr"
@@ -44,20 +43,17 @@ new const HealedSpr[] = "sprites/zombie_thehero/zombiheal_head.spr"
 new const Float:ClawsDistance1 = 1.0
 new const Float:ClawsDistance2 = 1.1
 
-new g_zombie_classid, g_can_heal[33], g_current_time[33]
+new g_zombie_classid, g_can_heal[33], Float:g_current_time[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
-#define HEAL_AMOUNT_HOST 2000
+#define HEAL_AMOUNT_HOST 1000
 #define HEAL_AMOUNT_ORIGIN 500
-#define HEAL_COOLDOWN_HOST 10
-#define HEAL_COOLDOWN_ORIGIN 7
+#define HEAL_COOLDOWN_HOST 10.0
+#define HEAL_COOLDOWN_ORIGIN 7.0
 #define HEAL_RADIUS 200.0
-#define HEAL_FOV 100
 
-#define TASK_COOLDOWN 12001
-
-new g_synchud1, g_MaxPlayers, g_Msg_Fov
+new g_synchud1, g_MaxPlayers
 
 public plugin_init() 
 {
@@ -70,7 +66,6 @@ public plugin_init()
 	
 	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 	g_MaxPlayers = get_maxplayers()
-	g_Msg_Fov = get_user_msgid("SetFOV")
 }
 
 public plugin_precache()
@@ -81,52 +76,53 @@ public plugin_precache()
 	ClawsDistance1, ClawsDistance2)
 	
 	zb3_set_zombie_class_data(zclass_hostmodel, zclass_originmodel, zclass_clawsmodelhost, zclass_clawsmodelorigin, 
-	DeathSound[0], DeathSound[1], HurtSound[0], HurtSound[1], HealSound, EvolSound)
+	DeathSound[0], DeathSound[1], HurtSound[0], HurtSound[1], HealSound[0], EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
 	
 	// Precache Class Resource
-	engfunc(EngFunc_PrecacheSound, HealSound_Female)
+	engfunc(EngFunc_PrecacheSound, HealSound[1])
 	engfunc(EngFunc_PrecacheSound, HealSkillSound)
 	
 	engfunc(EngFunc_PrecacheModel, HealerSpr)
 	engfunc(EngFunc_PrecacheModel, HealedSpr)
 }
-
-public zb3_user_infected(id, infector)
+public zb3_user_infected(id, infector, infect_flag)
 {
-	if(zb3_get_user_zombie_class(id) == g_zombie_classid)
-	{
-		reset_skill(id)
+	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+		return;
 		
-		g_can_heal[id] = 1
-		g_current_time[id] = 100
-	}
+	if(infect_flag == INFECT_VICTIM) reset_skill(id, true) 	
 }
-
 public zb3_user_change_class(id, oldclass, newclass)
 {
-	if(oldclass == g_zombie_classid && oldclass != newclass)
-	{
-		reset_skill(id)
-	}
+	if(newclass == g_zombie_classid && oldclass != newclass)
+		reset_skill(id, true)
+	if(oldclass == g_zombie_classid)
+		reset_skill(id, false)
 }
 
-public reset_skill(id)
+public reset_skill(id, bool:reset_time)
 {
-	g_can_heal[id] = 0
-	g_current_time[id] = 0
+	if( reset_time ) 
+		g_current_time[id] = zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST
 
-	remove_task(id+TASK_COOLDOWN)
+	g_can_heal[id] = reset_time ? 1 : 0
 }
 
 public zb3_user_spawned(id) 
 {
-	if(!zb3_get_user_zombie(id)) set_task(0.1, "reset_skill", id)
+	if(!zb3_get_user_zombie(id))
+		reset_skill(id, false)
 }
 
-public zb3_user_dead(id) reset_skill(id)
+public zb3_user_dead(id) 
+{
+	if(!zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
+		return;
 
+	reset_skill(id, false)
+}
 
 public fw_AddToFullPack_Post(es, e, ent, host, hostflags, player, pSet)
 {
@@ -138,7 +134,7 @@ public fw_AddToFullPack_Post(es, e, ent, host, hostflags, player, pSet)
 		return FMRES_IGNORED
 	if(zb3_get_user_zombie_class(host) != g_zombie_classid)
 		return FMRES_IGNORED
-	if(!zb3_get_user_nvg(host))
+	if(!zb3_get_user_nvg(host) || zb3_get_user_level(host) < 2)
 		return FMRES_IGNORED
 		
 	static Float:CurHealth, Float:MaxHealth
@@ -178,7 +174,10 @@ public cmd_drop(id)
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return PLUGIN_CONTINUE
 	if(!g_can_heal[id])
+	{
+		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
 		return PLUGIN_HANDLED
+	}
 
 	Do_Heal(id)
 
@@ -187,9 +186,9 @@ public cmd_drop(id)
 
 public Do_Heal(id)
 {
-	static CurrentHealth, MaxHealth, RealHealth
-	
-	g_current_time[id] = 0
+	static CurrentHealth, MaxHealth, RealHealth, PatientGender
+	static HealTotalAmount; HealTotalAmount = 0
+	g_current_time[id] = 0.0
 	g_can_heal[id] = 0
 	
 	if(zb3_get_user_level(id) > 1) // Origin Zombie
@@ -202,20 +201,28 @@ public Do_Heal(id)
 				continue
 			if(entity_range(id, i) > HEAL_RADIUS)
 				continue
-				
+
+			PatientGender = zb3_get_user_sex(i)
 			CurrentHealth = get_user_health(i)
 			MaxHealth = zb3_get_user_starthealth(i)
 			
 			RealHealth = clamp(CurrentHealth + HEAL_AMOUNT_ORIGIN, CurrentHealth, MaxHealth)
+			HealTotalAmount += RealHealth - CurrentHealth
+
+			if(RealHealth - CurrentHealth < 1)
+				continue
+
 			zb3_set_user_health(i, RealHealth)
-			
+
 			if(id == i) Heal_Icon(i, 1)
 			else Heal_Icon(i, 0)
-			
-			PlaySound(i, zb3_get_user_sex(id) == SEX_MALE ? HealSound : HealSound_Female)
+
+			EmitSound(i, CHAN_AUTO, HealSound[PatientGender-1])
 		}
-		
-		EmitSound(id, CHAN_BODY, HealSkillSound)
+#if defined _DEBUG
+		client_print(id, print_chat, "Heal for %i", HealTotalAmount); HealTotalAmount = 0
+#endif
+		EmitSound(id, CHAN_AUTO, HealSkillSound)
 	} else { // Host Zombie
 		CurrentHealth = get_user_health(id)
 		MaxHealth = zb3_get_user_starthealth(id)
@@ -224,71 +231,27 @@ public Do_Heal(id)
 		zb3_set_user_health(id, RealHealth)
 		
 		Heal_Icon(id, 1)
-		EmitSound(id, CHAN_BODY, HealSkillSound)
+		EmitSound(id, CHAN_AUTO, HealSkillSound)
 	}
-	
-	set_fov(id, HEAL_FOV)
-	set_task(0.5, "Remove_Fov", id)
-	
-	set_task(zb3_get_user_level(id) > 1 ? float(HEAL_COOLDOWN_ORIGIN) : float(HEAL_COOLDOWN_HOST), "Remove_Heal", id+TASK_COOLDOWN)
-}
-
-public Remove_Fov(id)
-{
-	if(!is_user_connected(id))
-		return
-		
-	set_fov(id)
-}
-
-public Remove_Heal(id)
-{
-	id -= TASK_COOLDOWN
-
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 
-	if(g_can_heal[id])
-		return	
-		
-	g_can_heal[id] = 1
-	g_current_time[id] = 100
 }
 
 public zb3_skill_show(id)
 {
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
+	if(!is_user_alive(id) || !zb3_get_user_zombie(id))
 		return
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 	
 		
-	if(g_current_time[id] < 100)
+	if(g_current_time[id] < get_cooldowntime(id))
 		g_current_time[id]++
 	
-	static Float:percent, percent2
-	static Float:timewait
-	
-	timewait = zb3_get_user_level(id) > 1 ? float(HEAL_COOLDOWN_ORIGIN) : float(HEAL_COOLDOWN_HOST)
-	
-	percent = (float(g_current_time[id]) / timewait) * 100.0
-	percent2 = floatround(percent)
-	
-	if(percent2 > 0 && percent2 < 50)
-	{
-		set_hudmessage(255, 0, 0, -1.0, 0.10, 0, 3.0, 3.0)
-		ShowSyncHudMsg(id, g_synchud1, "[G] - %s (%i%%)", zclass_desc, percent2)
-	} else if(percent2 >= 50 && percent < 100) {
-		set_hudmessage(255, 255, 0, -1.0, 0.10, 0, 3.0, 3.0)
-		ShowSyncHudMsg(id, g_synchud1, "[G] - %s (%i%%)", zclass_desc, percent2)
-	} else if(percent2 >= 100) {
-		set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-		ShowSyncHudMsg(id, g_synchud1, "[G] - %s (Ready)", zclass_desc)
-		
+	static percent
+	percent = floatround(floatclamp((g_current_time[id] / get_cooldowntime(id)) * 100.0, 0.0, 100.0))
+
+	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
+	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
+
+	if(percent >= 100) {
 		if(!g_can_heal[id]) g_can_heal[id] = 1
 	}	
 }
@@ -309,20 +272,9 @@ stock EmitSound(id, chan, const file_sound[])
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 }
 
-stock PlaySound(id, const sound[])
+stock Float:get_cooldowntime(id)
 {
-	if (equal(sound[strlen(sound)-4], ".mp3"))
-		client_cmd(id, "mp3 play ^"sound/%s^"", sound)
-	else
-		client_cmd(id, "spk ^"%s^"", sound)
-}
-
-stock set_fov(id, num = 90)
-{
-	if(!is_user_connected(id))
-		return
-	
-	message_begin(MSG_ONE_UNRELIABLE, g_Msg_Fov, {0,0,0}, id)
-	write_byte(num)
-	message_end()
+	if(!zb3_get_user_zombie(id))
+		return 0.0
+	return zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST;
 }

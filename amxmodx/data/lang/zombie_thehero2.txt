@@ -43,3 +43,7 @@ MENU_CANT_UNLOCK_CLASS = You !gDon't Have Enough Money!n to unlock this class.
 ZOMBIE_REGULAR_CANTBERSERK = Your Health is too low... Need bigger than 500
 ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
 
+// ZOMBIE_SKILL_NOT_READY = The '%s' skill is not ready yet. You cannot use it now. [Cooldown Timer %i sec(s)]
+ZOMBIE_SKILL_NOT_READY = The '%s' skill is not ready yet. [Cooldown Timer %i sec(s)]
+ZOMBIE_SKILL_SINGLE = G - %s %i%%
+ZOMBIE_SKILL_DOUBLE = G - %s %i%%^nR - %s %i%%
