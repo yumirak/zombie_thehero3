@@ -1523,12 +1523,12 @@ public UpdateLevelZombie(id)
 	if(g_iEvolution[id] < 10.0)
 		return
 	
-	g_iEvolution[id] = g_level[id] < 3 ? 0.0 : 10.0
-	g_level[id] = g_level[id] == 1 ? 2 : 3
-	
 	g_StartHealth[id] = g_level[id] == 1 ? zombie_level2_health :  zombie_level3_health
 	g_StartArmor[id] = g_level[id] == 1 ? zombie_level2_armor :  zombie_level3_armor
-	
+
+	g_iEvolution[id] = g_level[id] < 3 ? 0.0 : 10.0
+	g_level[id]++ //= g_level[id] == 1 ? 2 : 3
+
 	g_zombie_type[id] = ZOMBIE_ORIGIN
 	
 	// Update Health & Armor
