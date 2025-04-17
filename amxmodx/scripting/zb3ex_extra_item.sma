@@ -33,6 +33,8 @@ public plugin_init()
 	g_item_forward[FWD_ITEM_SELECTED_PRE] = CreateMultiForward("zb3_item_selected_pre", ET_IGNORE, FP_CELL, FP_CELL)
 	g_item_forward[FWD_ITEM_SELECTED_POST] = CreateMultiForward("zb3_item_selected_post", ET_IGNORE, FP_CELL, FP_CELL)
 	
+	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
+	
 	register_clcmd("chooseteam", "cmd_openmenu")
 	register_clcmd("jointeam", "cmd_openmenu")
 	register_clcmd("joinclass", "cmd_openmenu")
@@ -50,6 +52,14 @@ public plugin_precache()
 	item_cost = ArrayCreate(1, 1)
 	item_team = ArrayCreate(1, 1)
 	item_permanent_buy = ArrayCreate(1, 1)
+}
+
+public event_restart()
+{
+	for(new i = 0; i <= MAX_PLAYERS;i++)
+	{
+		reset_value_handle(i)
+	}
 }
 
 public client_connect(id)

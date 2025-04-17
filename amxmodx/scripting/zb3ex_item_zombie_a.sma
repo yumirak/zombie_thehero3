@@ -18,6 +18,7 @@
 /// ============== CONFIGS ===================
 const g_x_health_armor_cost = 5000
 const zombie_grenade_cost = 7000
+const g_70_infect_cost = 5000
 new const ZOMBIEBOM_MODEL[] = "zombibomb"
 const Float:ZOMBIEBOM_RADIUS = 250.0
 const Float:ZOMBIEBOM_POWER = 700.0
@@ -29,7 +30,7 @@ const g_im_respawn_cost = 3000
 new Float:g_hud_delay[33], g_sync_hud1
 
 // Item: x Health & Armor
-new g_x_health_armor, g_had_x_health_armor[33]
+new g_x_health_armor, g_had_x_health_armor[33], g_x_health_armor_used[33]
 
 // Item: Zombie Grenade
 new Array:model_host, Array:model_origin
@@ -44,10 +45,14 @@ new g_had_zombie_grenade[33]
 // Item: Immediate Respawn
 new g_im_respawn, g_had_im_respawn[33]
 
+// Item: 70% Infect Health
+new g_70_infect, g_had_70_infect[33]
+
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	
+
+	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
 	register_event("CurWeapon", "event_CurWeapon", "be", "1=1")
 	register_forward(FM_SetModel, "fw_SetModel")
 	
@@ -83,6 +88,7 @@ public plugin_precache()
 	}
 	
 	g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
+	g_70_infect = zb3_register_item("70% Infect Health", "Lesser Health Penalty", g_70_infect_cost, TEAM2_ZOMBIE, 1)
 	zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
 	g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
 }
@@ -104,6 +110,20 @@ public native_reg_zbgr_model(const v_model_host[], const v_model_origin[])
 	precache_model(v_model_origin)
 }
 
+public zb3_game_start(start_type)
+{
+	for(new i = 0; i < MAX_PLAYERS;i++)
+		g_x_health_armor_used[i] = 0
+}
+
+public event_restart()
+{
+	for(new i = 1; i < MAX_PLAYERS;i++)
+	{
+		reset_value(i)
+	}
+}
+
 public zb3_item_selected_post(id, itemid)
 {
 	if(itemid == g_x_health_armor)
@@ -114,6 +134,9 @@ public zb3_item_selected_post(id, itemid)
 	} else if(itemid == g_im_respawn) {
 		g_had_im_respawn[id] = 1
 		zb3_set_user_respawn_time(id, 0)
+	} else if(itemid == g_70_infect) {
+		g_had_70_infect[id] = 1
+		zb3_set_user_infect_mod(id, 0.7)
 	}
 }
 
@@ -160,12 +183,17 @@ public client_putinserver(id)
 public reset_value(id)
 {
 	g_had_x_health_armor[id] = 0
+	g_x_health_armor_used[id] = 0
 	g_had_zombie_grenade[id] = 0
 	g_had_im_respawn[id] = 0
 	
+	g_had_70_infect[id] = 0
+
 	zb3_reset_user_respawn_time(id)
+	zb3_reset_user_infect_mod(id)
 }
 
+#if 0
 public client_PostThink(id)
 {
 	if(!is_user_alive(id))
@@ -206,6 +234,8 @@ public client_PostThink(id)
 		g_hud_delay[id] = CurTime
 	}
 }
+#endif
+
 // ================= Item: x Health & Armor
 public x_health_armor_handle(id)
 {
@@ -217,20 +247,26 @@ public x_health_armor_handle(id)
 		return
 	if(!g_had_x_health_armor[id])
 		return
+	if(g_x_health_armor_used[id])
+		return
 		
-	static Health, Armor, Float:NewHealth, Float:NewArmor
+	static Float:Health, Float:Armor, Float:MaxHealth, Float:MaxArmor, Float:NewHealth, Float:NewArmor
 	
-	Health = zb3_get_user_starthealth(id)
-	Armor = zb3_get_user_startarmor(id)
+	Health = float(zb3_get_user_starthealth(id))
+	Armor =  float(zb3_get_user_startarmor(id))
+	MaxHealth =  float(zb3_get_user_maxhealth(id))
+	MaxArmor =  float(zb3_get_user_maxarmor(id))
+
+	NewHealth = floatclamp(Health * 1.5, Health , MaxHealth)
+	NewArmor = floatclamp(Armor* 1.5 , Armor , MaxArmor)
 	
-	NewHealth = float(Health) * 1.5
-	NewArmor = float(Armor) * 1.5
-	
-	zb3_set_user_starthealth(id, floatround(NewArmor))
+	zb3_set_user_starthealth(id, floatround(NewHealth))
 	zb3_set_user_startarmor(id, floatround(NewArmor))
 	
 	set_user_health(id, floatround(NewHealth))
 	set_user_armor(id, floatround(NewArmor))
+
+	g_x_health_armor_used[id] = 1
 }
 // ================= Item: Zombie Grenade
 public zombie_grenade_handle(id)

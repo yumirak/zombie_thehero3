@@ -94,6 +94,8 @@ public plugin_init()
 	
 	g_Msg_ScreenFade = get_user_msgid("ScreenFade")
 	
+	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
+
 	register_clcmd("fastrun", "do_fastrun")
 	register_clcmd("use_deadlyshot", "do_deadlyshot")
 	register_clcmd("use_bloodyblade", "do_bloodyblade")
@@ -130,6 +132,7 @@ public client_connect(id)
 	g_had_deadlyshot[id] = 0
 	g_can_use_deadlyshot[id] = 0
 	g_using_deadlyshot[id] = 0
+	g_had_bloodyblade[id] = 0
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
 	g_had_nvg[id] = 0
@@ -143,7 +146,13 @@ public client_putinserver(id)
 		set_task(0.1, "do_register", id)
 	}
 }
-
+public event_restart()
+{
+	for(new i = 0; i <= MAX_PLAYERS;i++)
+	{
+		remove_all_item(i)
+	}
+}
 public do_register(id)
 {
 	RegisterHamFromEntity(Ham_TraceAttack, id, "fw_TraceAttack")
@@ -160,7 +169,7 @@ public zb3_item_selected_post(id, itemid)
 		set_double_grenade(id)
 	} else if(itemid == g_p30_damage) {
 		g_had_p30_damage[id] = 1
-		zb3_set_user_level(id, 3)
+		set_p30_damage(id)
 	} else if(itemid == g_sprint) {
 		g_had_sprint[id] = 1
 		set_user_item_sprint(id)
@@ -194,7 +203,9 @@ public client_PostThink(id)
 	
 	if(CurTime - DELAY_TIME > g_hud_delay[id])
 	{
+#if 0
 		sync_hud1_handle(id)
+#endif
 		sync_hud2_handle(id)
 		
 		g_hud_delay[id] = CurTime
@@ -211,6 +222,7 @@ public client_PostThink(id)
 	}
 }
 
+#if 0
 public sync_hud1_handle(id)
 {
 	static Temp_String[128], Temp_String2[128], Temp_String3[128]
@@ -244,6 +256,7 @@ public sync_hud1_handle(id)
 	set_hudmessage(0, 255, 0, 0.015, 0.20, 0, 2.0, 2.0)
 	ShowSyncHudMsg(id, g_sync_hud1, Temp_String3)	
 }
+#endif
 
 public sync_hud2_handle(id)
 {
@@ -291,6 +304,7 @@ public zb3_user_spawned(id)
 	if(!is_user_connected(id))
 		return HAM_IGNORED
 		
+	reset_all_item(id)
 	set_wing_boot(id)
 	set_double_grenade(id)
 	set_user_item_sprint(id)
@@ -319,6 +333,23 @@ public reset_all_item(id)
 	remove_bloodblade_icon(id)
 }
 
+public remove_all_item(id)
+{
+	g_had_wing_boot[id] = 0
+	g_had_double_grenade[id] = 0
+	g_had_p30_damage[id] = 0
+	g_had_sprint[id] = 0
+	g_can_use_sprint[id] = 0
+	g_using_sprint[id] = 0
+	g_sprint_status[id] = 0
+	g_had_deadlyshot[id] = 0
+	g_can_use_deadlyshot[id] = 0
+	g_using_deadlyshot[id] = 0
+	g_had_bloodyblade[id] = 0
+	g_can_use_bloodyblade[id] = 0
+	g_using_bloodyblade[id] = 0
+	g_had_nvg[id] = 0
+}
 // =========== Item: Wing Boot
 public set_wing_boot(id)
 {
@@ -531,7 +562,8 @@ public set_p30_damage(id)
 	if(!g_had_p30_damage[id])
 		return	
 		
-	zb3_set_user_level(id, 3)
+	zb3_set_user_maxlevel(id, zb3_get_user_maxlevel(id) + 3)
+	zb3_set_user_level(id, zb3_get_user_level(id) + 3)
 }
 
 // =============== Item: Deadly Shot
