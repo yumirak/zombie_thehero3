@@ -13,6 +13,15 @@ new const WEAPONNAMES[][] = { "", "P228 Compact", "", "Schmidt Scout", "HE Grena
 	"Leone 12 Gauge Super", "Maverick M4A1 Carbine", "Schmidt Machine Pistol", "G3SG1 Auto-Sniper", "Flashbang", "Night Hawk .50C",
 	"SG-552 Commando", "AK-47 Kalashnikov", "Seal Knife", "ES P90" }
 
+#if REAPI_VERSION_MINOR < 26
+// Primary and Secondary Weapon Names
+new const WEAPONSLOT[] = { 0, CS_WEAPONSLOT_SECONDARY, 0, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_GRENADE, CS_WEAPONSLOT_PRIMARY, 0, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY,
+	CS_WEAPONSLOT_GRENADE, CS_WEAPONSLOT_SECONDARY, CS_WEAPONSLOT_SECONDARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY,
+	CS_WEAPONSLOT_SECONDARY, CS_WEAPONSLOT_SECONDARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY,
+	CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_GRENADE, CS_WEAPONSLOT_SECONDARY,
+	CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_PRIMARY, CS_WEAPONSLOT_KNIFE, CS_WEAPONSLOT_PRIMARY }
+#endif
+
 new Array:weapon_list_num
 
 new g_weapon[ MAX_WEAPONS ];
@@ -39,7 +48,11 @@ public ListWeapon()
 		if( WEAPONNAMES[i][0] == 0)
 			continue
 
+#if REAPI_VERSION_MINOR < 26
+		g_iWeaponSlot[i] = WEAPONSLOT[i]
+#else
 		g_iWeaponSlot[i] = rg_get_weapon_info(i, WI_SLOT)
+#endif
 		iSlot = g_iWeaponSlot[i]
 
 		if (iSlot < CS_WEAPONSLOT_PRIMARY ||iSlot > CS_WEAPONSLOT_GRENADE )
@@ -81,7 +94,7 @@ public get_weapon(id, wpnid)
 
 	switch(g_iWeaponSlot[wpnid])
 	{
-		case PRIMARY_WEAPON_SLOT..PISTOL_SLOT: ammo_multi = 2
+		case CS_WEAPONSLOT_PRIMARY..CS_WEAPONSLOT_SECONDARY: ammo_multi = 2
 		case GRENADE_SLOT: ammo_multi = 1
 	}
 
