@@ -514,8 +514,8 @@ public plugin_precache()
 	g_respawn_iconid = precache_model(g_respawn_icon)
 	precache_model(HealerSpr)
 	
-	//set_task(2.5, "Check_Available")
-	///set_task(300.0, "Check_Server", _, _, _, "b")	
+	// YaPB detection
+	register_cvar("zp_delay", "20", FCVAR_PROTECTED)	
 }
 
 public plugin_natives()
