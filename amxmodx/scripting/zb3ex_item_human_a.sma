@@ -349,6 +349,7 @@ public remove_all_item(id)
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
 	g_had_nvg[id] = 0
+	zb3_reset_user_maxlevel(id)
 }
 // =========== Item: Wing Boot
 public set_wing_boot(id)

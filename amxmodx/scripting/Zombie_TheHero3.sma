@@ -1590,7 +1590,7 @@ public show_evolution_hud(id, is_zombie)
 	static level_color[3] 
 	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
 
-	for(new i = 0; i < sizeof(level_color) - 1; i++)
+	for(new i = 0; i < sizeof(level_color); i++)
 		level_color[i] = get_color_level(id, i)
 	
 	// Show Hud
@@ -2112,7 +2112,7 @@ public set_user_hero(id, player_sex)
 		return 1
 
 	// Reset Player
-	reset_player(id, 0, 0)
+	// reset_player(id, 0, 0)
 	
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_PRIMARY)
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_SECONDARY)
