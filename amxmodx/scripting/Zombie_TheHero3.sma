@@ -198,6 +198,7 @@ public plugin_init()
 	register_message(get_user_msgid("StatusIcon"), "Message_StatusIcon")
 	register_message(get_user_msgid("ClCorpse"), "Message_ClCorpse")
 	register_message(get_user_msgid("Health"), "Message_Health")
+	register_message(get_user_msgid("Battery"), "Message_Battery")
 	
 	// Forward
 	unregister_forward(FM_Spawn, g_BlockedObj_Forward)
@@ -1140,6 +1141,8 @@ public Message_ClCorpse()
 
 public Message_Health(msg_id, msg_dest, id)
 {
+	if(!is_user_alive(id))
+		return
 	// Get player's health
 	static health
 	health = get_user_health(id)
@@ -1150,24 +1153,33 @@ public Message_Health(msg_id, msg_dest, id)
 	
 	static Float:NewHealth, RealHealth, Health
 	
-	if(g_zombie[id])
-	{
-		if(g_level[id] == 1)
-			NewHealth = (float(health) / float(g_StartHealth[id])) * 100.0
-		else if(g_level[id] == 2)
-			NewHealth = (float(health) / float(g_StartHealth[id])) * 150.0
-		else if(g_level[id] == 3)
-			NewHealth = (float(health) / float(g_StartHealth[id])) * 200.0
-	} else {
-		NewHealth = (float(health) / float(human_health)) * 100.0
-	}
-
+	NewHealth = float(health) * (g_zombie[id] ? 0.01 : 0.1)
 	RealHealth = floatround(NewHealth)
 	Health = clamp(RealHealth, 1, 255)
-	
+
 	set_msg_arg_int(1, get_msg_argtype(1), Health)
 }
 
+public Message_Battery(msg_id, msg_dest, id)
+{
+	if(!is_user_alive(id) || !g_zombie[id])
+		return
+	// Get player's armor
+	static armor
+	armor = rg_get_user_armor(id)
+	
+	//// Don't bother
+	if(armor < 1) 
+		return
+	
+	static Float:NewArmor, RealArmor, ArmorP
+	
+	NewArmor = float(armor) * 0.1
+	RealArmor = floatround(NewArmor)
+	ArmorP = clamp(RealArmor, 1, 999)
+
+	set_msg_arg_int(1, get_msg_argtype(1), ArmorP)
+}
 public cmd_nightvision(id)
 {
 	if (!is_user_alive(id) || !g_HasNvg[id]) return PLUGIN_HANDLED;
@@ -1575,37 +1587,39 @@ public show_score_hud(id)
 
 public show_evolution_hud(id, is_zombie)
 {
-	static level_color[3]
-	
-	level_color[0] = get_color_level(id, 0)
-	level_color[1] = get_color_level(id, 1)
-	level_color[2] = get_color_level(id, 2)	
+	static level_color[3] 
+	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
+
+	for(new i = 0; i < sizeof(level_color) - 1; i++)
+		level_color[i] = get_color_level(id, i)
 	
 	// Show Hud
-	set_hudmessage(level_color[0], level_color[1], level_color[2], -1.0, 0.83, 0, 1.5, 1.5)
-	
-	// Get Damage Percent
-	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
-	
-	if(!is_zombie)
+	set_dhudmessage(level_color[0], level_color[1], level_color[2], MAIN_HUD_X, 0.83, 0, 1.5, 1.5)
+
+	switch(is_zombie)
 	{
-		DamagePercent = floatround(g_fDamageMulti[g_level[id]] * 100.0)
-		
-		for(new i = 0; i < g_level[id]; i++)
-			formatex(PowerUp, sizeof(PowerUp), "%s||", PowerUp)
-		for(new i = 10; i > g_level[id]; i--)
-			formatex(PowerDown, sizeof(PowerDown), "%s--", PowerDown)
-		
-		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "HUMAN_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
-	} else {
+	case true:
+	{
 		DamagePercent = g_level[id]
 		
-		for(new Float:i = 0.0; i < g_iEvolution[id]; i += 0.5)
+		for(new Float:i = 0.0; i < g_iEvolution[id]; i += 1.0)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
-		for(new Float:i = 10.0; i > g_iEvolution[id]; i -= 0.5)
-			formatex(PowerDown, sizeof(PowerDown), "%s-", PowerDown)
-			
-		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "ZOMBIE_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
+		for(new Float:i = 10.0; i > g_iEvolution[id]; i -= 1.0)
+			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
+
+		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "ZOMBIE_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
+	}
+	case false:
+	{
+		DamagePercent = floatround(g_fDamageMulti[g_level[id]] * 100.0)
+
+		for(new i = 0; i < g_level[id]; i++)
+			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
+		for(new i = g_iMaxLevel[id]; i > g_level[id]; i--)
+			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
+
+		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "HUMAN_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
+	}
 	}
 	
 	ShowSyncHudMsg(id, g_SyncHud[SYNCHUD_ZBHM_SKILL3], FullText)
@@ -1690,7 +1704,7 @@ public delay_UpdateLevelHuman(id)
 	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_HUMAN_LEVELUP", g_level[id])
 
 	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 1, 3.0, 3.0)
-	show_dhudmessage(0, szText)
+	show_dhudmessage(id, szText)
 }
 
 public zombie_restore_health(id)
@@ -2473,7 +2487,7 @@ public reset_player(id, new_player, zombie_respawn)
 		g_RespawnTime[id] = g_respawn_time
 		g_iMaxLevel[id] = 10
 		g_iEvolution[id] = 0.0
-		g_flinfect_multi = 0.5
+		g_flinfect_multi[id] = 0.5
 
 		for(new i = 0; i < MAX_ZOMBIECLASS; i++)
 			g_unlocked_class[id][i] = 0
@@ -2607,19 +2621,12 @@ stock get_color_level(id, num)
 	new color[3]
 	switch (g_level[id])
 	{
-		case 1: color = {0,177,0}
-		case 2: color = {0,177,0}
-		case 3: color = {0,177,0}
-		case 4: color = {137,191,20}
-		case 5: color = {137,191,20}
-		case 6: color = {250,229,0}
-		case 7: color = {250,229,0}
-		case 8: color = {243,127,1}
-		case 9: color = {243,127,1}
+		case 1..3: color = g_zombie[id] ? {137,191,20} : {0,177,0}
+		case 4..5: color = {137,191,20}
+		case 6..7: color = {250,229,0}
+		case 8..9: color = {243,127,1}
 		case 10: color = {255,3,0}
-		case 11: color = {127,40,208}
-		case 12: color = {127,40,208}
-		case 13: color = {127,40,208}
+		case 11..13: color = {127,40,208}
 		default: color = {0,177,0}
 	}
 	
