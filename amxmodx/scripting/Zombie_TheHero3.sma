@@ -99,7 +99,7 @@ Array:sound_zombie_coming, Array:sound_zombie_comeback, sound_ambience[64], soun
 sound_remain_time[64]
 
 new Array:zombie_name, Array:zombie_desc, Array:zombie_sex, Array:zombie_lockcost, Array:zombie_model_host, Array:zombie_model_origin,
-Array:zombie_gravity, Array:zombie_speed_host, Array:zombie_speed_origin, Array:zombie_knockback,
+Array:zombie_gravity, Array:zombie_speed_host, Array:zombie_speed_origin, Array:zombie_knockback, Array:zombie_dmgmulti,
 Array:zombie_painshock, Array:zombie_sound_death1, Array:zombie_sound_death2, Array:zombie_sound_hurt1,
 Array:zombie_sound_hurt2, Array:zombie_clawsmodel_host, Array:zombie_clawsmodel_origin, Array:zombie_claw_distance1, Array:zombie_claw_distance2
 	
@@ -349,6 +349,7 @@ public plugin_precache()
 	zombie_speed_host = ArrayCreate(1, 1)
 	zombie_speed_origin = ArrayCreate(1, 1)
 	zombie_knockback = ArrayCreate(1, 1)
+	zombie_dmgmulti = ArrayCreate(1, 1)
 	zombie_painshock = ArrayCreate(1, 1)
 	zombie_sound_death1 = ArrayCreate(64, 1)
 	zombie_sound_death2 = ArrayCreate(64, 1)
@@ -876,7 +877,7 @@ public native_reset_maxlevel(id)
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
-Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2)
+Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2)
 {
 	param_convert(1)
 	param_convert(2)
@@ -891,6 +892,7 @@ Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:PainShock, Float:Claw
 	ArrayPushCell(zombie_speed_origin, SpeedOrigin)
 	ArrayPushCell(zombie_knockback, KnockBack)
 	ArrayPushCell(zombie_painshock, PainShock)
+	ArrayPushCell(zombie_dmgmulti, DmgMulti)
 
 	ArrayPushCell(zombie_claw_distance1, ClawsDistance1)
 	ArrayPushCell(zombie_claw_distance2, ClawsDistance2)
@@ -1291,9 +1293,11 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 	if(g_zombie[attacker] || !g_zombie[victim])  // Human Attack Zombie
 		return HAM_IGNORED
 
-	static Float:zb_class_painshock
-	zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+	static Float:zb_class_painshock; zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+	static Float:zb_class_dmgmulti; zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
 
+	if (zb_class_dmgmulti > 0.0)
+		damage *= zb_class_dmgmulti
 	if (damagebits & DMG_GRENADE)
 		damage *= grenade_default_power
 	if (damagebits & DMG_BULLET)

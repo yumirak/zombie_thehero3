@@ -26,7 +26,7 @@ new const Float:zclass_speedhost = 295.0
 new const Float:zclass_speedorigin = 295.0
 new const Float:zclass_knockback = 3.0
 new const Float:zclass_painshock = 0.1
-new const Float:zclass_dmgmodifier = 1.2
+new const Float:zclass_dmgmulti  = 1.3
 
 new const DeathSound[2][] =
 {
@@ -81,7 +81,7 @@ public plugin_precache()
 {
 	// Register Zombie Class
 	g_zombie_classid = zb3_register_zombie_class(zclass_name, zclass_desc, zclass_sex, zclass_lockcost, 
-	zclass_gravity, zclass_speedhost, zclass_speedorigin, zclass_knockback, zclass_painshock, 
+	zclass_gravity, zclass_speedhost, zclass_speedorigin, zclass_knockback, zclass_dmgmulti, zclass_painshock, 
 	ClawsDistance1, ClawsDistance2)
 	
 	zb3_set_zombie_class_data(zclass_hostmodel, zclass_originmodel, zclass_clawsmodelhost, zclass_clawsmodelorigin, 
