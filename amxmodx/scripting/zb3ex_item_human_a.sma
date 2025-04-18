@@ -140,11 +140,13 @@ public client_connect(id)
 
 public client_putinserver(id)
 {
+	#if 0
 	if(is_user_bot(id) && !g_register)
 	{
 		g_register = 1
 		set_task(0.1, "do_register", id)
 	}
+	#endif
 }
 public event_restart()
 {
@@ -153,10 +155,13 @@ public event_restart()
 		remove_all_item(i)
 	}
 }
+
+#if 0
 public do_register(id)
 {
 	RegisterHamFromEntity(Ham_TraceAttack, id, "fw_TraceAttack")
 }
+#endif
 
 public zb3_item_selected_post(id, itemid)
 {
@@ -563,7 +568,7 @@ public set_p30_damage(id)
 	if(!g_had_p30_damage[id])
 		return	
 		
-	zb3_set_user_maxlevel(id, zb3_get_user_maxlevel(id) + 3)
+	zb3_set_user_maxlevel(id, 13)
 	zb3_set_user_level(id, zb3_get_user_level(id) + 3)
 }
 
