@@ -107,6 +107,7 @@ new Array:zombie_sound_heal, Array:zombie_sound_evolution, Array:sound_zombie_at
 Array:sound_zombie_hitwall, Array:sound_zombie_swing
 	
 // - Weather & Sky & NVG
+new g_mapconfigdir[256]
 new g_rain, g_snow, g_fog, g_fog_density[10], g_fog_color[12]
 new g_sky_enabled, Array:g_sky, g_light[2]
 new g_NvgColor[PlayerTeams][3], g_NvgAlpha, g_nvg[33], g_HasNvg[33]
@@ -116,7 +117,7 @@ new const HealerSpr[] = "sprites/zombie_thehero/zombihealer.spr" // temp
 
 // Block Round Event
 new g_BlockedObj_Forward
-new g_BlockedObj[15][] =
+new g_BlockedObj[12][] =
 {
         "func_bomb_target",
         "info_bomb_target",
@@ -127,9 +128,6 @@ new g_BlockedObj[15][] =
         "monster_scientist",
         "func_hostage_rescue",
         "info_hostage_rescue",
-        "env_fog",
-        "env_rain",
-        "env_snow",
         "item_longjump",
         "func_vehicle",
         "func_buyzone"
@@ -483,18 +481,32 @@ public plugin_precache()
 	engfunc(EngFunc_PrecacheSound, sound_human_levelup)
 	
 	// Weather Handle
-	remove_entity_name("env_fog")
 	if(g_fog)
 	{
-		new ent = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_fog"))
+		new ent;
+		if(!find_ent_by_class(-1, "env_fog"))
+			ent = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_fog"))
+		else
+			ent = find_ent_by_class(-1, "env_fog")
+
 		if (pev_valid(ent))
 		{
 			fm_set_kvd(ent, "density", g_fog_density, "env_fog")
 			fm_set_kvd(ent, "rendercolor", g_fog_color, "env_fog")
 		}
 	}
-	if (g_rain) engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_rain"))
-	if (g_snow) engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_snow"))
+
+	if(g_rain)
+	{
+		if(!find_ent_by_class(-1, "env_rain"))
+			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_rain"))
+	}
+
+	if(g_snow)
+	{
+		if(!find_ent_by_class(-1, "env_snow"))
+			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_snow"))
+	}
 	
 	m_iBlood[0] = precache_model("sprites/blood.spr")
 	m_iBlood[1] = precache_model("sprites/bloodspray.spr")
@@ -2959,6 +2971,8 @@ public load_config_file()
 {
 	static buffer[128], Array:DummyArray
 	
+	get_mapconfigdir()
+
 	// GamePlay Configs
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level3_health = str_to_num(buffer)
@@ -2985,15 +2999,15 @@ public load_config_file()
 	amx_load_setting_string( true, SETTING_FILE, "Hero Config", "HEROINE_MODEL",buffer, 0, hero_model_female)
 	
 	// Weather & Sky Configs
-	amx_load_setting_string( false, SETTING_FILE, "Weather Effects", "RAIN", buffer, sizeof(buffer), DummyArray); g_rain = str_to_num(buffer)
-	amx_load_setting_string( false, SETTING_FILE, "Weather Effects", "SNOW", buffer, sizeof(buffer), DummyArray); g_snow = str_to_num(buffer)
-	amx_load_setting_string( false, SETTING_FILE, "Weather Effects", "FOG" , buffer, sizeof(buffer), DummyArray); g_fog = str_to_num(buffer)
+	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "RAIN", buffer, sizeof(buffer), DummyArray); g_rain = str_to_num(buffer)
+	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "SNOW", buffer, sizeof(buffer), DummyArray); g_snow = str_to_num(buffer)
+	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG" , buffer, sizeof(buffer), DummyArray); g_fog = str_to_num(buffer)
 
-	amx_load_setting_string( false, SETTING_FILE, "Weather Effects", "FOG_DENSITY", g_fog_density, charsmax(g_fog_density), DummyArray)
-	amx_load_setting_string( false, SETTING_FILE, "Weather Effects", "FOG_COLOR", g_fog_color, charsmax(g_fog_color), DummyArray)
+	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG_DENSITY", g_fog_density, charsmax(g_fog_density), DummyArray)
+	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG_COLOR", g_fog_color, charsmax(g_fog_color), DummyArray)
 	
-	amx_load_setting_string( false, SETTING_FILE, "Custom Skies", "ENABLE", buffer, sizeof(buffer), DummyArray); g_sky_enabled = str_to_num(buffer)
-	amx_load_setting_string( true,  SETTING_FILE, "Custom Skies", "SKY NAMES", buffer, 0, g_sky)
+	amx_load_setting_string( false, g_mapconfigdir, "Custom Skies", "ENABLE", buffer, sizeof(buffer), DummyArray); g_sky_enabled = str_to_num(buffer)
+	amx_load_setting_string( true,  g_mapconfigdir, "Custom Skies", "SKY NAMES", buffer, 0, g_sky)
 	
 	// Light & NightVision
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "LIGHT", g_light, charsmax(g_light), DummyArray)
@@ -3037,6 +3051,13 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Restore Health", "RESTORE_HEALTH_DMG_LV1", buffer, sizeof(buffer), DummyArray); Restore_Amount_Host = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Restore Health", "RESTORE_HEALTH_DMG_LV2", buffer, sizeof(buffer), DummyArray); Restore_Amount_Origin = str_to_num(buffer)
 
+}
+
+public get_mapconfigdir()
+{
+	new mapname[32]
+	get_mapname(mapname, charsmax(mapname))
+	formatex(g_mapconfigdir, charsmax(g_mapconfigdir), "%s/mapcfg/%s.ini", GAMESYSTEMNAME , mapname)
 }
 
 public amx_load_setting_string( bool:IsArray ,const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
