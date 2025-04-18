@@ -208,7 +208,8 @@ public plugin_init()
 	register_forward(FM_TraceLine, "fw_TraceLine")
 	register_forward(FM_TraceHull, "fw_TraceHull")	
 	register_forward(FM_GetGameDescription, "fw_GetGameDesc")
-	
+	register_forward(FM_ClientKill, "fw_Block" );
+
 	// Ham Forwards
 	RegisterHam(Ham_Spawn, "player", "fw_PlayerSpawn_Post", 1)
 	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage")
@@ -263,17 +264,20 @@ public plugin_init()
 	set_cvar_num("sv_skycolor_r", 0)
 	set_cvar_num("sv_skycolor_g", 0)
 	set_cvar_num("sv_skycolor_b", 0)
-	
+
+#if defined _DEBUG
 	register_clcmd("zb3_infect", "cmd_infect")
 	register_clcmd("zb3_hero", "cmd_hero")
 	register_clcmd("zb3_free", "cmd_free")
-	register_clcmd("kill", "cmd_block")
+#endif
+
 	register_clcmd("nightvision", "cmd_nightvision")
 	register_clcmd("drop", "cmd_drop")
 	
 	set_task(1.0, "Time_Change", _, _, _, "b")
 }
 
+#if defined _DEBUG
 public cmd_infect(id)
 {
 	if(!is_user_connected(id))
@@ -325,11 +329,7 @@ public cmd_free(id)
 	g_free_gun = !g_free_gun
 	client_print(id, print_console, "[ZB3 MAIN] Free = %i", g_free_gun)
 }
-
-public cmd_block(id)
-{
-	return PLUGIN_HANDLED
-}
+#endif
 
 public plugin_precache()
 {
@@ -1569,6 +1569,10 @@ public fw_GetGameDesc()
 	return FMRES_SUPERCEDE
 }
 
+public fw_Block(id)
+{
+	return FMRES_SUPERCEDE;
+}
 // ======================== MAIN PUBLIC ===========================
 // ================================================================	
 public show_score_hud(id)
