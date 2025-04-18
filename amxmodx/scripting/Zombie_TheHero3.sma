@@ -205,7 +205,6 @@ public plugin_init()
 	register_forward(FM_Touch, "fw_Touch")
 	register_forward(FM_EmitSound, "fw_EmitSound")
 	register_forward(FM_PlayerPreThink, "fw_PlayerPreThink")
-	register_forward(FM_CmdStart, "fw_CmdStart")
 	register_forward(FM_TraceLine, "fw_TraceLine")
 	register_forward(FM_TraceHull, "fw_TraceHull")	
 	register_forward(FM_GetGameDescription, "fw_GetGameDesc")
@@ -1483,15 +1482,11 @@ public fw_EmitSound(id, channel, const sample[], Float:volume, Float:attn, flags
 	return FMRES_IGNORED;
 }
 
-public fw_CmdStart(id)
-{
-	zombie_restore_health(id)
-}
-
 public fw_PlayerPreThink(id)
 {
 	if(g_UsingCustomSpeed[id] && pev(id, pev_maxspeed) != g_PlayerMaxSpeed[id])
-		set_pev(id, pev_maxspeed, g_PlayerMaxSpeed[id])	
+		set_pev(id, pev_maxspeed, g_PlayerMaxSpeed[id])
+	if(g_zombie[id]) zombie_restore_health(id)
 }
 
 public fw_TraceLine(Float:vector_start[3], Float:vector_end[3], ignored_monster, id, handle)
@@ -1717,53 +1712,36 @@ public zombie_restore_health(id)
 	static Float:velocity[3]
 	pev(id, pev_velocity, velocity)
 	
-	if (!velocity[0] && !velocity[1] && !velocity[2])
+	switch( velocity[0] == 0 && velocity[1] == 0 && velocity[2] == 0 )
 	{
-		if (!g_restore_health[id]) g_restore_health[id] = get_systime()
+		case true: if (!g_restore_health[id]) g_restore_health[id] = get_systime()
+		case false: g_restore_health[id] = 0
 	}
-	else if (g_restore_health[id])
-	{
-		g_restore_health[id] = 0
-	}
+
+	if(!g_restore_health[id])
+		return
 	
-	if (g_restore_health[id])
+	new rh_time = get_systime() - g_restore_health[id]
+	if (rh_time == Restore_Health_Time + 1 && get_user_health(id) < g_StartHealth[id])
 	{
-		new rh_time = get_systime() - g_restore_health[id]
-		if (rh_time == Restore_Health_Time + 1 && get_user_health(id) < g_StartHealth[id])
-		{
-			// get health add
-			new health_add
-			if (g_level[id] > 1) health_add = Restore_Amount_Origin
-			else health_add = Restore_Amount_Host
+		// get health add
+		new health_add
+		if (g_level[id] > 1) health_add = Restore_Amount_Origin
+		else health_add = Restore_Amount_Host
+
+		// get health new
+		new health_new = get_user_health(id)+health_add
+		health_new = min(health_new, g_StartHealth[id])
 			
-			// get health new
-			new health_new = get_user_health(id)+health_add
-			health_new = min(health_new, g_StartHealth[id])
+		// set health
+		set_pev(id, pev_health, float(health_new))
+		g_restore_health[id] += 1
 			
-			// set health
-			set_pev(id, pev_health, float(health_new))
-			g_restore_health[id] += 1
-			
-			// play sound heal
-			new sound_heal[64]
-			ArrayGetString(zombie_sound_heal, g_zombie_class[id], sound_heal, charsmax(sound_heal))
-			PlaySound(id, sound_heal)
-			zb3_set_head_attachment(id, HealerSpr, 1.0, 1.0, 0.5, 19)
-			
-			if(!g_nvg[id])
-			{
-				// Make a screen fade 
-				message_begin(MSG_ONE_UNRELIABLE, g_MsgScreenFade, _, id)
-				write_short((1<<12) * 1) // duration
-				write_short(0) // hold time
-				write_short(0x0000) // fade type
-				write_byte(0) // red
-				write_byte(150) // green
-				write_byte(0) // blue
-				write_byte(50) // alpha
-				message_end()
-			}
-		}
+		// play sound heal
+		new sound_heal[64]
+		ArrayGetString(zombie_sound_heal, g_zombie_class[id], sound_heal, charsmax(sound_heal))
+		PlaySound(id, sound_heal)
+		zb3_set_head_attachment(id, HealerSpr, 1.0, 1.0, 0.5, 19)
 	}
 }
 		
