@@ -30,7 +30,7 @@
 #define WEAPON_NAME 			"weapon_mp7a1D"
 
 #define WEAPON_MAX_CLIP			80
-#define WEAPON_DEFAULT_AMMO		240
+#define WEAPON_DEFAULT_AMMO		200
 
 #define WEAPON_MAX_SPEED		220.0
 #define WEAPON_FOV_ZOOM			55
@@ -53,7 +53,13 @@
 #define MODEL_PLAYER	"models/zombie_thehero/supplybox_item/p_dual_mp7a1.mdl"
 // Sounds
 #define SOUND_FIRE		"weapons/dmp7-1.wav"
-
+new const ClientSideSound[4][] =
+{
+	"weapons/dmp7_draw.wav",
+	"weapons/dmp7_drop.wav",
+	"weapons/mp7_foley2.wav",
+	"weapons/mp7_foley4.wav"
+};
 // Sprites
 #if defined WEAPONLIST
 #define WEAPON_HUD_TXT		"sprites/weapon_mp7a1d.txt"
@@ -136,6 +142,10 @@ Weapon_OnPrecache()
 	PRECACHE_MODEL(MODEL_PLAYER);
 	
 	PRECACHE_SOUND(SOUND_FIRE);
+	for(new i = 0; i < sizeof(ClientSideSound);i++)
+	{
+		PRECACHE_SOUND(ClientSideSound[i]);
+	}
 	#if defined WEAPONLIST
 	PRECACHE_GENERIC(WEAPON_HUD_TXT);
 	PRECACHE_GENERIC(WEAPON_HUD_SPR_1);
@@ -348,7 +358,6 @@ public plugin_precache()
 	#if defined WEAPONLIST
 	register_clcmd(WEAPON_NAME, "Cmd_WeaponSelect");
 	#endif
-
 }
 
 public plugin_init()

@@ -38,7 +38,7 @@
 #define WEAPON_NAME 			"weapon_qbarrel"
 
 #define WEAPON_MAX_CLIP			4
-#define WEAPON_DEFAULT_AMMO		180
+#define WEAPON_DEFAULT_AMMO		64
 
 #define WEAPON_MAX_SPEED		220.0 // reduction 20%
 
@@ -63,7 +63,13 @@
 
 // Sounds
 #define SOUND_FIRE		"weapons/qbarrel_shoot.wav"
-
+new const ClientSideSound[4][] =
+{
+	"weapons/qbarrel_clipin1.wav",
+	"weapons/qbarrel_clipin2.wav",
+	"weapons/qbarrel_clipout1.wav",
+	"weapons/qbarrel_draw.wav"
+};
 // Sprites
 #define WEAPON_HUD_TXT		"sprites/weapon_qbarrel.txt"
 #define WEAPON_HUD_SPR_1	"sprites/640hud71.spr"
@@ -146,10 +152,15 @@ Weapon_OnPrecache()
 	//PRECACHE_MODEL(MODEL_SHELL);
 	
 	PRECACHE_SOUND(SOUND_FIRE);
-	
+	for(new i = 0; i < sizeof(ClientSideSound);i++)
+	{
+		PRECACHE_SOUND(ClientSideSound[i]);
+	}
+	#if defined WEAPONLIST
 	PRECACHE_GENERIC(WEAPON_HUD_TXT);
 	PRECACHE_GENERIC(WEAPON_HUD_SPR_1);
 	PRECACHE_GENERIC(WEAPON_HUD_SPR_2);
+	#endif
 }
 
 Weapon_OnSpawn(const iItem)
@@ -337,9 +348,10 @@ public plugin_precache()
 #endif
 	g_iszWeaponKey = engfunc(EngFunc_AllocString, WEAPON_NAME);
 	g_iForwardDecalIndex = register_forward(FM_DecalIndex, "FakeMeta_DecalIndex_Post", true);
-	#if defined WPNLIST
+	
 	register_message(MSG_WEAPONLIST, "MsgHook_WeaponList");
 	register_message(get_user_msgid("DeathMsg"), "MsgHook_Death");
+	#if defined WPNLIST
 	register_clcmd(WEAPON_NAME, "Cmd_WeaponSelect");
 	#endif
 }
@@ -541,7 +553,7 @@ public HamHook_Item_PostFrame(const iItem)
 //**********************************************
 //* Weapon list update.                        *
 //**********************************************
-#if defined WPNLIST
+
 new g_aWeaponListData[8];
 
 public Cmd_WeaponSelect(const iPlayer)
@@ -563,7 +575,7 @@ public MsgHook_WeaponList(const iMsgID, const iMsgDest, const iMsgEntity)
 		}
 	}
 }
-
+#if defined WPNLIST
 SendWeaponListUpdate(const iPlayer, const szWeaponName[32])
 {
 	MESSAGE_BEGIN(MSG_ONE, MSG_WEAPONLIST, {0.0, 0.0, 0.0}, iPlayer);

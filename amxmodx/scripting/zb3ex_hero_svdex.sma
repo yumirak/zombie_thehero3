@@ -34,7 +34,7 @@
 #define WEAPON_NAME 			"weapon_svdex"
 
 #define WEAPON_MAX_CLIP			20
-#define WEAPON_DEFAULT_AMMO		240
+#define WEAPON_DEFAULT_AMMO		180
 #define WEAPON_MAX_SUPERBULLET	10
 
 #define WEAPON_MAX_SPEED		240.0
@@ -66,6 +66,15 @@
 // Sounds
 #define SOUND_FIRE		"weapons/svdex-1.wav"
 #define SOUND_FIRE2		"weapons/svdex-2.wav"
+
+new const ClientSideSound[5][] =
+{
+	"weapons/svdex_clipin.wav",
+	"weapons/svdex_clipout.wav",
+	"weapons/svdex_clipon.wav",
+	"weapons/svdex_draw.wav",
+	"weapons/svdex_foley1.wav"
+};
 // Sprites
 #if defined WEAPONLIST
 #define WEAPON_HUD_TXT		"sprites/weapon_svdex.txt"
@@ -149,7 +158,6 @@ enum
 Weapon_OnPrecache()
 {
 	PRECACHE_MODEL(MODEL_VIEW);
-	PRECACHE_MODEL2(MODEL_VIEW);
 	
 	PRECACHE_MODEL(MODEL_WORLD);
 	PRECACHE_MODEL(MODEL_PLAYER);
@@ -159,7 +167,10 @@ Weapon_OnPrecache()
 	PRECACHE_MODEL(STEAM_SPR);
 
 	PRECACHE_SOUND(SOUND_FIRE);
-
+	for(new i = 0; i < sizeof(ClientSideSound);i++)
+	{
+		PRECACHE_SOUND(ClientSideSound[i]);
+	}
 	#if defined WEAPONLIST
 	PRECACHE_GENERIC(WEAPON_HUD_TXT);
 	PRECACHE_GENERIC(WEAPON_HUD_SPR_1);
@@ -1097,59 +1108,6 @@ stock get_weapon_attachment(id, Float:output[3], Float:fDis = 40.0)
 	
 	xs_vec_add(fOrigin, fAttack, output);
 }
-//**********************************************
-//* Get and precache sounds from weapon model. *
-//**********************************************
-
-PrecacheSoundsFromModel(const szModelPath[])
-{
-	new iFile;
-	
-	if ((iFile = fopen(szModelPath, "rt")))
-	{
-		new szSoundPath[64];
-		
-		new iNumSeq, iSeqIndex;
-		new iEvent, iNumEvents, iEventIndex;
-		
-		fseek(iFile, 164, SEEK_SET);
-		fread(iFile, iNumSeq, BLOCK_INT);
-		fread(iFile, iSeqIndex, BLOCK_INT);
-		
-		for (new k, i = 0; i < iNumSeq; i++)
-		{
-			fseek(iFile, iSeqIndex + 48 + 176 * i, SEEK_SET);
-			fread(iFile, iNumEvents, BLOCK_INT);
-			fread(iFile, iEventIndex, BLOCK_INT);
-			fseek(iFile, iEventIndex + 176 * i, SEEK_SET);
-
-			for (k = 0; k < iNumEvents; k++)
-			{
-				fseek(iFile, iEventIndex + 4 + 76 * k, SEEK_SET);
-				fread(iFile, iEvent, BLOCK_INT);
-				fseek(iFile, 4, SEEK_CUR);
-				
-				if (iEvent != 5004)
-				{
-					continue;
-				}
-
-				fread_blocks(iFile, szSoundPath, 64, BLOCK_CHAR);
-				
-				if (strlen(szSoundPath))
-				{
-					strtolower(szSoundPath);
-					PRECACHE_SOUND(szSoundPath);
-				}
-				
-				// server_print(" * Sound: %s", szSoundPath);
-			}
-		}
-	}
-	
-	fclose(iFile);
-}
-
 //**********************************************
 //* Ammo Inventory.                            *
 //**********************************************

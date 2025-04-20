@@ -30,7 +30,7 @@
 #define WEAPON_NAME 			"weapon_deagleD"
 
 #define WEAPON_MAX_CLIP			28
-#define WEAPON_DEFAULT_AMMO		240
+#define WEAPON_DEFAULT_AMMO		70
 
 #define WEAPON_MAX_SPEED		220.0
 #define WEAPON_FOV_ZOOM			55
@@ -53,7 +53,14 @@
 #define MODEL_PLAYER	"models/zombie_thehero/supplybox_item/p_ddeagle.mdl"
 // Sounds
 #define SOUND_FIRE		"weapons/dde-1.wav"
-
+new const ClientSideSound[5][] =
+{
+	"weapons/dde_clipin.wav",
+	"weapons/dde_clipout.wav",
+	"weapons/dde_clipoff.wav",
+	"weapons/dde_twirl.wav",
+	"weapons/dde_load.wav"
+};
 // Sprites
 #if defined WEAPONLIST
 #define WEAPON_HUD_TXT		"sprites/weapon_deagled.txt"
@@ -147,6 +154,12 @@ Weapon_OnPrecache()
 	PRECACHE_MODEL(MODEL_PLAYER);
 	
 	PRECACHE_SOUND(SOUND_FIRE);
+
+	for(new i = 0; i < sizeof(ClientSideSound);i++)
+	{
+		PRECACHE_SOUND(ClientSideSound[i]);
+	}
+
 	#if defined WEAPONLIST
 	PRECACHE_GENERIC(WEAPON_HUD_TXT);
 	PRECACHE_GENERIC(WEAPON_HUD_SPR_1);
