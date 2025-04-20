@@ -136,7 +136,7 @@ public reset_skill(id, bool:reset_time)
 	g_can_berserk[id] = reset_time ? 1 : 0
 	g_berserking[id] = 0
 
-	zb3_set_user_rendering(id, kRenderFxGlowShell, 0, 0, 0, kRenderNormal, 0)
+	zb3_set_user_rendering(id)
 	
 	if(task_exists(id+TASK_BERSERKING)) remove_task(id+TASK_BERSERKING)
 	if(task_exists(id+TASK_BERSERK_SOUND)) remove_task(id+TASK_BERSERK_SOUND)
@@ -253,7 +253,7 @@ public Remove_Berserk(id)
 	//g_can_berserk[id] = 0	
 	
 	// Reset Rendering
-	zb3_set_user_rendering(id, kRenderFxGlowShell, 0, 0, 0, kRenderNormal, 0)
+	zb3_set_user_rendering(id)
 	
 	// Reset FOV
 	set_fov(id)

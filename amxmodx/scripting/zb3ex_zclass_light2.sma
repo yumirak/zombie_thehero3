@@ -104,7 +104,7 @@ public zb3_user_infected(id, infector, infect_flag)
 		case INFECT_CHANGECLASS:
 		{
 			if(g_invis[id]) {
-				zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransAlpha, 16)
+				zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransColor, 16)
 				zb3_set_user_speed(id, zb3_get_user_level(id) > 1 ? INVISIBLE_SPEED_ORIGIN : INVISIBLE_SPEED_HOST)
 			}
 		} 
@@ -126,7 +126,7 @@ public reset_skill(id, bool:reset_time)
 	g_can_invisible[id] = reset_time ? 1 : 0
 	g_invis[id] = 0
 
-	zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransAlpha, 255)
+	zb3_set_user_rendering(id)
 	if(task_exists(id+TASK_INVISIBLE)) remove_task(id+TASK_INVISIBLE)
 }
 
@@ -208,7 +208,7 @@ public Do_Invisible(id)
 	g_current_time[id] = 0.0
 	
 	// Set Render Red
-	zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransAlpha, 16)
+	zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransColor, 16)
 
 	// Set MaxSpeed & Gravity
 	zb3_set_user_speed(id, zb3_get_user_level(id) > 1 ? INVISIBLE_SPEED_ORIGIN : INVISIBLE_SPEED_HOST)
@@ -244,7 +244,7 @@ public Remove_Invisible(id)
 	//g_can_invisible[id] = 0	
 	
 	// Reset Rendering
-	zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransAlpha, 255)
+	zb3_set_user_rendering(id)
 	
 	// Remove Invisible Claws
 	new Claws[128]

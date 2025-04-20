@@ -104,7 +104,7 @@ native zb3_get_user_nvg(id);
 
 native zb3_set_user_health(id, Health);
 native zb3_set_user_light(id, const light[]);
-native zb3_set_user_rendering(id, fx, r, g, b, render, amount);
+native zb3_set_user_rendering(id, fx = kRenderFxNone, r = 255, g = 255, b = 255, render = kRenderNormal, amount = 16)
 
 native zb3_get_synchud_id(hudtype);
 native zb3_show_dhud(id, R, G, B, Float:X, Float:Y, Float:TimeLive, const Text[]);
