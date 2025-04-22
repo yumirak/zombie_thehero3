@@ -16,6 +16,7 @@
 #define AUTHOR "Dias"
 
 #define LANG_OFFICIAL LANG_PLAYER
+// #define _DEBUG
 
 // Configs
 new const SETTING_FILE[] = "zombie_thehero2/config.ini"
@@ -523,6 +524,7 @@ public plugin_natives()
 {
 	// Native
 	register_native("zb3_get_mode", "native_get_mode", 1)
+	register_native("zb3_load_setting_string", "native_load_setting_string", 1)
 
 	register_native("zb3_infect", "native_infect", 1)
 	
@@ -614,6 +616,15 @@ public fw_BlockedObj_Spawn(ent)
 public native_get_mode()
 {
 	return g_gamemode
+}
+public native_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
+{
+	param_convert(2)
+	param_convert(3)
+	param_convert(4)
+	param_convert(5)
+
+	amx_load_setting_string( IsArray, filename, setting_section, setting_key, return_string, string_size, array_handle)
 }
 
 public native_infect(id, attacker, origin_zombie, respawn)
@@ -3137,7 +3148,7 @@ public amx_load_setting_string( bool:IsArray ,const filename[], const setting_se
 	}
 
 	// Build customization file path
-	new path[64]
+	new path[256]
 	get_configsdir(path, charsmax(path))
 	format(path, charsmax(path), "%s/%s", path, filename)
 	

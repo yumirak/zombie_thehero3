@@ -136,6 +136,8 @@ native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
 native zb3_get_mode();
+native zb3_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
+
 native zb3_get_user_maxhealth(id);
 native zb3_get_user_maxarmor(id);
 
