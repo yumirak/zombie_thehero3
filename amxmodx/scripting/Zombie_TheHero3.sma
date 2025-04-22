@@ -1110,10 +1110,9 @@ public Event_Death()
 			if(is_user_connected(attacker) && !g_zombie[attacker]) 
 				UpdateLevelTeamHuman()
 		}
-		
-		ExecuteForward(g_Forwards[FWD_USER_DEAD], g_fwResult, victim, attacker, headshot)
 	}
 	
+	ExecuteForward(g_Forwards[FWD_USER_DEAD], g_fwResult, victim, attacker, headshot)
 	gameplay_check()
 }
 
@@ -1235,6 +1234,12 @@ public Time_Change()
 			
 		// show_score_hud(i)
 		ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+	}
+
+	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && !g_game_playable)
+	{
+		g_game_playable = 1
+		TerminateRound(TEAM_START)
 	}
 }
 // ===================== HAM & FM FORWARDS ========================
@@ -1847,14 +1852,12 @@ public gameplay_check()
 	if(!g_game_playable || g_endround || !g_gamestart)
 		return
 		
-	if(GetTotalPlayer(TEAM_ALL, 1) > 1)
+	if(GetTotalPlayer(TEAM_ALL, 1) >= 0)
 	{
 		if(GetTotalPlayer(TEAM_HUMAN, 1) <= 0)
-		{
 			TerminateRound(TEAM_ZOMBIE)
-		} else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0) {
+		else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0)
 			if(!GetRespawningCount()) TerminateRound(TEAM_HUMAN)
-		}
 	}
 }
 
@@ -2774,21 +2777,28 @@ stock get_random_array(Array:array_name)
 
 stock GetTotalPlayer({PlayerTeams,_}:team, alive)
 {
-	static total, id
+	static total, id, playeralive, playerconnected, TeamName:playerteam;
 	total = 0
 	
 	for (id = 1; id <= g_MaxPlayers; id++)
 	{
-		if(!is_user_connected(id))
+		playerconnected = is_user_connected(id)
+		if(!playerconnected)
 			continue
-		
-		if((alive && is_user_alive(id)) || (!alive && is_user_connected(id)) )
+
+		playeralive = is_user_alive(id)
+		if(alive && !playeralive)
+			continue
+
+		playerteam = fm_cs_get_user_team(id)
+		if(playerteam == TEAM_UNASSIGNED || playerteam == TEAM_SPECTATOR)
+			continue
+
+		switch(team)
 		{
-			if(
-			team == TEAM_ZOMBIE && g_zombie[id] || 
-			team == TEAM_HUMAN && !g_zombie[id] ||
-			team == TEAM_ALL
-			) total++
+			case TEAM_ZOMBIE: if(g_zombie[id]) total++
+			case TEAM_HUMAN: if(!g_zombie[id]) total++
+			default: total++
 		}
 	}
 	
