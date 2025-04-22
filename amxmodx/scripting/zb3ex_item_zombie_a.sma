@@ -86,11 +86,13 @@ public plugin_precache()
 		ArrayGetString(model_origin, i, Temp_String, sizeof(Temp_String))
 		engfunc(EngFunc_PrecacheModel, Temp_String)
 	}
-	
-	g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
-	g_70_infect = zb3_register_item("70% Infect Health", "Lesser Health Penalty", g_70_infect_cost, TEAM2_ZOMBIE, 1)
-	zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
-	g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
+	if(zb3_get_mode() >= MODE_MUTATION) 
+	{
+		g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
+		g_70_infect = zb3_register_item("70% Infect Health", "Lesser Health Penalty", g_70_infect_cost, TEAM2_ZOMBIE, 1)
+		zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
+		g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
+	}
 }
 
 public plugin_natives()

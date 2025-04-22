@@ -111,13 +111,20 @@ public plugin_precache()
 	g_deadlyshot_icon_id = precache_model(g_deadlyshot_icon)
 	g_bloodyblade_icon_id = precache_model(g_bloodyblade_icon)
 	
-	g_wing_boot = zb3_register_item("Wing Boot", "More High Jump", g_wb_cost, TEAM2_HUMAN, 1)
-	g_double_grenade = zb3_register_item("x2 HeGrenade", "+1 More HeGrenade", g_dg_cost, TEAM2_HUMAN, 1)
-	g_p30_damage = zb3_register_item("+30% Damage", "Start Damage is 130%", g_p30_cost, TEAM2_HUMAN, 1)
-	g_sprint = zb3_register_item("Sprint", "FastRun (10 seconds)", g_sprint_cost, TEAM2_HUMAN, 1)
-	g_deadlyshot = zb3_register_item("Deadly Shot", "Deal All Damage to the Head", g_deadlyshot_cost, TEAM2_HUMAN, 1)
-	g_bloodyblade = zb3_register_item("Bloody Blade", "x2 Melee Damage", g_bloodyblade_cost, TEAM2_HUMAN, 1)
-	g_nightvision = zb3_register_item("NightVision", "See in Dark", g_nightvision_cost, TEAM2_HUMAN, 1)
+	if(zb3_get_mode() >= MODE_MUTATION) 
+	{
+		g_wing_boot = zb3_register_item("Wing Boot", "More High Jump", g_wb_cost, TEAM2_HUMAN, 1)
+		g_double_grenade = zb3_register_item("x2 HeGrenade", "+1 More HeGrenade", g_dg_cost, TEAM2_HUMAN, 1)
+		g_nightvision = zb3_register_item("NightVision", "See in Dark", g_nightvision_cost, TEAM2_HUMAN, 1)
+		g_sprint = zb3_register_item("Sprint", "FastRun (10 seconds)", g_sprint_cost, TEAM2_HUMAN, 1)
+	}
+	if(zb3_get_mode() >= MODE_HERO)
+	{
+		g_deadlyshot = zb3_register_item("Deadly Shot", "Deal All Damage to the Head", g_deadlyshot_cost, TEAM2_HUMAN, 1)
+		g_bloodyblade = zb3_register_item("Bloody Blade", "x2 Melee Damage", g_bloodyblade_cost, TEAM2_HUMAN, 1)
+		g_p30_damage = zb3_register_item("+30% Damage", "Start Damage is 130%", g_p30_cost, TEAM2_HUMAN, 1)
+	}
+	
 }
 
 public client_connect(id)

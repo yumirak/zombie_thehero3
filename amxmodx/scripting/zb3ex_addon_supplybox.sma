@@ -35,6 +35,11 @@ new g_Forwards, g_dummy_forward
 
 public plugin_init()
 {
+	if(zb3_get_mode() <= MODE_ORIGINAL)
+	{
+		set_fail_state("[ZB3] Error: GameMode is less than 2. It's okay to ignore this error.")
+		return
+	}
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
 	g_maxplayers = get_maxplayers()

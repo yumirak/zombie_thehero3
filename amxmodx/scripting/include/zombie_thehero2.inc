@@ -14,6 +14,14 @@
 #define GAMESYSTEMNAME "zombie_thehero2"
 
 // Enum
+enum
+{
+	MODE_NONE = 0,
+	MODE_ORIGINAL,
+	MODE_MUTATION,
+	MODE_HERO
+}
+
 enum PlayerTeams
 {
 	TEAM_ALL = 0,
@@ -127,6 +135,7 @@ native zb3_supplybox_random_getitem(id, hero);
 native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
+native zb3_get_mode();
 native zb3_get_user_maxhealth(id);
 native zb3_get_user_maxarmor(id);
 
