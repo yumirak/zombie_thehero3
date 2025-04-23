@@ -46,3 +46,6 @@ ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
 ZOMBIE_SKILL_NOT_READY = The '%s' skill is not ready yet. [Cooldown Timer %i sec(s)]
 ZOMBIE_SKILL_SINGLE = [G] %s %i%%
 ZOMBIE_SKILL_DOUBLE = [G] %s %i%%^n[R] %s %i%%
+
+ZCLASS_REGULAR_NAME = Regular
+ZCLASS_REGULAR_DESC = Berserk
