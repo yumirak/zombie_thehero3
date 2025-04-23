@@ -9,7 +9,7 @@
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
 new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/regular.ini"
-new const SETTING_CONFIG[] = "Regular Zombie Config"
+new const SETTING_CONFIG[] = "Config"
 new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"
 new const SETTING_SKILL[] = "Skill"

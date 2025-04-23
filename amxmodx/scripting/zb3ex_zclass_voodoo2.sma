@@ -8,59 +8,31 @@
 #define AUTHOR "Dias"
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
+new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/voodoo.ini"
+new const SETTING_CONFIG[] = "Config"
+new const SETTING_MODELS[] = "Models"
+new const SETTING_SOUNDS[] = "Sounds"
+new const SETTING_SKILL[] = "Skill"
 
-// Zombie Configs
-new const zclass_name[] = "Voodoo"
-new const zclass_desc[] = "Heal"
-new const zclass_sex = SEX_MALE
-new const zclass_lockcost = 0
-new const zclass_hostmodel[] = "heal_zombi_host"
-new const zclass_originmodel[] = "heal_zombi_origin"
-new const zclass_clawsmodelhost[] = "v_knife_heal_zombi.mdl"
-new const zclass_clawsmodelorigin[] = "v_knife_heal_zombi.mdl"
-new const zombiegrenade_modelhost[] = "models/zombie_thehero/v_zombibomb_heal_zombi.mdl"
-new const zombiegrenade_modelorigin[] = "models/zombie_thehero/v_zombibomb_heal_zombi.mdl"
-new const Float:zclass_gravity = 0.8
-new const Float:zclass_speedhost = 280.0
-new const Float:zclass_speedorigin = 280.0
-new const Float:zclass_knockback = 1.5
-new const Float:zclass_dmgmulti  = 1.1
-new const Float:zclass_painshock = 0.2
-new const DeathSound[2][] =
-{
-	"zombie_thehero/zombi_death_1.wav",
-	"zombie_thehero/zombi_death_2.wav"
-}
-new const HurtSound[2][] = 
-{
-	"zombie_thehero/zombi_hurt_01.wav",
-	"zombie_thehero/zombi_hurt_02.wav"	
-}
-new const HealSound[2][] = { "zombie_thehero/zombi_heal.wav", "zombie_thehero/zombi_heal_female.wav" }
-new const EvolSound[] = "zombie_thehero/zombi_evolution.wav"
-new const HealSkillSound[] = "zombie_thehero/td_heal.wav"
-new const HealerSpr[] = "sprites/zombie_thehero/zombihealer.spr"
-new const HealedSpr[] = "sprites/zombie_thehero/zombiheal_head.spr"
-new const Float:ClawsDistance1 = 1.0
-new const Float:ClawsDistance2 = 1.1
+new zclass_sex, zclass_lockcost
+new zclass_name[32], zclass_desc[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
+new zombiegrenade_modelhost[64], zombiegrenade_modelorigin[64], HealSound[64], EvolSound[64]
+new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Float:zclass_knockback
+new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
+new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
+new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
+new Float:g_heal_cooldown[2], g_heal_amount[2], Float:g_heal_radius
+new HealSkillSound[64], HealSoundMale[64], HealSoundFemale[64], HealerSpr[64], HealedSpr[64]
 
 new g_zombie_classid, g_can_heal[33], Float:g_current_time[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
-
-#define HEAL_AMOUNT_HOST 1000
-#define HEAL_AMOUNT_ORIGIN 500
-#define HEAL_COOLDOWN_HOST 10.0
-#define HEAL_COOLDOWN_ORIGIN 7.0
-#define HEAL_RADIUS 200.0
 
 new g_synchud1, g_MaxPlayers
 
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	
-	register_dictionary(LANG_FILE)
 	
 	register_forward(FM_AddToFullPack, "fw_AddToFullPack_Post", 1)
 	register_clcmd("drop", "cmd_drop")
@@ -71,23 +43,85 @@ public plugin_init()
 
 public plugin_precache()
 {
+	register_dictionary(LANG_FILE)
+
+	DeathSound = ArrayCreate(64, 1)
+	HurtSound = ArrayCreate(64, 1)
+
+	load_cfg()
+
+	ArrayGetString(DeathSound, 0, DeathSoundString1, charsmax(DeathSoundString1))
+	ArrayGetString(DeathSound, 1, DeathSoundString2, charsmax(DeathSoundString2))
+	ArrayGetString(HurtSound, 0, HurtSoundString1, charsmax(HurtSoundString1))
+	ArrayGetString(HurtSound, 1, HurtSoundString2, charsmax(HurtSoundString2))
+
 	// Register Zombie Class
 	g_zombie_classid = zb3_register_zombie_class(zclass_name, zclass_desc, zclass_sex, zclass_lockcost, 
 	zclass_gravity, zclass_speedhost, zclass_speedorigin, zclass_knockback, zclass_dmgmulti, zclass_painshock, 
 	ClawsDistance1, ClawsDistance2)
 	
 	zb3_set_zombie_class_data(zclass_hostmodel, zclass_originmodel, zclass_clawsmodelhost, zclass_clawsmodelorigin, 
-	DeathSound[0], DeathSound[1], HurtSound[0], HurtSound[1], HealSound[0], EvolSound)
+	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
 	
 	// Precache Class Resource
-	engfunc(EngFunc_PrecacheSound, HealSound[1])
+	engfunc(EngFunc_PrecacheSound, HealSoundMale)
+	engfunc(EngFunc_PrecacheSound, HealSoundFemale)
 	engfunc(EngFunc_PrecacheSound, HealSkillSound)
 	
 	engfunc(EngFunc_PrecacheModel, HealerSpr)
 	engfunc(EngFunc_PrecacheModel, HealedSpr)
 }
+
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
+
+	formatex(zclass_name, charsmax(zclass_name), "%L", LANG_OFFICIAL, "ZCLASS_HEAL_NAME")
+	formatex(zclass_desc, charsmax(zclass_desc), "%L", LANG_OFFICIAL, "ZCLASS_HEAL_DESC")
+	
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "COST", buffer, sizeof(buffer), DummyArray); zclass_lockcost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GENDER", buffer, sizeof(buffer), DummyArray); zclass_sex = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GRAVITY", buffer, sizeof(buffer), DummyArray); zclass_gravity = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_ORIGIN", buffer, sizeof(buffer), DummyArray); zclass_speedorigin = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_HOST", buffer, sizeof(buffer), DummyArray); zclass_speedhost = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "KNOCKBACK", buffer, sizeof(buffer), DummyArray); zclass_knockback = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "DAMAGE_MULTIPLIER", buffer, sizeof(buffer), DummyArray); zclass_dmgmulti = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "PAINSHOCK", buffer, sizeof(buffer), DummyArray); zclass_painshock = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SLASH_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance1 = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "STAB_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance2 = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_ORIGIN", zclass_originmodel, sizeof(zclass_originmodel), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_HOST", zclass_hostmodel, sizeof(zclass_hostmodel), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_ORIGIN", zclass_clawsmodelorigin, sizeof(zclass_clawsmodelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_HOST", zclass_clawsmodelhost, sizeof(zclass_clawsmodelhost), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_ORIGIN", zombiegrenade_modelorigin, sizeof(zombiegrenade_modelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_HOST", zombiegrenade_modelhost, sizeof(zombiegrenade_modelhost), DummyArray);
+
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "DEATH", buffer, 0, DeathSound);
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "HURT", buffer, 0, HurtSound);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_COOLDOWN_ORIGIN", buffer, sizeof(buffer), DummyArray); g_heal_cooldown[ZOMBIE_ORIGIN] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_heal_cooldown[ZOMBIE_HOST] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_AMOUNT_ORIGIN", buffer, sizeof(buffer), DummyArray); g_heal_amount[ZOMBIE_ORIGIN] = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_AMOUNT_HOST", buffer, sizeof(buffer), DummyArray); g_heal_amount[ZOMBIE_HOST] = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_RADIUS", buffer, sizeof(buffer), DummyArray); g_heal_radius = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_SKILL_SOUND", HealSkillSound, sizeof(HealSkillSound), DummyArray); 
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_SOUND_MALE", HealSoundMale, sizeof(HealSoundMale), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_SOUND_FEMALE", HealSoundFemale, sizeof(HealSoundMale), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEALER_SPR", HealerSpr, sizeof(HealerSpr), DummyArray); 
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEALED_SPR", HealedSpr, sizeof(HealedSpr), DummyArray);
+}
+
 public zb3_user_infected(id, infector, infect_flag)
 {
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
@@ -106,7 +140,7 @@ public zb3_user_change_class(id, oldclass, newclass)
 public reset_skill(id, bool:reset_time)
 {
 	if( reset_time ) 
-		g_current_time[id] = zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST
+		g_current_time[id] = g_heal_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST
 
 	g_can_heal[id] = reset_time ? 1 : 0
 }
@@ -200,14 +234,14 @@ public Do_Heal(id)
 				continue
 			if(!zb3_get_user_zombie(i))
 				continue
-			if(entity_range(id, i) > HEAL_RADIUS)
+			if(entity_range(id, i) > g_heal_radius)
 				continue
 
 			PatientGender = zb3_get_user_sex(i)
 			CurrentHealth = get_user_health(i)
 			MaxHealth = zb3_get_user_starthealth(i)
 			
-			RealHealth = clamp(CurrentHealth + HEAL_AMOUNT_ORIGIN, CurrentHealth, MaxHealth)
+			RealHealth = clamp(CurrentHealth +  g_heal_amount[ZOMBIE_ORIGIN], CurrentHealth, MaxHealth)
 			HealTotalAmount += RealHealth - CurrentHealth
 
 			if(RealHealth - CurrentHealth < 1)
@@ -218,7 +252,7 @@ public Do_Heal(id)
 			if(id == i) Heal_Icon(i, 1)
 			else Heal_Icon(i, 0)
 
-			EmitSound(i, CHAN_AUTO, HealSound[PatientGender-1])
+			EmitSound(i, CHAN_AUTO, PatientGender == SEX_FEMALE ? HealSoundFemale : HealSoundMale)
 		}
 #if defined _DEBUG
 		client_print(id, print_chat, "Heal for %i", HealTotalAmount); HealTotalAmount = 0
@@ -228,7 +262,7 @@ public Do_Heal(id)
 		CurrentHealth = get_user_health(id)
 		MaxHealth = zb3_get_user_starthealth(id)
 		
-		RealHealth = clamp(CurrentHealth + HEAL_AMOUNT_HOST, CurrentHealth, MaxHealth)
+		RealHealth = clamp(CurrentHealth + g_heal_amount[ZOMBIE_HOST], CurrentHealth, MaxHealth)
 		zb3_set_user_health(id, RealHealth)
 		
 		Heal_Icon(id, 1)
@@ -277,5 +311,5 @@ stock Float:get_cooldowntime(id)
 {
 	if(!zb3_get_user_zombie(id))
 		return 0.0
-	return zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST;
+	return g_heal_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST;
 }

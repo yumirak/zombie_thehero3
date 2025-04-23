@@ -42,10 +42,35 @@ MENU_CANT_UNLOCK_CLASS = You !gDon't Have Enough Money!n to unlock this class.
 ZOMBIE_REGULAR_CANTBERSERK = Your Health is too low... Need bigger than 500
 ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
 
-// ZOMBIE_SKILL_NOT_READY = The '%s' skill is not ready yet. You cannot use it now. [Cooldown Timer %i sec(s)]
+ZOMBIE_SKILL_NOT_READY_UNUSED = The '%s' skill is not ready yet. You cannot use it now. [Cooldown Timer %i sec(s)]
 ZOMBIE_SKILL_NOT_READY = The '%s' skill is not ready yet. [Cooldown Timer %i sec(s)]
 ZOMBIE_SKILL_SINGLE = [G] %s %i%%
 ZOMBIE_SKILL_DOUBLE = [G] %s %i%%^n[R] %s %i%%
 
 ZCLASS_REGULAR_NAME = Regular
 ZCLASS_REGULAR_DESC = Berserk
+
+ZCLASS_SPEED_NAME = Light
+ZCLASS_SPEED_DESC = Hiding
+
+ZCLASS_HEAVY_NAME = Heavy
+ZCLASS_HEAVY_DESC = Trap
+
+ZCLASS_PSYCHO_NAME = Psycho
+ZCLASS_PSYCHO_DESC = Smokescreen
+
+ZCLASS_HEAL_NAME = Voodoo
+ZCLASS_HEAL_DESC = Heal
+
+ZCLASS_DEIMOS_NAME = Deimos
+ZCLASS_DEIMOS_DESC = Shock
+
+ZCLASS_BANSHEE_NAME = Banshee
+ZCLASS_BANSHEE_DESC = Pulling
+
+ZCLASS_STAMPER_NAME = Stamper
+ZCLASS_STAMPER_DESC = Stamping
+
+ZCLASS_RESIDENT_NAME = Sting Finger
+ZCLASS_RESIDENT_DESC = Penetration
+ZCLASS_RESIDENT_DESC2 = Heavenly Jump

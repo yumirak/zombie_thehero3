@@ -10,7 +10,23 @@
 #define AUTHOR "Dias"
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
-
+new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/stamper.ini"
+new const SETTING_CONFIG[] = "Config"
+new const SETTING_MODELS[] = "Models"
+new const SETTING_SOUNDS[] = "Sounds"
+new const SETTING_SKILL[] = "Skill"
+// Zombie Configs
+new zclass_sex, zclass_lockcost
+new zclass_name[32], zclass_desc[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
+new zombiegrenade_modelhost[64], zombiegrenade_modelorigin[64], HealSound[64], EvolSound[64]
+new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Float:zclass_knockback
+new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
+new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
+new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
+new CoffinModel[64], CoffinExp[64], CoffinHitSound[64], CoffinExpSpr[64], CoffinSlow[64], StampingSound[64]
+new Float:g_coffin_cooldown[2], g_coffin_livetime[2], Float:g_coffin_range, g_coffin_health, Float:g_coffin_knockback
+new Float:g_coffin_starttime, g_coffin_damage, g_coffin_victim_velocity, Float:g_coffin_victim_time
+#if 0
 // Zombie Configs
 new const zclass_name[] = "Stamper"
 new const zclass_desc[] = "Stamping"
@@ -49,6 +65,7 @@ new const CoffinExp[] = "zombie_thehero/zombi_stamper_iron_maiden_explosion.wav"
 new const CoffinHitSound[] = "zombie_thehero/zombi_attack_3.wav"
 new const CoffinExpSpr[] = "sprites/zombie_thehero/zombiebomb_exp.spr"
 new const CoffinSlow[] = "sprites/zombie_thehero/zbt_slow.spr"
+#endif
 new const HandSound[2][] =
 {
 	"zombie_thehero/zombi_stamper_clap.wav",
@@ -71,6 +88,7 @@ const pev_checktime = pev_fuser4
 #define TASK_FREEZING 43536
 
 #define COFFIN_CLASSNAME "coffin"
+#if 0
 #define COFFIN_HEALTH 300
 #define COFFIN_EXP_RADIUS 200
 #define COFFIN_EXP_KNOCKBACK 800
@@ -80,14 +98,16 @@ const pev_checktime = pev_fuser4
 
 #define STAMPING_COOLDOWN_ORIGIN 15.0
 #define STAMPING_COOLDOWN_HOST 15.0
-#define STAMPING_ANIM random_num(1, 2)
-#define STAMPING_PLAYERANIM 10
+
 #define STAMPING_FOV 100
 #define STAMPING_STARTTIME 0.5
+#endif
 
 #define HUMAN_SLOWTIME 5
 #define HUMAN_SLOWSPEED 100
 
+#define STAMPING_ANIM 2
+#define STAMPING_PLAYERANIM 10
 new g_SprBeam_Id, g_SprExp_Id, g_SprBlast_Id
 new g_msg_ScreenShake//,  g_iMaxPlayers // ,g_Msg_Fov 
 new g_can_stamp[33], g_stamping[33], g_freezing[33]
@@ -97,8 +117,7 @@ new g_synchud1, Float:g_current_time[33]
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	
-	register_dictionary(LANG_FILE)
+
 	register_clcmd("drop", "cmd_drop")
 	
 	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
@@ -114,13 +133,25 @@ public plugin_init()
 
 public plugin_precache()
 {
+	register_dictionary(LANG_FILE)
+
+	DeathSound = ArrayCreate(64, 1)
+	HurtSound = ArrayCreate(64, 1)
+
+	load_cfg()
+
+	ArrayGetString(DeathSound, 0, DeathSoundString1, charsmax(DeathSoundString1))
+	ArrayGetString(DeathSound, 1, DeathSoundString2, charsmax(DeathSoundString2))
+	ArrayGetString(HurtSound, 0, HurtSoundString1, charsmax(HurtSoundString1))
+	ArrayGetString(HurtSound, 1, HurtSoundString2, charsmax(HurtSoundString2))
+
 	// Register Zombie Class
 	g_zombie_classid = zb3_register_zombie_class(zclass_name, zclass_desc, zclass_sex, zclass_lockcost, 
 	zclass_gravity, zclass_speedhost, zclass_speedorigin, zclass_knockback, zclass_dmgmulti, zclass_painshock, 
 	ClawsDistance1, ClawsDistance2)
 	
 	zb3_set_zombie_class_data(zclass_hostmodel, zclass_originmodel, zclass_clawsmodelhost, zclass_clawsmodelorigin, 
-	DeathSound[0], DeathSound[1], HurtSound[0], HurtSound[1], HealSound, EvolSound)
+	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
 	
@@ -137,6 +168,64 @@ public plugin_precache()
 	
 	for(new i = 0; i < sizeof(HandSound); i++)
 		engfunc(EngFunc_PrecacheSound, HandSound[i])
+}
+
+
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
+
+	formatex(zclass_name, charsmax(zclass_name), "%L", LANG_OFFICIAL, "ZCLASS_STAMPER_NAME")
+	formatex(zclass_desc, charsmax(zclass_desc), "%L", LANG_OFFICIAL, "ZCLASS_STAMPER_DESC")
+	
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "COST", buffer, sizeof(buffer), DummyArray); zclass_lockcost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GENDER", buffer, sizeof(buffer), DummyArray); zclass_sex = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GRAVITY", buffer, sizeof(buffer), DummyArray); zclass_gravity = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_ORIGIN", buffer, sizeof(buffer), DummyArray); zclass_speedorigin = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_HOST", buffer, sizeof(buffer), DummyArray); zclass_speedhost = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "KNOCKBACK", buffer, sizeof(buffer), DummyArray); zclass_knockback = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "DAMAGE_MULTIPLIER", buffer, sizeof(buffer), DummyArray); zclass_dmgmulti = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "PAINSHOCK", buffer, sizeof(buffer), DummyArray); zclass_painshock = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SLASH_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance1 = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "STAB_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance2 = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_ORIGIN", zclass_originmodel, sizeof(zclass_originmodel), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_HOST", zclass_hostmodel, sizeof(zclass_hostmodel), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_ORIGIN", zclass_clawsmodelorigin, sizeof(zclass_clawsmodelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_HOST", zclass_clawsmodelhost, sizeof(zclass_clawsmodelhost), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_ORIGIN", zombiegrenade_modelorigin, sizeof(zombiegrenade_modelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_HOST", zombiegrenade_modelhost, sizeof(zombiegrenade_modelhost), DummyArray);
+
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "DEATH", buffer, 0, DeathSound);
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "HURT", buffer, 0, HurtSound);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "STAMPING_COOLDOWN_ORIGIN", buffer, sizeof(buffer), DummyArray); g_coffin_cooldown[ZOMBIE_ORIGIN] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "STAMPING_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_coffin_cooldown[ZOMBIE_HOST] = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_HEALTH", buffer, sizeof(buffer), DummyArray); g_coffin_health = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_DAMAGE", buffer, sizeof(buffer), DummyArray); g_coffin_damage = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_EXP_KNOCKBACK", buffer, sizeof(buffer), DummyArray); g_coffin_knockback = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_EXP_RADIUS", buffer, sizeof(buffer), DummyArray); g_coffin_range = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_LIVETIME_ORIGIN", buffer, sizeof(buffer), DummyArray); g_coffin_livetime[ZOMBIE_ORIGIN] = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_LIVETIME_HOST", buffer, sizeof(buffer), DummyArray); g_coffin_livetime[ZOMBIE_HOST] = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "STAMPING_STARTTIME", buffer, sizeof(buffer), DummyArray); g_coffin_starttime = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HUMAN_SLOWTIME", buffer, sizeof(buffer), DummyArray); g_coffin_victim_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HUMAN_SLOWSPEED", buffer, sizeof(buffer), DummyArray); g_coffin_victim_velocity = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_MODEL", CoffinModel, sizeof(CoffinModel), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SOUND_STAMP", StampingSound, sizeof(StampingSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SOUND_EXPLO", CoffinExp, sizeof(CoffinExp), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SOUND_HIT", CoffinHitSound, sizeof(CoffinHitSound), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SPR_EXPLO", CoffinExpSpr, sizeof(CoffinExpSpr), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SPR_SLOW", CoffinSlow, sizeof(CoffinSlow), DummyArray);
 }
 
 public zb3_user_infected(id, infector, infect_flag)
@@ -161,7 +250,7 @@ public reset_skill(id, bool:reset_time)
 {
 	if( reset_time )
 	{
-		g_current_time[id] = zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST
+		g_current_time[id] = g_coffin_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST
 	} 
 
 	g_can_stamp[id] = reset_time ? 1 : 0
@@ -233,14 +322,14 @@ public Do_Stamping(id)
 	g_current_time[id] = 0.0
 	g_stamping[id] = 1
 	
-	set_weapons_timeidle(id, STAMPING_STARTTIME)
-	set_player_nextattack(id, STAMPING_STARTTIME)
+	set_weapons_timeidle(id, g_coffin_starttime)
+	set_player_nextattack(id, g_coffin_starttime)
 	
 	set_weapon_anim(id, STAMPING_ANIM)
 	set_pev(id, pev_sequence, STAMPING_PLAYERANIM)
 
 	// Start Stamping
-	set_task(STAMPING_STARTTIME, "Set_Stamping", id+TASK_STAMPING)
+	set_task(g_coffin_starttime, "Set_Stamping", id+TASK_STAMPING)
 }
 
 public Set_Stamping(id)
@@ -289,7 +378,7 @@ public Create_Coffin(id)
 	
 	// Set Coffin Data
 	entity_set_float(coffin, EV_FL_takedamage, 1.0)
-	entity_set_float(coffin, EV_FL_health, float(HEALTH_OFFSET + COFFIN_HEALTH))
+	entity_set_float(coffin, EV_FL_health, float(HEALTH_OFFSET + g_coffin_health))
 	engfunc(EngFunc_SetModel, coffin, CoffinModel)
 	set_pev(coffin, pev_body, 1)
 	set_pev(coffin, pev_movetype, MOVETYPE_PUSHSTEP)
@@ -310,11 +399,11 @@ public Create_Coffin(id)
 	pev(coffin, pev_origin, StampedOrigin)
 	StampingEffect(coffin, StampedOrigin)
 
-	set_pev(coffin, pev_livetime, zb3_get_user_level(id) > 1 ? COFFIN_LIVETIME_ORIGIN : COFFIN_LIVETIME_HOST)
+	set_pev(coffin, pev_livetime, g_coffin_livetime[zb3_get_user_zombie_type(id)])//zb3_get_user_level(id) > 1 ? COFFIN_LIVETIME_ORIGIN : COFFIN_LIVETIME_HOST)
 	set_pev(coffin, pev_nextthink, get_gametime() + 0.5)
 	
 	static Victim; Victim = -1
-	while((Victim = find_ent_in_sphere(Victim, StampedOrigin, float(COFFIN_EXP_RADIUS))) != 0)
+	while((Victim = find_ent_in_sphere(Victim, StampedOrigin, g_coffin_range)) != 0)
 	{
 		if(is_user_alive(Victim) && !zb3_get_user_zombie(Victim))
 		{
@@ -322,9 +411,9 @@ public Create_Coffin(id)
 			CreateScreenShake(Victim)
 			// Freeze Player
 			g_freezing[Victim] = 1
-			zb3_set_user_speed(Victim, HUMAN_SLOWSPEED)
-			zb3_set_head_attachment(Victim, CoffinSlow, float(HUMAN_SLOWTIME), 1.0, 1.0, 0)
-			set_task(float(HUMAN_SLOWTIME), "ResetFreeze", Victim+TASK_FREEZING)
+			zb3_set_user_speed(Victim, g_coffin_victim_velocity)
+			zb3_set_head_attachment(Victim, CoffinSlow, g_coffin_victim_time, 1.0, 1.0, 0)
+			set_task(g_coffin_victim_time, "ResetFreeze", Victim+TASK_FREEZING)
 		}
 	}
 	
@@ -424,7 +513,7 @@ public CoffinExp_Handle(ent, Exp)
 	if(Exp)
 	{
 		static Victim; Victim = -1
-		while((Victim = find_ent_in_sphere(Victim, Origin, float(COFFIN_EXP_RADIUS))) != 0)
+		while((Victim = find_ent_in_sphere(Victim, Origin, g_coffin_range)) != 0)
 		{
 			if(!is_user_alive(Victim) || !is_valid_ent(Victim)) 
 				continue
@@ -433,14 +522,14 @@ public CoffinExp_Handle(ent, Exp)
 			pev(Victim, pev_origin, VictimOrigin)
 			
 			Distance = get_distance_f(Origin, VictimOrigin)
-			Speed = float(COFFIN_EXP_KNOCKBACK)
-			NewSpeed = Speed * (1.0 - (Distance / float(COFFIN_EXP_RADIUS)))
+			Speed = g_coffin_knockback
+			NewSpeed = Speed * (1.0 - (Distance / g_coffin_range))
 			GetSpeedVector(Origin, VictimOrigin, NewSpeed, Velocity)
 			
 			set_pev(Victim, pev_velocity, Velocity)
 			CreateScreenShake(Victim)
 			
-			if(get_user_health(Victim) > COFFIN_EXP_DAMAGE) ExecuteHam(Ham_TakeDamage, Victim, 0, Victim, COFFIN_EXP_DAMAGE, DMG_BLAST)
+			if(get_user_health(Victim) > g_coffin_damage) ExecuteHam(Ham_TakeDamage, Victim, 0, Victim, g_coffin_damage, DMG_BLAST)
 			else ExecuteHamB(Ham_Killed, Victim, 0, 0)
 		}
 	}
@@ -516,7 +605,7 @@ public zb3_skill_show(id)
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 	
 		
-	if(g_current_time[id] < (zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST))
+	if(g_current_time[id] < get_cooldowntime(id))
 		g_current_time[id]++
 	
 	static percent
@@ -653,6 +742,6 @@ stock Float:get_cooldowntime(id)
 {
 	if(!zb3_get_user_zombie(id))
 		return 0.0
-	return zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST;
+	return g_coffin_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST;
 }
 	
