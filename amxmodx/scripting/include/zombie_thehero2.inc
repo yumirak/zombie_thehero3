@@ -94,6 +94,7 @@ enum
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player
 
 native zb3_get_user_zombie(id); // Return if User is A Zombie
+native zb3_get_user_zombie_type(id); 
 native zb3_get_user_zombie_class(id); // Return id class of zombie
 native zb3_set_user_respawn_time(id, Time);
 native zb3_reset_user_respawn_time(id);

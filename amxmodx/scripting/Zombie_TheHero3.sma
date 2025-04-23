@@ -529,6 +529,7 @@ public plugin_natives()
 	register_native("zb3_infect", "native_infect", 1)
 	
 	register_native("zb3_get_user_zombie", "native_get_user_zombie", 1)
+	register_native("zb3_get_user_zombie_type", "native_get_user_zombie_type", 1)
 	register_native("zb3_get_user_zombie_class", "native_get_user_zombie_class", 1)
 	
 	register_native("zb3_set_user_respawn_time", "native_set_respawn_time", 1)
@@ -643,6 +644,14 @@ public native_get_user_zombie(id)
 		return 0
 		
 	return g_zombie[id]
+}
+
+public native_get_user_zombie_type(id)
+{
+	if(!is_user_connected(id))
+		return 0
+
+	return g_zombie_type[id]
 }
 
 public native_get_user_zombie_class(id)
