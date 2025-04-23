@@ -1235,7 +1235,7 @@ public cmd_drop(id)
 {
 	if(!is_user_alive(id))
 		return PLUGIN_CONTINUE
-	if(g_hero[id] || g_zombie[id] && g_zombie_type[id] == ZOMBIE_HOST)
+	if(g_hero[id] || g_zombie[id] && g_zombie_type[id] == ZOMBIE_HOST && g_gamemode == MODE_MUTATION)
 		return PLUGIN_HANDLED
 		
 	return PLUGIN_CONTINUE
