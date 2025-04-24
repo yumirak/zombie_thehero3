@@ -25,6 +25,18 @@ const Float:ZOMBIEBOM_POWER = 700.0
 new const ZOMBIEBOM_SPRITES_EXP[] = "sprites/zombie_thehero/zombiebomb_exp.spr"
 new const ZOMBIEBOM_SOUND_EXP[] = "zombie_thehero/zombi_bomb_exp.wav"
 const g_im_respawn_cost = 3000
+new const zombi_bomb_sound[][] =
+{
+	"zombie_thehero/zombi_bomb_throw.wav",
+	"zombie_thehero/zombi_bomb_pull_1.wav",
+	"zombie_thehero/zombi_bomb_idle_4.wav",
+	"zombie_thehero/zombi_bomb_idle_3.wav",
+	"zombie_thehero/zombi_bomb_idle_2.wav",
+	"zombie_thehero/zombi_bomb_idle_1.wav",
+	"zombie_thehero/zombi_bomb_deploy.wav",
+	"zombie_thehero/zombi_bomb_bounce_2.wav",
+	"zombie_thehero/zombi_bomb_bounce_1.wav"
+}
 /// ==========================================
 
 new Float:g_hud_delay[33], g_sync_hud1
@@ -75,17 +87,27 @@ public plugin_precache()
 	ZOMBIEBOM_IDSPRITES_EXP = precache_model(ZOMBIEBOM_SPRITES_EXP)
 	precache_sound(ZOMBIEBOM_SOUND_EXP)	
 	
-	static Temp_String[128]
-	for(new i = 0; i < ArraySize(model_host); i++)
+	static Temp_String[128], i, size
+
+	size = ArraySize(model_host)
+	for(i = 0; i < size; i++)
 	{
 		ArrayGetString(model_host, i, Temp_String, sizeof(Temp_String))
 		engfunc(EngFunc_PrecacheModel, Temp_String)
 	}
-	for(new i = 0; i < ArraySize(model_origin); i++)
+
+	size = ArraySize(model_origin)
+	for(i = 0; i < size; i++)
 	{
 		ArrayGetString(model_origin, i, Temp_String, sizeof(Temp_String))
 		engfunc(EngFunc_PrecacheModel, Temp_String)
 	}
+
+	size = sizeof(zombi_bomb_sound)
+	for(i = 0; i < size; i++)
+		engfunc(EngFunc_PrecacheSound, zombi_bomb_sound[i])
+	
+
 	if(zb3_get_mode() >= MODE_MUTATION) 
 	{
 		g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
