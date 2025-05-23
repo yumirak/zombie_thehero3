@@ -26,7 +26,7 @@ new Array:weapon_list_num
 
 new g_weapon[ MAX_WEAPONS ];
 new g_iWeaponSlot[ MAX_WEAPONS ]
-new g_szWeaponName[ MAX_WEAPONS ][16]
+new g_szWeaponName[ MAX_WEAPONS ][18]
 public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
