@@ -1802,7 +1802,7 @@ public zombie_restore_health(id)
 		// play sound heal
 		new sound_heal[64]
 		ArrayGetString(zombie_sound_heal, g_zombie_class[id], sound_heal, charsmax(sound_heal))
-		PlaySound(id, sound_heal)
+		EmitSound(id, CHAN_VOICE, sound_heal)
 		zb3_set_head_attachment(id, HealerSpr, 1.0, 1.0, 0.5, 19)
 	}
 }
