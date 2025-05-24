@@ -20,6 +20,7 @@
 
 // Configs
 new const SETTING_FILE[] = "zombie_thehero2/config.ini"
+new const MAP_FILE[] = "zombie_thehero2/maplist.ini"
 new const CVAR_FILE[] = "zombie_thehero2/zth_server.cfg"
 new const LANG_FILE[] = "zombie_thehero2.txt"
 
@@ -109,9 +110,9 @@ new Array:zombie_sound_heal, Array:zombie_sound_evolution, Array:sound_zombie_at
 Array:sound_zombie_hitwall, Array:sound_zombie_swing
 	
 // - Weather & Sky & NVG
-new g_mapconfigdir[256]
+new g_mapname[32]
 new g_rain, g_snow, g_fog, g_fog_density[10], g_fog_color[12]
-new g_sky_enabled, Array:g_sky, g_light[2]
+new g_sky[32], g_light[2]
 new g_NvgColor[PlayerTeams][3], g_NvgAlpha, g_nvg[33], g_HasNvg[33]
 new const sound_nvg[2][] = {"items/nvg_off.wav", "items/nvg_on.wav"}
 
@@ -252,12 +253,9 @@ public plugin_init()
 	g_SyncHud[SYCHUDD_EFFECTKILLER] = CreateHudSyncObj(SYCHUDD_EFFECTKILLER)
 
 	// Set Sky
-	if (g_sky_enabled)
-	{
-		new sky[64]
-		ArrayGetString(g_sky, get_random_array(g_sky), sky, 63)
-		set_cvar_string("sv_skyname", sky)
-	}
+	if(g_sky[0])
+		set_cvar_string("sv_skyname", g_sky)
+
 	// Block Round End
 	set_cvar_num("mp_round_infinite", 1)
 
@@ -337,8 +335,6 @@ public plugin_precache()
 	g_BlockedObj_Forward = register_forward(FM_Spawn, "fw_BlockedObj_Spawn")
 	
 	// Create Array
-	g_sky = ArrayCreate(12, 1)
-	
 	zombie_name = ArrayCreate(64, 1)
 	zombie_desc = ArrayCreate(64, 1)
 	zombie_sex = ArrayCreate(1, 1)
@@ -3038,7 +3034,7 @@ public load_config_file()
 {
 	static buffer[128], Array:DummyArray
 	
-	get_mapconfigdir()
+	get_mapname(g_mapname, charsmax(g_mapname))
 
 	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "GAMEMODE", buffer, sizeof(buffer), DummyArray);
 	if( str_to_num(buffer) >= MODE_ORIGINAL ) g_gamemode = clamp( str_to_num(buffer), MODE_ORIGINAL, MODE_HERO)
@@ -3075,18 +3071,17 @@ public load_config_file()
 	amx_load_setting_string( true, SETTING_FILE, "Hero Config", "HEROINE_MODEL",buffer, 0, hero_model_female)
 	
 	// Weather & Sky Configs
-	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "RAIN", buffer, sizeof(buffer), DummyArray); g_rain = str_to_num(buffer)
-	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "SNOW", buffer, sizeof(buffer), DummyArray); g_snow = str_to_num(buffer)
-	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG" , buffer, sizeof(buffer), DummyArray); g_fog = str_to_num(buffer)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "RAIN", buffer, sizeof(buffer), DummyArray); g_rain = str_to_num(buffer)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "SNOW", buffer, sizeof(buffer), DummyArray); g_snow = str_to_num(buffer)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "FOG" , buffer, sizeof(buffer), DummyArray); g_fog = str_to_num(buffer)
 
-	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG_DENSITY", g_fog_density, charsmax(g_fog_density), DummyArray)
-	amx_load_setting_string( false, g_mapconfigdir, "Weather Effects", "FOG_COLOR", g_fog_color, charsmax(g_fog_color), DummyArray)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "FOG_DENSITY", g_fog_density, charsmax(g_fog_density), DummyArray)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "FOG_COLOR", g_fog_color, charsmax(g_fog_color), DummyArray)
 	
-	amx_load_setting_string( false, g_mapconfigdir, "Custom Skies", "ENABLE", buffer, sizeof(buffer), DummyArray); g_sky_enabled = str_to_num(buffer)
-	amx_load_setting_string( true,  g_mapconfigdir, "Custom Skies", "SKY NAMES", buffer, 0, g_sky)
-	
-	// Light & NightVision
-	amx_load_setting_string( false, SETTING_FILE, "Config Value", "LIGHT", g_light, charsmax(g_light), DummyArray)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "SKY", g_sky, charsmax(g_sky), DummyArray)
+	amx_load_setting_string( false, MAP_FILE, g_mapname, "LIGHT", g_light, charsmax(g_light), DummyArray)
+
+	// NightVision
 	amx_load_setting_string( false, SETTING_FILE, "Night Vision", "NVG_ALPHA", buffer, sizeof(buffer), DummyArray); g_NvgAlpha = str_to_num(buffer)
 
 	// Load NVG Config
@@ -3127,13 +3122,6 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Restore Health", "RESTORE_HEALTH_DMG_LV1", buffer, sizeof(buffer), DummyArray); Restore_Amount_Host = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Restore Health", "RESTORE_HEALTH_DMG_LV2", buffer, sizeof(buffer), DummyArray); Restore_Amount_Origin = str_to_num(buffer)
 
-}
-
-public get_mapconfigdir()
-{
-	new mapname[32]
-	get_mapname(mapname, charsmax(mapname))
-	formatex(g_mapconfigdir, charsmax(g_mapconfigdir), "%s/mapcfg/%s.ini", GAMESYSTEMNAME , mapname)
 }
 
 public amx_load_setting_string( bool:IsArray ,const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
