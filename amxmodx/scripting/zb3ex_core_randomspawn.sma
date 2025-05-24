@@ -1,6 +1,7 @@
 #include <amxmodx>
 #include <amxmisc>
 #include <fakemeta>
+#include <fakemeta_util>
 #include <zombie_thehero2>
 
 // Spawn Point Research
@@ -63,8 +64,14 @@ public research_map()
 	get_mapname(mapname, charsmax(mapname))
 	formatex(filepath, charsmax(filepath), "%s/%s/csdm/%s.spawns.cfg", cfgdir, GAMESYSTEMNAME , mapname)
 
+	// Use regamedll 'info_spawn_point'
+	if( fm_find_ent_by_class(-1, "info_spawn_point") )
+	{
+		collect_spawns_ent("info_spawn_point")
+		return
+	}
 	// Load CSDM spawns if present
-	if (file_exists(filepath))
+	else if (file_exists(filepath))
 	{
 		new csdmdata[3][6], file = fopen(filepath,"rt")
 
