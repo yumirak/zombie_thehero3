@@ -14,6 +14,14 @@ new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"
 new const SETTING_SKILL[] = "Skill"
 
+new const zombi_death_sound[][] = // temp until we have global precache list
+{
+	"zombie_thehero/zombi_female_breath.wav",
+	"zombie_thehero/zombi_female_headdown.wav",
+	"zombie_thehero/zombi_female_headup.wav",
+	"zombie_thehero/zombi_female_laugh.wav",
+	"zombie_thehero/zombi_female_scream.wav"
+}
 
 new zclass_sex, zclass_lockcost
 new zclass_name[32], zclass_desc[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
@@ -50,6 +58,7 @@ public plugin_init()
 
 public plugin_precache()
 {
+	static size, i;
 	register_dictionary(LANG_FILE)
 
 	DeathSound = ArrayCreate(64, 1)
@@ -75,6 +84,10 @@ public plugin_precache()
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheSound, invisible_startsound)
 	engfunc(EngFunc_PrecacheModel, zclass_clawsinvisible)
+
+	size = sizeof(zombi_death_sound)
+	for(i = 0; i < size; i++)
+		engfunc(EngFunc_PrecacheSound, zombi_death_sound[i])
 }
 
 public load_cfg()
