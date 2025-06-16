@@ -4,7 +4,6 @@
 #include <engine>
 #include <fakemeta>
 #include <fakemeta_util>
-#include <hamsandwich>
 #include <xs>
 
 // New
@@ -32,7 +31,6 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 #define MAIN_HUD_Y_BOTTOM 0.70
 
 // Speed Problem
-new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame
 new g_UsingCustomSpeed[33]
 new Float:g_PlayerMaxSpeed[33]
 
@@ -211,16 +209,13 @@ public plugin_init()
 	register_forward(FM_GetGameDescription, "fw_GetGameDesc")
 	register_forward(FM_ClientKill, "fw_Block" );
 
-	// Ham Forwards
-	RegisterHam(Ham_Spawn, "player", "fw_PlayerSpawn_Post", 1)
-	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage")
-	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage_Post", 1)
-	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack")
-	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack_Post", 1)
-	// RegisterHam(Ham_TraceAttack, "worldspawn", "fw_PlayerTraceAttack")
-	RegisterHam(Ham_Player_ResetMaxSpeed, "player", "fw_PlayerResetMaxSpeed")
-	RegisterHam(Ham_AddPlayerItem, "player", "fw_AddPlayerItem")
-	
+	// ReAPI Hooks
+	RegisterHookChain(RG_CSGameRules_PlayerSpawn, "Fw_RG_CSGameRules_PlayerSpawn_Post", 1);
+	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage");
+	RegisterHookChain(RG_CBasePlayer_ResetMaxSpeed, "Fw_RG_CBasePlayer_ResetMaxSpeed");
+	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem");
+	RegisterHookChain(RG_CBasePlayer_TakeDamageImpulse, "Fw_RG_CBasePlayer_TakeDamageImpulse");
+
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	g_Msg_SayText = get_user_msgid("SayText")
@@ -1271,9 +1266,9 @@ public Time_Change()
 }
 // ===================== HAM & FM FORWARDS ========================
 // ================================================================
-public fw_PlayerSpawn_Post(id)
+public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 {
-	if(!is_user_connected(id)) 
+	if(!is_user_connected(id) || !is_user_alive(id))
 		return
 	
 	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && !g_game_playable)
@@ -1290,6 +1285,9 @@ public fw_PlayerSpawn_Post(id)
 
 		return
 	}
+
+	if(get_member(id, m_iTeam) == TEAM_TERRORIST)
+		set_team(id, TEAM_HUMAN)
 	
 	// Reset this Player
 	reset_player(id, 0, 0)
@@ -1301,7 +1299,7 @@ public fw_PlayerSpawn_Post(id)
 	do_random_spawn(id, MAX_RETRY)
 	
 	// Set Human
-	set_team(id, TEAM_HUMAN)
+	// set_team(id, TEAM_HUMAN)
 	set_human_model(id)
 	fm_set_rendering(id)
 	
@@ -1318,26 +1316,24 @@ public fw_PlayerSpawn_Post(id)
 	return
 }
 
-public fw_PlayerTakeDamage(victim, inflictor, attacker, Float:Damage, damagebits)
+public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(!g_game_playable || !g_gamestart)
-		return HAM_SUPERCEDE
+	if((is_user_alive(attacker) && get_member(victim, m_iTeam) == get_member(attacker, m_iTeam))
+	|| (!g_game_playable || !g_gamestart || g_endround)
+	)
+	{
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
 
-	return HAM_IGNORED
-}
+	if(g_zombie[attacker] && !g_zombie[victim])
+	{
+		set_user_zombie(victim, attacker, false, false)
+		fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
 
-public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
-{
-	if(!g_game_playable || !g_gamestart)
-		return HAM_SUPERCEDE
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
-		return HAM_IGNORED	
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED
-	if(g_zombie[attacker] || !g_zombie[victim])  // Human Attack Zombie
-		return HAM_IGNORED
-
-	static Float:zb_class_painshock; zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
 	static Float:zb_class_dmgmulti; zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
 
 	if (zb_class_dmgmulti > 0.0)
@@ -1345,13 +1341,13 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 	if (damagebits & DMG_GRENADE)
 		damage *= grenade_default_power
 	if (damagebits & DMG_BULLET && g_gamemode == MODE_HERO)
-		damage *= g_fDamageMulti[g_level[attacker]]
+		damage *= 1.0 + (g_level[attacker] * 0.1)
 
-	SetHamParamFloat(4, damage)
+	// SetHamParamFloat(4, damage)
+	SetHookChainArg(4, ATYPE_FLOAT, damage);
 
 	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(damage) / 8, true)
 	fm_cs_set_user_money(victim, fm_cs_get_user_money(victim) + floatround(damage) / 16, true)
-	if(pev_valid(victim) == 2) set_member(victim, m_flVelocityModifier, zb_class_painshock)
 
 	if(g_gamemode >= MODE_MUTATION)
 		if(g_restore_health[victim]) g_restore_health[victim] = 0
@@ -1366,91 +1362,44 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 
 		if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
 	}
-
-	return HAM_IGNORED
+	SetHookChainReturn(ATYPE_INTEGER, true)
+	return HC_CONTINUE;
 }
 
-public fw_PlayerTraceAttack(victim, attacker, Float:Damage, Float:direction[3], tracehandle, damagebits)
+public Fw_RG_CBasePlayer_TakeDamageImpulse(const this, attacker, Float:flKnockbackForce, Float:flVelModifier)
 {
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
-		return HAM_IGNORED
-	if(!g_game_playable || !g_gamestart || g_endround)
-		return HAM_SUPERCEDE
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED
-	if(!g_zombie[attacker] || Damage < 0.0 || !(get_user_weapon(attacker) == CSW_KNIFE))
-		return HAM_IGNORED
+	static Float:classzb_knockback; classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[this])
+	static Float:zb_class_painshock; zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[this])
 
-	set_user_zombie(victim, attacker, false, false)
-	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
-
-	return HAM_IGNORED
+	SetHookChainArg(3, ATYPE_FLOAT, flKnockbackForce * classzb_knockback);
+	SetHookChainArg(4, ATYPE_FLOAT, flVelModifier * zb_class_painshock);
 }
 
-public fw_PlayerTraceAttack_Post(victim, attacker, Float:Damage, Float:direction[3], tracehandle, damagebits)
+public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
 {
-	if(pev_valid(victim) != 2)
-		return HAM_IGNORED
-	if(!g_game_playable || !g_gamestart || g_endround)
-		return HAM_SUPERCEDE
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED		
-	if (!g_zombie[victim] || g_zombie[attacker] || victim == attacker)
-		return HAM_IGNORED
-	if (!(damagebits & DMG_BULLET))
-		return HAM_IGNORED
-
-	static ducking; ducking = pev(victim, pev_flags) & (FL_DUCKING | FL_ONGROUND) == (FL_DUCKING | FL_ONGROUND)
-	static flying; flying = !(pev(victim, pev_flags) & FL_ONGROUND)
-	static Float:Origin[3]; pev(attacker, pev_origin, Origin)
-	static Float:velocity[3]; pev(victim, pev_velocity, velocity)
-	static Float:classzb_knockback; classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
+	if( g_zombie[id] || g_hero[id] )
+		return HC_SUPERCEDE;
 	
-	// Damage *= 0.5
-	floatclamp(Damage, 0.0, 100.0)
-
-	if(Damage) xs_vec_mul_scalar(direction, Damage, direction)
-	if(flying) xs_vec_mul_scalar(direction, 2.0, direction)
-	else if(ducking) xs_vec_mul_scalar(direction, 0.5, direction)
-	if(classzb_knockback > 0.0) xs_vec_mul_scalar(direction, classzb_knockback, direction)
-	
-	direction[2] *= 0.001
-
-	xs_vec_add(velocity, direction, direction)
-	set_pev(victim, pev_velocity, direction)
-	return HAM_SUPERCEDE;
+	return HC_CONTINUE;
 }
 
-public fw_PlayerResetMaxSpeed(id)
+public Fw_RG_CBasePlayer_AddPlayerItem(const this, const pItem)
 {
-	if(g_zombie[id] || g_hero[id])
-		return HAM_SUPERCEDE
-	
-	return HAM_IGNORED
-}
-
-public fw_AddPlayerItem(id, iEnt)
-{
-	if (!is_user_alive(id) || !pev_valid(iEnt)) return HAM_IGNORED
-	
-	if(g_zombie[id])
+	if(g_zombie[this])
 	{
-		new iWpnId = fm_cs_get_weapon_id(iEnt)
-		if (iWpnId == CSW_KNIFE || iWpnId == CSW_FLASHBANG || iWpnId == CSW_HEGRENADE || iWpnId == CSW_SMOKEGRENADE) return HAM_IGNORED
-		
-		SetHamReturnInteger(0)
-		return HAM_SUPERCEDE
-	}
-	else if(g_hero[id])
-	{
-		if(g_hero_locked[id])
+		new iWpnId = rg_get_iteminfo(pItem, ItemInfo_iId)
+		if ( iWpnId == CSW_KNIFE || iWpnId == CSW_FLASHBANG || iWpnId == CSW_HEGRENADE || iWpnId == CSW_SMOKEGRENADE )
 		{
-			SetHamReturnInteger(0)
-			return HAM_SUPERCEDE
+			SetHookChainReturn(ATYPE_INTEGER, true);
+			return HC_CONTINUE;
 		}
+
+		SetHookChainReturn(ATYPE_INTEGER, false);
+		return HC_SUPERCEDE;
 	}
-	
-	return HAM_IGNORED
+
+	SetHookChainReturn(ATYPE_INTEGER, true);
+	return HC_CONTINUE;
 }
 
 public set_team(id, {PlayerTeams,_}:team)
@@ -1867,7 +1816,7 @@ public Revive_Now(id)
 		return
 		
 	g_iRespawning[id] = 0
-	ExecuteHamB(Ham_CS_RoundRespawn, id)
+	rg_round_respawn(id);
 }
 
 public gameplay_check()
