@@ -16,6 +16,28 @@
 // Enum
 enum
 {
+	STATUS_WAITING,
+	STATUS_COUNTDOWN,
+	STATUS_PLAY,
+	STATUS_ENDROUND
+}
+
+enum
+{
+	WinStatus_Human = 1,
+	WinStatus_Zombie,
+	WinStatus_RoundDraw
+}
+
+enum
+{
+	Event_HumanWin = 8,
+	Event_ZombieWin,
+	Event_RoundDraw
+}
+
+enum
+{
 	MODE_NONE = 0,
 	MODE_ORIGINAL,
 	MODE_MUTATION,
@@ -89,6 +111,21 @@ enum
 {
 	FWD_SUPPLY_ITEM_GIVE = 0,
 	FWD_SUPPLY_AMMO_GIVE
+}
+
+enum
+{
+	FWD_USER_INFECT = 0,
+	FWD_USER_CHANGE_CLASS,
+	FWD_USER_SPAWN,
+	FWD_USER_DEAD,
+	FWD_GAME_START,
+	FWD_GAME_END,
+	FWD_USER_EVOLUTION,
+	FWD_USER_HERO,
+	FWD_TIME_CHANGE,
+	FWD_SKILL_HUD,
+	FWD_MAX
 }
 // Natives
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player

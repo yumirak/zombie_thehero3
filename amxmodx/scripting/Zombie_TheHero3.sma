@@ -41,36 +41,6 @@ new Float:g_PlayerMaxSpeed[33]
 #define TASK_CHOOSECLASS 52003
 #define TASK_NVGCHANGE 52004
 
-// Enum
-enum
-{
-	WinStatus_Human = 1,
-	WinStatus_Zombie,
-	WinStatus_RoundDraw
-}
-
-enum
-{
-	Event_HumanWin = 8,
-	Event_ZombieWin,
-	Event_RoundDraw
-}
-
-#define MAX_FORWARD 10
-enum
-{
-	FWD_USER_INFECT = 0,
-	FWD_USER_CHANGE_CLASS,
-	FWD_USER_SPAWN,
-	FWD_USER_DEAD,
-	FWD_GAME_START,
-	FWD_GAME_END,
-	FWD_USER_EVOLUTION,
-	FWD_USER_HERO,
-	FWD_TIME_CHANGE,
-	FWD_SKILL_HUD
-}
-
 #define MAX_SYNCHUD 6
 
 const PRIMARY_WEAPONS_BIT_SUM = (1<<CSW_SCOUT)|(1<<CSW_XM1014)|(1<<CSW_MAC10)|(1<<CSW_AUG)|(1<<CSW_UMP45)|(1<<CSW_SG550)|(1<<CSW_GALIL)|(1<<CSW_FAMAS)|(1<<CSW_AWP)|(1<<CSW_MP5NAVY)|(1<<CSW_M249)|(1<<CSW_M3)|(1<<CSW_M4A1)|(1<<CSW_TMP)|(1<<CSW_G3SG1)|(1<<CSW_SG552)|(1<<CSW_AK47)|(1<<CSW_P90)
@@ -80,7 +50,7 @@ const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_F
 new g_gamemode, g_evo_need_infect[2]
 // Game Vars
 new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
-g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
+g_Forwards[FWD_MAX], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
