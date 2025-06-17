@@ -104,25 +104,6 @@ new g_BlockedObj[12][] =
         "func_buyzone"
 }
 
-// Damage Multi
-new Float:g_fDamageMulti[] = 
-{
-	1.0,
-	1.1,
-	1.2,
-	1.3,
-	1.4,
-	1.5,
-	1.6,
-	1.7,
-	1.8,
-	1.9,
-	2.0,
-	2.1,
-	2.2,
-	2.3
-}
-
 // Restore Health Problem
 new Restore_Health_Time, Restore_Amount_Host, Restore_Amount_Origin
 new g_MsgScreenFade
@@ -1604,7 +1585,7 @@ public show_evolution_hud(id, is_zombie)
 	}
 	case false:
 	{
-		DamagePercent = floatround(g_fDamageMulti[g_level[id]] * 100.0)
+		DamagePercent = 100 + (g_level[id] * 10)
 
 		for(new i = 0; i < g_level[id]; i++)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
