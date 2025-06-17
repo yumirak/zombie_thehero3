@@ -14,7 +14,7 @@
 #define GAMESYSTEMNAME "zombie_thehero2"
 
 // Enum
-enum
+enum iGameCurStatus
 {
 	STATUS_WAITING,
 	STATUS_COUNTDOWN,

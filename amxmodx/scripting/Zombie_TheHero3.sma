@@ -49,8 +49,8 @@ const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_F
 
 new g_gamemode, g_evo_need_infect[2]
 // Game Vars
-new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
-g_Forwards[FWD_MAX], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
+new iGameCurStatus:g_gamestatus, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
+g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
@@ -965,16 +965,12 @@ public Event_NewRound()
 {
 	if(GetTotalPlayer(TEAM_ALL, 0) < 2)
 	{
-		g_game_playable = 0
-		g_gamestart = 0
-		g_endround = 0
-		
+		g_gamestatus = STATUS_WAITING
 		return
 	}	
 
 	g_firstzombie = g_firsthuman = 0
-	g_gamestart = 0
-	g_endround = 0
+	g_gamestatus = STATUS_COUNTDOWN
 
 	remove_game_task()
 	StopSound(0)
@@ -984,7 +980,7 @@ public Event_NewRound()
 
 public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 {
-	if(!g_game_playable || g_endround || g_gamestart)
+	if(g_gamestatus != STATUS_COUNTDOWN)
 		return
 		
 	static GameSound[128]
@@ -1006,7 +1002,7 @@ public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDel
 	}
 	
 	static iZombie
-	g_endround = 1
+	g_gamestatus = STATUS_ENDROUND
 	
 	// Update Score
 	for(new i = 1; i < g_MaxPlayers; i++)
@@ -1025,12 +1021,12 @@ public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDel
 
 public Event_GameRestart()
 {
-	g_endround = 1
+	g_gamestatus = STATUS_ENDROUND
 }
 
 public Event_TimedOut(task)
 {
-	if(!g_game_playable || g_endround)
+	if(g_gamestatus != STATUS_PLAY)
 		return
 		
 	TerminateRound(TEAM_HUMAN)
@@ -1198,15 +1194,6 @@ public Time_Change()
 {
 	ExecuteForward(g_Forwards[FWD_TIME_CHANGE], g_fwResult)
 
-	if(!g_game_playable)
-	{
-		if(GetTotalPlayer(TEAM_ALL, 0) > 1)
-		{
-			g_game_playable = 1
-			TerminateRound(TEAM_START)
-		}
-	}
-
 	if(g_gamemode <= MODE_ORIGINAL)
 		return
 
@@ -1232,13 +1219,14 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 {
 	if(!is_user_connected(id) || !is_user_alive(id))
 		return
-	
-	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && !g_game_playable)
+#if 0
+	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && g_gamestatus != STATUS_PLAY)
 	{
-		g_game_playable = 1
+		g_gamestatus = STATUS_PLAY
 		TerminateRound(TEAM_START)
 	}
-	if(g_zombie[id] && g_gamestart && g_game_playable)
+#endif
+	if(g_zombie[id] && g_gamestatus == STATUS_PLAY)
 	{
 		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
@@ -1279,7 +1267,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 }
 public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(!g_game_playable || !g_gamestart || g_endround)
+	if(g_gamestatus != STATUS_PLAY)
 	{
 		SetHookChainReturn(ATYPE_INTEGER, false)
 		return HC_SUPERCEDE;
@@ -1653,7 +1641,7 @@ public UpdateLevelZombie(id)
 
 public UpdateLevelTeamHuman()
 {
-	if(!g_game_playable || g_endround || !g_gamestart)
+	if(g_gamestatus != STATUS_PLAY)
 		return
 		
 	for (new id = 0; id < g_MaxPlayers; id++)
@@ -1686,7 +1674,7 @@ public zombie_restore_health(id)
 {
 	if(!is_user_alive(id)) 
 		return
-	if (!g_zombie[id] || !g_gamestart || g_endround || !g_game_playable) 
+	if (!g_zombie[id]) 
 		return
 	
 	static Float:velocity[3]
@@ -1727,8 +1715,6 @@ public zombie_restore_health(id)
 		
 public Dead_Effect(id)
 {
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
 	if(!g_iRespawning[id])
 		return
 		
@@ -1751,8 +1737,6 @@ public Start_Revive(id)
 {
 	id -= TASK_REVIVE
 	
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
 	if(!is_user_connected(id) || is_user_alive(id))
 		return
 	if(!g_iRespawning[id])
@@ -1781,8 +1765,6 @@ public Revive_Now(id)
 {
 	id -= TASK_REVIVE
 	
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
 	if(!g_iRespawning[id])
 		return
 	if(is_user_alive(id))
@@ -1794,15 +1776,32 @@ public Revive_Now(id)
 
 public gameplay_check()
 {
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
-		
-	if(GetTotalPlayer(TEAM_ALL, 1) >= 0)
+	switch(g_gamestatus)
 	{
-		if(GetTotalPlayer(TEAM_HUMAN, 1) <= 0)
-			TerminateRound(TEAM_ZOMBIE)
-		else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0)
-			if(!GetRespawningCount()) TerminateRound(TEAM_HUMAN)
+		case STATUS_WAITING:
+		{
+			if(GetTotalPlayer(TEAM_START, 0) >= 2)
+			{
+				g_gamestatus = STATUS_PLAY;
+				TerminateRound(TEAM_START);
+				return;
+			}
+		}
+		case STATUS_PLAY:
+		{
+			if(GetTotalPlayer(TEAM_HUMAN, 1) <= 0)
+				TerminateRound(TEAM_ZOMBIE)
+			else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0)
+				if(!GetRespawningCount()) TerminateRound(TEAM_HUMAN)
+		}
+		default:
+		{
+			if(GetTotalPlayer(TEAM_ALL, 0) < 2)
+			{
+				g_gamestatus = STATUS_WAITING;
+				return;
+			}
+		}
 	}
 }
 
@@ -1954,8 +1953,9 @@ public start_countdown()
 
 public counting_down()
 {
-	if(!g_game_playable || g_endround || g_gamestart)
+	if(g_gamestatus != STATUS_COUNTDOWN)
 		return
+
 	if(g_countdown_count <= 0)
 	{
 		start_game_now()
@@ -1979,7 +1979,7 @@ public counting_down()
 public start_game_now()
 {
 	// Set Game Start
-	g_gamestart = 1
+	g_gamestatus = STATUS_PLAY
 
 	get_random_zombie()
 	if(g_gamemode == MODE_HERO) get_random_hero()
@@ -2088,7 +2088,7 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 {
 	if(!is_user_alive(id))
 		return
-	if(!g_game_playable || !g_gamestart || g_endround)
+	if(g_gamestatus != STATUS_PLAY)
 		return
 
 	static DeathSound[64], PlayerModel[64]
@@ -2939,7 +2939,7 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 		}
 	}
 	
-	g_endround = 1
+	g_gamestatus = STATUS_ENDROUND
 	StopSound(0)
 	
 	rg_round_end(team == TEAM_START ? 3.0 : 5.0, winStatus, event, g_WinText[team]);
