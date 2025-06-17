@@ -220,7 +220,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
 	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
 
-	g_MaxPlayers = get_maxplayers()
+	g_MaxPlayers = get_maxplayers() + 1
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	g_Msg_SayText = get_user_msgid("SayText")
 	
@@ -291,7 +291,7 @@ public cmd_infect(id)
 	
 	if(is_user_alive(target))
 	{
-		set_user_zombie(target, -1, zombie_type, 0)
+		set_user_zombie(target, -1, 0, zombie_type, 0)
 	} else {
 		client_print(id, print_console, "[ZB3] Player %i not valid !!!", target)
 	}
@@ -628,8 +628,13 @@ public native_infect(id, attacker, origin_zombie, respawn)
 		return
 	if(!is_user_connected(attacker))
 		attacker = -1
+
+	static weapon; weapon = 0;
+
+	if(is_user_alive(id))
+		weapon = get_user_weapon(attacker)
 		
-	set_user_zombie(id, attacker, origin_zombie, respawn)
+	set_user_zombie(id, attacker, weapon, origin_zombie, respawn)
 }
 
 public native_get_user_zombie(id)
@@ -999,6 +1004,7 @@ public Fw_RG_CBasePlayer_GetIntoGame(id)
 
 public fw_disconnect(id)
 {
+	remove_game_task_player(id)
 	gameplay_check()
 }
 
@@ -1283,7 +1289,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 	}
 	if(g_zombie[id] && g_gamestart && g_game_playable)
 	{
-		set_user_zombie(id, -1, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
+		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
 		
 		ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
@@ -1342,8 +1348,7 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 
 	if(g_zombie[attacker] && !g_zombie[victim])
 	{
-		set_user_zombie(victim, attacker, false, false)
-		fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
+		set_user_zombie(victim, attacker, inflictor, false, false)
 		SetHookChainReturn(ATYPE_INTEGER, false)
 		return HC_SUPERCEDE;
 	}
@@ -1363,19 +1368,20 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(damage) / 8, true)
 	fm_cs_set_user_money(victim, fm_cs_get_user_money(victim) + floatround(damage) / 16, true)
 
-	if(g_gamemode >= MODE_MUTATION)
-		if(g_restore_health[victim]) g_restore_health[victim] = 0
-
-	if(g_gamemode >= MODE_HERO)
+	switch(g_gamemode)
 	{
-		switch(g_level[victim])
+		case MODE_MUTATION: if(g_restore_health[victim]) g_restore_health[victim] = 0
+		case MODE_HERO:
 		{
-			case 1: g_iEvolution[victim] += damage * 0.001 // / 1000.0
-			case 2: g_iEvolution[victim] += damage * 0.0005 // / 2000.0
+			if(g_restore_health[victim]) g_restore_health[victim] = 0
+			switch(g_zombie_type[attacker])
+			{
+				case ZOMBIE_HOST: handle_evolution(victim, damage * 0.001) 
+				case ZOMBIE_ORIGIN: handle_evolution(victim, damage * 0.0005)
+			}
 		}
-
-		if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
 	}
+
 	SetHookChainReturn(ATYPE_INTEGER, true)
 	return HC_CONTINUE;
 }
@@ -1978,6 +1984,13 @@ public remove_game_task()
 	}
 }
 
+public remove_game_task_player(id)
+{
+	remove_task(id+TASK_REVIVE)
+	remove_task(id+TASK_CHOOSECLASS)
+	remove_task(id+TASK_NVGCHANGE)
+	remove_task(id+TASK_REVIVE)
+}
 public start_countdown()
 {
 	PlaySound(0, sound_remain_time)
@@ -2017,70 +2030,11 @@ public start_game_now()
 	// Set Game Start
 	g_gamestart = 1
 
-	// Pick a Random Zombie & Hero
-	new Required_Zombie, Required_Hero, Total_Player
-	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
-	
-	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
-	Required_Hero = Total_Player / 16 // max 2 heroes
+	get_random_zombie()
+	if(g_gamemode == MODE_HERO) get_random_hero()
 
-	// used for consistent first zombie health
-	g_firstzombie = Required_Zombie
-	g_firsthuman  = Total_Player - Required_Zombie
-	
-	// Get and Set Zombie
-	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
-		set_user_zombie(GetRandomAlive(), -1, 1, 0)
-	
 	set_task(3.0, "play_ambience_sound")
-	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_ZOMBIEAPPEAR)
-
-	if(g_gamemode != MODE_HERO)
-		return
-	// Get and Set Hero
-	new id, Name[64], MyHero, FullText[64], g_Hero[3 + 1], g_Hero_Count
-	for(new i = 0; i < Required_Hero; i++)
-	{
-		id = GetRandomAlive()
-		get_user_name(id, Name, sizeof(Name))
-		
-		if(Required_Hero == 1)
-			MyHero = id
-			
-		g_Hero[g_Hero_Count] = id
-		g_Hero_Count++
-		
-		set_user_hero(id, g_sex[id])
-	}
-	
-	if(Required_Hero == 1)
-	{
-		get_user_name(MyHero, Name, sizeof(Name))
-		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", Name)
-	} 
-	
-	static Have_Hero
-	for(new i = 0; i < g_MaxPlayers; i++)
-	{
-		if(!is_user_connected(i))
-			continue
-			
-		Have_Hero = 0
-
-		for(new a = 0; a < g_Hero_Count; a++)
-		{
-			if(i == g_Hero[a])
-			{
-				Have_Hero = 1
-				break
-			}
-		}
-			
-		if(Have_Hero)
-			continue
-
-		client_print(i, print_center, FullText)
-	}
+	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_ZOMBIEAPPEAR)	
 }
 
 public play_ambience_sound()
@@ -2088,13 +2042,58 @@ public play_ambience_sound()
 	PlaySound(0, sound_ambience)	
 }
 
+public get_random_zombie()
+{
+	// Pick a Random Zombie & Hero
+	static Required_Zombie, Total_Player
+
+	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
+	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
+
+	// used for consistent first zombie health
+	g_firstzombie = Required_Zombie
+	g_firsthuman  = Total_Player - Required_Zombie
+	
+	// Get and Set Zombie
+	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
+		set_user_zombie(GetRandomAlive(), -1, 0, 1, 0)
+}
+public get_random_hero()
+{
+	static i, id, Total_Player, Required_Hero, szName[32], szHeroNames[64], FullText[64];
+	szName[0] = szHeroNames[0] = FullText[0] = '^0';
+
+	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
+	Required_Hero = Total_Player / 9 // max 2 heroes
+
+	// Get and Set Hero
+	for(i = 0; i < Required_Hero; i++)
+	{
+		id = GetRandomAlive()
+
+		set_user_hero(id, g_sex[id])
+		get_user_name(id, szName, sizeof(szName))
+
+		if(i > 0)
+			strcat(szHeroNames, ", ", sizeof(szHeroNames))
+
+		strcat(szHeroNames, szName, sizeof(szHeroNames))
+	}
+
+	formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", szHeroNames)
+
+	for(i = 1; i < g_MaxPlayers; i++)
+	{
+		if(!is_user_connected(i) || !is_user_alive(i) || g_zombie[i] || g_hero[i])
+			continue
+
+		client_print(i, print_center, FullText)
+	}
+}
 public set_user_hero(id, player_sex)
 {
-	if(!is_user_alive(id) || g_gamemode != MODE_HERO)
+	if(!is_user_alive(id) || g_gamemode != MODE_HERO || g_hero[id] || g_zombie[id])
 		return 
-
-	// Reset Player
-	// reset_player(id, 0, 0)
 	
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_PRIMARY)
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_SECONDARY)
@@ -2134,9 +2133,11 @@ public Lock_Hero(id)
 	g_hero_locked[id] = 1
 }
 
-public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
+public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 {
 	if(!is_user_alive(id))
+		return
+	if(!g_game_playable || !g_gamestart || g_endround)
 		return
 
 	static DeathSound[64], PlayerModel[64]
@@ -2145,34 +2146,23 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 
 	if(is_user_alive(attacker))
 	{
-		static inflictor
-		inflictor = find_ent_by_owner(-1, "weapon_knife", attacker)
-			
 		if(pev_valid(inflictor))
 		{
-			SendDeathMsg(attacker, id)
+			rg_death_notice(id, attacker, inflictor);
 			UpdateFrags(attacker, id, 1, 1, 1)
+			fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
 		}
 		
 		switch(g_gamemode)
 		{
-			case MODE_MUTATION: 
-			{
-				if(g_level[attacker] < 3)
-				{
-					g_iEvolution[attacker] += 1.0
-					SendScenarioMsg(attacker, g_evo_need_infect[g_zombie_type[attacker]] - floatround(g_iEvolution[attacker]))
-				}
-				if(g_iEvolution[attacker] == g_evo_need_infect[g_zombie_type[attacker]]) UpdateLevelZombie(attacker)
-			}
+			case MODE_MUTATION: handle_evolution(attacker, 1.0)
 			case MODE_HERO:
 			{
-				switch(g_level[attacker])
+				switch(g_zombie_type[attacker])
 				{
-					case 1: g_iEvolution[attacker] += g_hero[id] ? 10.0 : 3.0
-					case 2: g_iEvolution[attacker] += g_hero[id] ? 5.0  : 2.0
+					case ZOMBIE_HOST: handle_evolution(attacker, g_hero[id] ? 10.0 : 3.0)
+					case ZOMBIE_ORIGIN: handle_evolution(attacker, g_hero[id] ? 5.0  : 2.0)
 				}
-				if(g_iEvolution[attacker] > 9.9) UpdateLevelZombie(attacker)
 			}
 		}
 	}
@@ -2257,14 +2247,25 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	gameplay_check()
 }
 
-public SendDeathMsg(attacker, victim)
-{
-	message_begin(MSG_BROADCAST, g_msgDeathMsg)
-	write_byte(attacker) // killer
-	write_byte(victim) // victim
-	write_byte(0) // headshot flag
-	write_string("knife") // killer's weapon
-	message_end()
+public handle_evolution(id, Float:value)
+ {
+	if(g_level[id] >= 3)
+		return
+
+	switch(g_gamemode)
+	{
+		case MODE_MUTATION: 
+		{
+			g_iEvolution[id] += value;
+			SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
+			if(g_iEvolution[id] == g_evo_need_infect[g_zombie_type[id]]) UpdateLevelZombie(id)
+		}
+		case MODE_HERO:
+		{
+			g_iEvolution[id] += value
+			if(g_iEvolution[id] > 9.9) UpdateLevelZombie(id)
+		}
+	}
 }
 
 public set_menu_zombieclass(id)
@@ -2617,7 +2618,11 @@ public set_model(id, const model[])
 	if(!is_user_alive(id))
 		return
 
-	rg_set_user_model(id, model, true);
+	static Buffer[64];
+	formatex(Buffer, sizeof(Buffer), "models/player/%s/%s.mdl", model, model)
+
+	if(file_exists(Buffer, true))
+		rg_set_user_model(id, model, true);
 }
 // ========================= GAME STOCKS ==========================
 // ================================================================
