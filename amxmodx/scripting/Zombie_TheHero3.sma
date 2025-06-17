@@ -187,9 +187,6 @@ public plugin_init()
 	// Game Events
 	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
 	register_event("CurWeapon", "Event_CheckWeapon", "be", "1=1")
-	register_event("DeathMsg", "Event_Death", "a")
-	register_logevent("Event_RoundStart", 2, "1=Round_Start")
-	register_logevent("Event_RoundEnd", 2, "1=Round_End")
 	register_event("TextMsg", "Event_GameRestart", "a", "2=#Game_will_restart_in")
 	
 	// Messages
@@ -203,18 +200,25 @@ public plugin_init()
 	unregister_forward(FM_Spawn, g_BlockedObj_Forward)
 	register_forward(FM_Touch, "fw_Touch")
 	register_forward(FM_EmitSound, "fw_EmitSound")
-	register_forward(FM_PlayerPreThink, "fw_PlayerPreThink")
 	register_forward(FM_TraceLine, "fw_TraceLine")
 	register_forward(FM_TraceHull, "fw_TraceHull")	
-	register_forward(FM_GetGameDescription, "fw_GetGameDesc")
 	register_forward(FM_ClientKill, "fw_Block" );
+	register_forward(FM_ClientDisconnect, "fw_disconnect" );
 
 	// ReAPI Hooks
+	RegisterHookChain(RG_RoundEnd, "Fw_RG_RoundEnd");
+	RegisterHookChain(RG_CSGameRules_OnRoundFreezeEnd, "Fw_RG_CSGameRules_OnRoundFreezeEnd");
+	RegisterHookChain(RG_CSGameRules_SendDeathMessage, "Fw_RG_CSGameRules_SendDeathMessage");
 	RegisterHookChain(RG_CSGameRules_PlayerSpawn, "Fw_RG_CSGameRules_PlayerSpawn_Post", 1);
 	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage");
+	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage_Post", 1);
 	RegisterHookChain(RG_CBasePlayer_ResetMaxSpeed, "Fw_RG_CBasePlayer_ResetMaxSpeed");
 	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem");
 	RegisterHookChain(RG_CBasePlayer_TakeDamageImpulse, "Fw_RG_CBasePlayer_TakeDamageImpulse");
+	RegisterHookChain(RG_CBasePlayer_Pain, "Fw_RG_CBasePlayer_Pain");
+	RegisterHookChain(RG_CBasePlayer_DeathSound, "Fw_RG_CBasePlayer_DeathSound");
+	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
+	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
 
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
@@ -251,9 +255,6 @@ public plugin_init()
 	if(g_sky[0])
 		set_cvar_string("sv_skyname", g_sky)
 
-	// Block Round End
-	set_cvar_num("mp_round_infinite", 1)
-
 	set_cvar_num("sv_skycolor_r", 0)
 	set_cvar_num("sv_skycolor_g", 0)
 	set_cvar_num("sv_skycolor_b", 0)
@@ -267,6 +268,8 @@ public plugin_init()
 	register_clcmd("nightvision", "cmd_nightvision")
 	register_clcmd("drop", "cmd_drop")
 	
+	set_member_game(m_GameDesc, GAMENAME);
+
 	set_task(1.0, "Time_Change", _, _, _, "b")
 }
 
@@ -985,7 +988,7 @@ const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[]
 
 // ========================= AMXX FORWARDS ========================
 // ================================================================
-public client_putinserver(id)
+public Fw_RG_CBasePlayer_GetIntoGame(id)
 {
 	if(!is_user_connected(id))
 		return
@@ -994,10 +997,8 @@ public client_putinserver(id)
 	gameplay_check()
 }
 
-public client_disconnect(id)
+public fw_disconnect(id)
 {
-	remove_task(id+TASK_TEAMMSG)
-	
 	gameplay_check()
 }
 
@@ -1024,7 +1025,7 @@ public Event_NewRound()
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_NEWROUND)
 }
 
-public Event_RoundStart()
+public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 {
 	if(!g_game_playable || g_endround || g_gamestart)
 		return
@@ -1037,16 +1038,21 @@ public Event_RoundStart()
 	set_task(get_cvar_float("mp_roundtime") * 60.0, "Event_TimedOut", TASK_ROUND)
 }
 
-public Event_RoundEnd()
+// public Event_RoundEnd()
+public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDelay)
 {
-	if(!g_game_playable || !g_gamestart)
-		return	
+	// server_print("status: %i, event: %i, tmDelay: %f", status, event, tmDelay)
+	if((event != ROUND_GAME_RESTART && event != ROUND_END_DRAW && event != ROUND_GAME_OVER))
+	{
+		SetHookChainReturn(ATYPE_BOOL, false)
+		return HC_SUPERCEDE;
+	}
 	
 	static iZombie
 	g_endround = 1
 	
 	// Update Score
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(new i = 1; i < g_MaxPlayers; i++)
 	{
 		if(!is_user_alive(i))
 			continue
@@ -1055,6 +1061,9 @@ public Event_RoundEnd()
 
 		UpdateFrags(i, -1, iZombie ? 1 : 2, -1, 1)
 	}
+
+	SetHookChainReturn(ATYPE_BOOL, true)
+	return HC_CONTINUE;
 }
 
 public Event_GameRestart()
@@ -1091,14 +1100,10 @@ public Event_CheckWeapon(id)
 	}
 }
 
-public Event_Death()
+public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const assister, const inflictor, const killerWeaponName[], const DeathMessageFlags:iDeathMessageFlags, const KillRarity:iRarityOfKill)
 {
-	static victim, attacker, headshot
-	
-	attacker = read_data(1)
-	victim = read_data(2)
-	headshot = read_data(3)
-	
+	static headshot;
+	headshot = iRarityOfKill == KILLRARITY_HEADSHOT
 	set_user_nightvision(victim, 0, 1, 1)
 
 	if(!is_user_alive(victim) && g_gamemode == MODE_HERO)
@@ -1315,12 +1320,21 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 
 	return
 }
-
 public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if((is_user_alive(attacker) && get_member(victim, m_iTeam) == get_member(attacker, m_iTeam))
-	|| (!g_game_playable || !g_gamestart || g_endround)
-	)
+	if(!g_game_playable || !g_gamestart || g_endround)
+	{
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
+
+	SetHookChainReturn(ATYPE_INTEGER, true)
+	return HC_CONTINUE;
+}
+
+public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
+{
+	if(is_user_alive(attacker) && get_member(victim, m_iTeam) == get_member(attacker, m_iTeam))
 	{
 		SetHookChainReturn(ATYPE_INTEGER, false)
 		return HC_SUPERCEDE;
@@ -1435,56 +1449,64 @@ public fw_Touch(ent, id)
 
 public fw_EmitSound(id, channel, const sample[], Float:volume, Float:attn, flags, pitch)
 {
-	if (sample[0] == 'h' && sample[1] == 'o' && sample[2] == 's' && sample[3] == 't' && sample[4] == 'a' && sample[5] == 'g' && sample[6] == 'e')
-		return FMRES_SUPERCEDE;
-	if (!is_user_connected(id) || !g_zombie[id])
+	if (!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
+	if (strncmp(sample,"weapons/knife_", true) != 0)
+		return FMRES_IGNORED;
 	
-	static sound[64]
-	
-	// Zombie being hit
-	if (sample[7] == 'b' && sample[8] == 'h' && sample[9] == 'i' && sample[10] == 't' ||
-	sample[7] == 'h' && sample[8] == 'e' && sample[9] == 'a' && sample[10] == 'd')
+	static sound[64], attack_type;
+	attack_type = 0;
+
+	// Zombie Attack
+	switch(sample[17])
 	{
-		if (g_level[id] == 1) ArrayGetString(zombie_sound_hurt1, g_zombie_class[id], sound, charsmax(sound))
-		else ArrayGetString(zombie_sound_hurt2, g_zombie_class[id], sound, charsmax(sound))
-		emit_sound(id, channel, sound, volume, attn, flags, pitch)
-		return FMRES_SUPERCEDE;
+		case 'w': attack_type = 1
+		case '1'..'4': attack_type = 2
+		case 'b': attack_type = 2
+		case 's': attack_type = 3
+		default: attack_type = 0
 	}
-	
-	// Zombie dies
-	if (sample[7] == 'd' && ((sample[8] == 'i' && sample[9] == 'e') || (sample[8] == 'e' && sample[9] == 'a')))
+
+	if (attack_type)
 	{
-		if (g_level[id]==1) ArrayGetString(zombie_sound_death1, g_zombie_class[id], sound, charsmax(sound))
-		else ArrayGetString(zombie_sound_death2, g_zombie_class[id], sound, charsmax(sound))
+		switch(attack_type)
+		{
+			case 1: ArrayGetString(sound_zombie_hitwall, get_random_array(sound_zombie_hitwall), sound, charsmax(sound))
+			case 2: ArrayGetString(sound_zombie_attack, get_random_array(sound_zombie_attack), sound, charsmax(sound))
+			default: ArrayGetString(sound_zombie_swing, get_random_array(sound_zombie_swing), sound, charsmax(sound))
+		}
 		emit_sound(id, channel, sound, volume, attn, flags, pitch)
 		return FMRES_SUPERCEDE;
 	}
 
-	// Zombie Attack
-	new attack_type
-	if (equal(sample,"weapons/knife_hitwall1.wav")) attack_type = 1
-	else if (equal(sample,"weapons/knife_hit1.wav") ||
-	equal(sample,"weapons/knife_hit3.wav") ||
-	equal(sample,"weapons/knife_hit2.wav") ||
-	equal(sample,"weapons/knife_hit4.wav") ||
-	equal(sample,"weapons/knife_stab.wav")) attack_type = 2
-	else if(equal(sample,"weapons/knife_slash1.wav") ||
-	equal(sample,"weapons/knife_slash2.wav")) attack_type = 3
-	if (attack_type)
-	{
-		new sound[64]
-		if (attack_type == 1) ArrayGetString(sound_zombie_hitwall, get_random_array(sound_zombie_hitwall), sound, charsmax(sound))
-		else if (attack_type == 2) ArrayGetString(sound_zombie_attack, get_random_array(sound_zombie_attack), sound, charsmax(sound))
-		else if (attack_type == 3) ArrayGetString(sound_zombie_swing, get_random_array(sound_zombie_swing), sound, charsmax(sound))
-		emit_sound(id, channel, sound, volume, attn, flags, pitch)
-		return FMRES_SUPERCEDE;
-	}
-	
 	return FMRES_IGNORED;
 }
 
-public fw_PlayerPreThink(id)
+public Fw_RG_CBasePlayer_Pain(id)
+{
+	if (!g_zombie[id])
+		return HC_CONTINUE;
+
+	static sound[64]
+	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_hurt1 : zombie_sound_hurt2, g_zombie_class[id], sound, charsmax(sound))
+
+	EmitSound(id, CHAN_BODY, sound)
+	return HC_SUPERCEDE;
+}
+
+public Fw_RG_CBasePlayer_DeathSound(id, lastHitGroup, bool:hasArmour)
+{
+	if (!g_zombie[id])
+		return HC_CONTINUE;
+
+	static sound[64]
+	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_death1 : zombie_sound_death2, g_zombie_class[id], sound, charsmax(sound))
+
+	EmitSound(id, CHAN_BODY, sound)
+	return HC_SUPERCEDE;
+}
+
+public Fw_RG_CBasePlayer_PreThink(id)
 {
 	if(g_UsingCustomSpeed[id] && pev(id, pev_maxspeed) != g_PlayerMaxSpeed[id])
 		set_pev(id, pev_maxspeed, g_PlayerMaxSpeed[id])
@@ -1562,12 +1584,6 @@ public fw_TraceHull(Float:vector_start[3], Float:vector_end[3], ignored_monster,
 	
 	engfunc(EngFunc_TraceHull, vecStart, vecEnd, ignored_monster, hull, id, handle)
 	
-	return FMRES_SUPERCEDE
-}
-
-public fw_GetGameDesc()
-{
-	forward_return(FMV_STRING, GAMENAME)
 	return FMRES_SUPERCEDE
 }
 
@@ -2957,7 +2973,7 @@ stock bool:TerminateRound({PlayerTeams,_}:team)
 		case TEAM_START:
 		{
 			winStatus         = WINSTATUS_NONE
-			event             = ROUND_GAME_COMMENCE
+			event             = ROUND_GAME_RESTART
 			
 			client_print(0, print_center, g_WinText[TEAM_START])
 		}
