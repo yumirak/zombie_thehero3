@@ -170,7 +170,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
 	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
 
-	g_MaxPlayers = get_maxplayers() + 1
+	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	g_Msg_SayText = get_user_msgid("SayText")
 	
@@ -1004,7 +1004,7 @@ public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDel
 	g_gamestatus = STATUS_ENDROUND
 	
 	// Update Score
-	for(new i = 1; i < g_MaxPlayers; i++)
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_alive(i))
 			continue
@@ -1574,7 +1574,7 @@ public UpdateLevelTeamHuman()
 	if(g_gamestatus != STATUS_PLAY)
 		return
 		
-	for (new id = 0; id < g_MaxPlayers; id++)
+	for (new id = 1; id <= g_MaxPlayers; id++)
 		set_task(random_float(0.1, 0.5), "delay_UpdateLevelHuman", id)
 }
 
@@ -1813,7 +1813,7 @@ public remove_game_task()
 	remove_task(TASK_COUNTDOWN)
 	remove_task(TASK_ROUND)
 	
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
 			continue
@@ -1924,7 +1924,7 @@ public get_random_hero()
 
 	formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", szHeroNames)
 
-	for(i = 1; i < g_MaxPlayers; i++)
+	for(i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i) || !is_user_alive(i) || g_zombie[i] || g_hero[i])
 			continue
@@ -2470,7 +2470,7 @@ stock client_printc(index, const text[], any:...)
 
 	if(index == 0)
 	{
-		for(new i = 0; i < get_maxplayers(); i++)
+		for(new i = 1; i <= g_MaxPlayers; i++)
 		{
 			if(is_user_connected(i))
 			{
