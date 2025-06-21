@@ -54,9 +54,9 @@ g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
-new g_zombie[33], g_hero[33], g_hero_locked[33], g_iRespawning[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
+new g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
-g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], g_zombie_respawn_time[33], g_free_gun
+g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], g_free_gun
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
 g_zombieorigin_defaultlevel, start_money, grenade_default_power, human_health, human_armor,
@@ -1063,22 +1063,11 @@ public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const as
 	{
 		if(g_zombie[victim]) // Zombie Death
 		{
-			if(headshot)
-			{
-				g_iRespawning[victim] = 0
-				UpdateFrags(attacker, victim, 3, 3, 1)
+			UpdateFrags(attacker, victim, headshot ? 3 : 0, headshot ? 3 : 0, headshot ? 1 : 1)
 
-				client_print(victim, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_NORESPAWN")
-			} else {
-				g_iRespawning[victim] = 1
-				g_zombie_respawn_time[victim] = g_RespawnTime[victim]
-				
-				UpdateFrags(attacker, victim, 0, 0, 1)
-				
-				set_task(1.0, "Dead_Effect", victim)
-				set_task(1.5, "Start_Revive", victim+TASK_REVIVE)
-			}
-			
+			if(headshot) client_print(victim, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_NORESPAWN")
+			else set_member(victim, m_flRespawnPending, get_gametime() + float(g_RespawnTime[victim]) + 1.0);
+
 			if(is_user_connected(attacker) && !g_zombie[attacker]) 
 				UpdateLevelTeamHuman()
 		}
@@ -1118,8 +1107,7 @@ public Message_TeamScore()
 
 public Message_ClCorpse()
 {
-	if (g_iRespawning[get_msg_arg_int(12)]) return PLUGIN_HANDLED
-	
+	if(get_member(get_msg_arg_int(12), m_flRespawnPending)) return PLUGIN_HANDLED
 	return PLUGIN_CONTINUE
 }
 
@@ -1197,19 +1185,28 @@ public Time_Change()
 	if(g_gamemode <= MODE_ORIGINAL)
 		return
 
-	for(new i = 0; i < g_MaxPlayers; i++)
+	static i, alive, zombie, Float:gametime, Float:respawntime;
+	gametime = get_gametime()
+
+	for(i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
 			continue
-		if(is_user_bot(i))
-			continue
-		if(g_zombie[i] && g_zombie_type[i] == ZOMBIE_HOST && g_gamemode == MODE_MUTATION)
-			continue
-		if(is_user_alive(i) && g_gamemode == MODE_HERO)
-			show_evolution_hud(i, g_zombie[i])
-			
+		
+		alive = is_user_alive(i)
+		zombie = g_zombie[i]
+		respawntime = get_member(i, m_flRespawnPending)
+
+		if(zombie && (g_zombie_type[i] == ZOMBIE_ORIGIN && g_gamemode == MODE_MUTATION) || g_gamemode == MODE_HERO)
+			ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+		
+		if(alive && g_gamemode == MODE_HERO )
+			show_evolution_hud(i, zombie)
+
+		if(!alive && respawntime)
+			handle_respawn_countdown(i, gametime, respawntime)
+
 		// show_score_hud(i)
-		ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
 	}
 
 }
@@ -1226,7 +1223,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 		TerminateRound(TEAM_START)
 	}
 #endif
-	if(g_zombie[id] && g_gamestatus == STATUS_PLAY)
+	if(g_zombie[id] && g_gamestatus >= STATUS_PLAY)
 	{
 		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
@@ -1279,7 +1276,12 @@ public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, d
 
 public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(is_user_alive(attacker) && get_member(victim, m_iTeam) == get_member(attacker, m_iTeam))
+	if(!is_user_alive(attacker))
+	{
+		SetHookChainReturn(ATYPE_INTEGER, true)
+		return HC_CONTINUE;
+	}
+	if(fm_cs_get_user_team(attacker) == fm_cs_get_user_team(victim) || g_gamestatus != STATUS_PLAY)
 	{
 		SetHookChainReturn(ATYPE_INTEGER, false)
 		return HC_SUPERCEDE;
@@ -1549,6 +1551,9 @@ public show_score_hud(id)
 
 public show_evolution_hud(id, is_zombie)
 {
+	if(is_user_bot(id))
+		return;
+
 	static level_color[3] 
 	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
 
@@ -1713,11 +1718,11 @@ public zombie_restore_health(id)
 	}
 }
 		
-public Dead_Effect(id)
-{
-	if(!g_iRespawning[id])
-		return
-		
+public bool:Dead_Effect(id, countdown)
+{		
+	if(countdown != g_RespawnTime[id] + 1)
+		return false;
+
 	new Float:fOrigin[3]
 	pev(id, pev_origin, fOrigin)
 	
@@ -1731,47 +1736,8 @@ public Dead_Effect(id)
 	write_byte(20)
 	write_byte(14)
 	message_end()
-}
 
-public Start_Revive(id)
-{
-	id -= TASK_REVIVE
-	
-	if(!is_user_connected(id) || is_user_alive(id))
-		return
-	if(!g_iRespawning[id])
-		return
-	if(g_zombie_respawn_time[id] <= 0)
-	{
-		Revive_Now(id+TASK_REVIVE)
-		return
-	}
-		
-	client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_RESPAWN", g_zombie_respawn_time[id])
-	
-	if(g_zombie_respawn_time[id] <= 10)
-	{
-		static sound[64]
-		format(sound, charsmax(sound), sound_game_count, g_zombie_respawn_time[id])
-		
-		PlaySound(id, sound)
-	}
-		
-	g_zombie_respawn_time[id]--
-	set_task(1.0, "Start_Revive", id+TASK_REVIVE)
-}
-
-public Revive_Now(id)
-{
-	id -= TASK_REVIVE
-	
-	if(!g_iRespawning[id])
-		return
-	if(is_user_alive(id))
-		return
-		
-	g_iRespawning[id] = 0
-	rg_round_respawn(id);
+	return true;
 }
 
 public gameplay_check()
@@ -2088,7 +2054,7 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 {
 	if(!is_user_alive(id))
 		return
-	if(g_gamestatus != STATUS_PLAY)
+	if(g_gamestatus < STATUS_PLAY)
 		return
 
 	static DeathSound[64], PlayerModel[64]
@@ -2215,6 +2181,23 @@ public handle_evolution(id, Float:value)
 		{
 			g_iEvolution[id] += value
 			if(g_iEvolution[id] > 9.9) UpdateLevelZombie(id)
+		}
+	}
+}
+
+public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
+{
+	static bool:effect, countdown, anim_finish
+	
+	anim_finish = get_member(id, m_fSequenceFinished)
+	countdown = floatround(respawntime - gametime, floatround_ceil)
+
+	if(countdown)
+	{
+		switch(anim_finish)
+		{
+			case true: { Dead_Effect(id, countdown); client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_RESPAWN", countdown); }
+			case false: { set_member(id, m_flRespawnPending, respawntime + 1.0); }
 		}
 	}
 }
@@ -2453,15 +2436,13 @@ public reset_player(id, new_player, zombie_respawn)
 	if(!zombie_respawn)
 	{
 		g_zombie[id] = g_zombie_class[id] = g_hero[id] = 0
-		g_hero_locked[id] = g_HasNvg[id] = g_iRespawning[id] = 0
+		g_hero_locked[id] = g_HasNvg[id] = 0
 		g_can_choose_class[id] = 1
 		g_level[id] = 0		
-		g_zombie_respawn_time[id] = 0
 		g_iEvolution[id] = 0.0
 	} else {
-		g_hero[id] = g_iRespawning[id] = 0
+		g_hero[id] = 0
 		g_hero_locked[id] = g_HasNvg[id] = 0
-		g_zombie_respawn_time[id] = 0
 	}
 }
 
@@ -2767,21 +2748,16 @@ stock GetTotalPlayer({PlayerTeams,_}:team, alive)
 
 stock GetRespawningCount()
 {
-	static Count; Count = 0
-	
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
-		if(!is_user_connected(i))
+		if(!is_user_connected(i) || !g_zombie[i])
 			continue
-		if(!g_zombie[i] || is_user_alive(i))
-			continue
-		if(!g_iRespawning[i])
-			continue
-			
-		Count++
+
+		if(get_member(i, m_flRespawnPending))
+			return true;
 	}
 	
-	return Count
+	return false;
 }
 
 stock PlaySound(id, const sound[])
