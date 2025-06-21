@@ -1922,14 +1922,17 @@ public get_random_hero()
 		strcat(szHeroNames, szName, sizeof(szHeroNames))
 	}
 
-	formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", szHeroNames)
-
-	for(i = 1; i <= g_MaxPlayers; i++)
+	if(Required_Hero)
 	{
-		if(!is_user_connected(i) || !is_user_alive(i) || g_zombie[i] || g_hero[i])
-			continue
+		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", szHeroNames)
 
-		client_print(i, print_center, FullText)
+		for(i = 1; i <= g_MaxPlayers; i++)
+		{
+			if(!is_user_connected(i) || !is_user_alive(i) || g_zombie[i] || g_hero[i])
+				continue
+
+			client_print(i, print_center, FullText)
+		}
 	}
 }
 public set_user_hero(id, player_sex)
@@ -2270,17 +2273,19 @@ public set_zombie_class(id, idclass)
 		return
 		
 	static PlayerModel[64]
-	if(g_zombie_type[id] == ZOMBIE_ORIGIN)
+
+	switch(g_zombie_type[id])
 	{
-		g_zombie_type[id] = ZOMBIE_ORIGIN
-
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
-		ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	} else {
-		g_zombie_type[id] = ZOMBIE_HOST
-
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
-		ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
+		case ZOMBIE_HOST:
+		{
+			fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
+			ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
+		}
+		case ZOMBIE_ORIGIN:
+		{
+			fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
+			ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
+		}
 	}
 	
 	set_model(id, PlayerModel)
@@ -2293,11 +2298,10 @@ public set_human_model(id)
 {
 	static Model[64]
 	
-	if(g_sex[id] == SEX_MALE)
+	switch(g_sex[id])
 	{
-		ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
-	} else if(g_sex[id] == SEX_FEMALE) {
-		ArrayGetString(human_model_female, get_random_array(human_model_female), Model, sizeof(Model))
+		case SEX_FEMALE: ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
+		default: ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
 	}
 	
 	set_model(id, Model)
@@ -2333,17 +2337,9 @@ public reset_player(id, new_player, zombie_respawn)
 public sex_selection(id)
 {
 	if(!is_user_connected(id))
-		return 0
-		
-	new sex
+		return SEX_NONE
 	
-	switch(id)
-	{
-		case 2, 4, 8, 10, 13, 16, 20, 24, 26, 28, 30, 32: sex = SEX_FEMALE
-		default: sex = SEX_MALE
-	}
-	
-	return sex
+	return random_num(SEX_MALE, SEX_FEMALE)
 }
 
 public do_random_spawn(id, retry_count)
