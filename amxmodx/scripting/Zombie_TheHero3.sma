@@ -2152,46 +2152,32 @@ public show_menu_zombieclass(id, page)
 		
 	if(pev_valid(id) == 2) set_member(id, m_iMenu, CS_Menu_OFF)
 
-	new menuwpn_title[64], temp_string[128]
+	static i, class_name[128], class_desc[128], class_id[128], String[2][64], menuwpn_title[64], temp_string[128]
 	format(menuwpn_title, 63, "%L:", LANG_PLAYER, "MENU_CLASSZOMBIE_TITLE")
 	new mHandleID = menu_create(menuwpn_title, "menu_selectclass_handle")
-	new class_name[128], class_desc[128], class_id[128]
 	
-	for (new i = 0; i < g_zombieclass_i; i++)
+	for (i = 0; i < g_zombieclass_i; i++)
 	{
-		if(!ArrayGetCell(zombie_lockcost, i))
-		{
-			ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-			ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
-			
-			formatex(class_id, charsmax(class_name), "%i", i)
-			formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
+		String[0][0] = '^0'
+		String[1][0] = '^0'
+
+		ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
+		ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
+		formatex(class_id, charsmax(class_name), "%i", i)
+
+		if(!g_unlocked_class[id][i] && ArrayGetCell(zombie_lockcost, i))
+		{	
+			formatex(String[0], 63, "%L", LANG_OFFICIAL, "MENU_LOCKED")
+			formatex(String[1], 63, "%L", LANG_OFFICIAL, "MENU_UNLOCK_COST")
+				
+			formatex(temp_string, charsmax(temp_string), "%s \r[%s]\n (%s: \r$%i\n)", class_name, String[0], String[1], ArrayGetCell(zombie_lockcost, i))
 			
 			menu_additem(mHandleID, temp_string, class_id)
-		} else {
-			if(!g_unlocked_class[id][i] && !check_user_admin(id) && !g_free_gun)
-			{
-				ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-
-				formatex(class_id, charsmax(class_name), "%i", i)
-				
-				static String[2][64]
-				
-				formatex(String[0], 63, "%L", LANG_OFFICIAL, "MENU_LOCKED")
-				formatex(String[1], 63, "%L", LANG_OFFICIAL, "MENU_UNLOCK_COST")
-				
-				formatex(temp_string, charsmax(temp_string), "%s \r[%s]\n (%s: \r$%i\n)", class_name, String[0], String[1], ArrayGetCell(zombie_lockcost, i))
-				
-				menu_additem(mHandleID, temp_string, class_id)
-			} else {
-				ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-				ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
-				
-				formatex(class_id, charsmax(class_name), "%i", i)
-				formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
-				
-				menu_additem(mHandleID, temp_string, class_id)	
-			}
+		}
+		else
+		{
+			formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
+			menu_additem(mHandleID, temp_string, class_id)
 		}
 	}
 	
@@ -2237,7 +2223,7 @@ public menu_selectclass_handle(id, menu, item)
 	
 	classid = str_to_num(idclass)	
 	
-	if(!ArrayGetCell(zombie_lockcost, classid))
+	if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid] )
 	{
 		ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
 		
@@ -2252,57 +2238,26 @@ public menu_selectclass_handle(id, menu, item)
 		
 		if(classid != 0)
 			g_can_choose_class[id] = 0
-	} else {
-		if(!g_unlocked_class[id][classid] && !check_user_admin(id) && !g_free_gun)
+	} 
+	else 
+	{
+		static lock_cost
+		lock_cost = ArrayGetCell(zombie_lockcost, classid)
+		
+		if(fm_cs_get_user_money(id) >= lock_cost)
 		{
-			static lock_cost
-			lock_cost = ArrayGetCell(zombie_lockcost, classid)
-			
-			if(fm_cs_get_user_money(id) >= lock_cost)
-			{
-				g_unlocked_class[id][classid] = 1
-				fm_cs_set_user_money(id, fm_cs_get_user_money(id) - lock_cost)
-				client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_UNLOCKED_CLASS")
-				
-				ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-				g_zombie_class[id] = classid
-				set_zombie_class(id, g_zombie_class[id])
-				
-				fm_reset_user_weapon(id)
-				set_weapon_anim(id, 3)
-				
-				ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
-				g_can_choose_class[id] = 0
-				
-				menu_destroy(menu)			
-			} else {
-				client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
-				menu_destroy(menu)
-				
-				switch(classid)
-				{
-					case 0..6: show_menu_zombieclass(id, 0)
-					case 7..13: show_menu_zombieclass(id, 1)
-					case 14..19: show_menu_zombieclass(id, 2)
-					default: show_menu_zombieclass(id, 0)
-				}
-			}
-		} else {
-			ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-			
-			g_zombie_class[id] = classid
-			set_zombie_class(id, g_zombie_class[id])
-
-			fm_reset_user_weapon(id)	
-			set_weapon_anim(id, 3)
-
-			
-			ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
-			menu_destroy(menu)
-			
-			g_can_choose_class[id] = 0
+			g_unlocked_class[id][classid] = 1
+			fm_cs_set_user_money(id, fm_cs_get_user_money(id) - lock_cost)
+			client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_UNLOCKED_CLASS")
+			menu_selectclass_handle(id, menu, item)
+		} 
+		else 
+		{
+			client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
+			menu_destroy( menu )
+			show_menu_zombieclass(id, 0)
 		}
-	}
+	} 
 	
 	return PLUGIN_HANDLED
 }
