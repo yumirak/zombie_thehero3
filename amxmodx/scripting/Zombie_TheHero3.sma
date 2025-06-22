@@ -44,23 +44,19 @@ new Float:g_PlayerMaxSpeed[33]
 
 #define MAX_SYNCHUD 6
 
-const PRIMARY_WEAPONS_BIT_SUM = (1<<CSW_SCOUT)|(1<<CSW_XM1014)|(1<<CSW_MAC10)|(1<<CSW_AUG)|(1<<CSW_UMP45)|(1<<CSW_SG550)|(1<<CSW_GALIL)|(1<<CSW_FAMAS)|(1<<CSW_AWP)|(1<<CSW_MP5NAVY)|(1<<CSW_M249)|(1<<CSW_M3)|(1<<CSW_M4A1)|(1<<CSW_TMP)|(1<<CSW_G3SG1)|(1<<CSW_SG552)|(1<<CSW_AK47)|(1<<CSW_P90)
-const SECONDARY_WEAPONS_BIT_SUM = (1<<CSW_P228)|(1<<CSW_ELITE)|(1<<CSW_FIVESEVEN)|(1<<CSW_USP)|(1<<CSW_GLOCK18)|(1<<CSW_DEAGLE)
-const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_FLASHBANG))
-
 new g_gamemode, g_evo_need_infect[2]
 // Game Vars
-new iGameCurStatus:g_gamestatus, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
+new iGameCurStatus:g_gamestatus, g_MaxPlayers,
 g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
 new g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
-g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], g_free_gun
+g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33]
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
-g_zombieorigin_defaultlevel, start_money, grenade_default_power, human_health, human_armor,
+grenade_default_power, human_health, human_armor,
 g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent, Float:g_flinfect_multi[33]
 
 // Array
@@ -113,14 +109,6 @@ new g_Msg_SayText
 
 #define MAX_RETRY 33
 
-#define TASK_TEAMMSG 200
-#define ID_TEAMMSG (taskid - TASK_TEAMMSG)
-
-new const CS_TEAM_NAMES[][] = { "UNASSIGNED", "TERRORIST", "CT", "SPECTATOR" }
-
-new g_MsgTeamInfo, g_MsgScoreInfo
-
-
 // ======================== PLUGINS FORWARDS ======================
 // ================================================================
 public plugin_init()
@@ -142,7 +130,6 @@ public plugin_init()
 	register_event("TextMsg", "Event_GameRestart", "a", "2=#Game_will_restart_in")
 	
 	// Messages
-	register_message(get_user_msgid("TeamScore"), "Message_TeamScore")
 	register_message(get_user_msgid("StatusIcon"), "Message_StatusIcon")
 	register_message(get_user_msgid("ClCorpse"), "Message_ClCorpse")
 	register_message(get_user_msgid("Health"), "Message_Health")
@@ -173,10 +160,6 @@ public plugin_init()
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	g_Msg_SayText = get_user_msgid("SayText")
-	
-	g_MsgTeamInfo = get_user_msgid("TeamInfo")
-	g_MsgScoreInfo = get_user_msgid("ScoreInfo")
-	g_msgDeathMsg = get_user_msgid("DeathMsg")
 	
 	formatex(g_WinText[TEAM_HUMAN], 63, "%L", LANG_OFFICIAL, "WIN_HUMAN")
 	formatex(g_WinText[TEAM_ZOMBIE], 63, "%L", LANG_OFFICIAL, "WIN_ZOMBIE")
@@ -453,9 +436,6 @@ public plugin_precache()
 		if(!find_ent_by_class(-1, "env_snow"))
 			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_snow"))
 	}
-	
-	m_iBlood[0] = precache_model("sprites/blood.spr")
-	m_iBlood[1] = precache_model("sprites/bloodspray.spr")
 	
 	g_respawn_iconid = precache_model(g_respawn_icon)
 	precache_model(HealerSpr)
@@ -972,7 +952,6 @@ public Event_NewRound()
 	g_gamestatus = STATUS_COUNTDOWN
 
 	remove_game_task()
-	StopSound(0)
 	
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_NEWROUND)
 }
@@ -1090,20 +1069,6 @@ public Message_StatusIcon(msg_id, msg_dest, msg_entity)
 	return PLUGIN_CONTINUE;
 }
 
-public Message_TeamScore()
-{
-	static team[2]
-	get_msg_arg_string(1, team, charsmax(team))
-	
-	switch (team[0])
-	{
-		// CT
-		case 'C': set_msg_arg_int(2, get_msg_argtype(2), g_TeamScore[TEAM_HUMAN])
-		// Terrorist
-		case 'T': set_msg_arg_int(2, get_msg_argtype(2), g_TeamScore[TEAM_ZOMBIE])
-	}
-}
-
 public Message_ClCorpse()
 {
 	if(get_member(get_msg_arg_int(12), m_flRespawnPending)) return PLUGIN_HANDLED
@@ -1204,8 +1169,6 @@ public Time_Change()
 
 		if(!alive && respawntime)
 			handle_respawn_countdown(i, gametime, respawntime)
-
-		// show_score_hud(i)
 	}
 
 }
@@ -1215,13 +1178,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 {
 	if(!is_user_connected(id) || !is_user_alive(id))
 		return
-#if 0
-	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && g_gamestatus != STATUS_PLAY)
-	{
-		g_gamestatus = STATUS_PLAY
-		TerminateRound(TEAM_START)
-	}
-#endif
+
 	if(g_zombie[id] && g_gamestatus >= STATUS_PLAY)
 	{
 		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
@@ -1238,9 +1195,6 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 	// Reset this Player
 	reset_player(id, 0, 0)
 	
-	// Set Special Var
-	g_iEvolution[id] = 0.0
-	
 	// Set Spawn
 	do_random_spawn(id, MAX_RETRY)
 	
@@ -1256,7 +1210,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 	set_user_nightvision(id, 0, 1, 1)
 	
 	fm_reset_user_weapon(id)
-	
+	StopSound(id)
 	ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
 
 	return
@@ -1369,8 +1323,8 @@ public set_team(id, {PlayerTeams,_}:team)
 	
 	switch(team)
 	{
-		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != TEAM_CT) fm_cs_set_user_team(id, TEAM_CT, 1)
-		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != TEAM_TERRORIST) fm_cs_set_user_team(id, TEAM_TERRORIST, 1)
+		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != TEAM_CT) fm_cs_set_user_team(id, TEAM_CT)
+		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != TEAM_TERRORIST) fm_cs_set_user_team(id, TEAM_TERRORIST)
 	}
 }
 
@@ -1465,24 +1419,14 @@ public fw_Block(id)
 }
 // ======================== MAIN PUBLIC ===========================
 // ================================================================	
-public show_score_hud(id)
-{
-	static FullText[64]
-	formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "GAME_SCORE_HUD", g_TeamScore[TEAM_HUMAN], g_TeamScore[TEAM_ZOMBIE])
-	
-	set_dhudmessage(200, 200, 200, -1.0, 0.0, 0, 1.5, 1.5)
-	show_dhudmessage(id, FullText)
-}
-
 public show_evolution_hud(id, is_zombie)
 {
 	if(is_user_bot(id))
 		return;
 
-	static level_color[3] 
-	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
+	static i, DamagePercent, level_color[3], PowerUp[32], PowerDown[32], FullText[88]
 
-	for(new i = 0; i < sizeof(level_color); i++)
+	for(i = 0; i < sizeof(level_color); i++)
 		level_color[i] = get_color_level(id, i)
 	
 	// Show Hud
@@ -2018,7 +1962,6 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	// Zombie Class
 	if(!Respawn)
 	{
-		g_zombie_class[id] = 0
 		if(Origin_Zombie)
 		{
 			g_level[id] = 2
@@ -2115,7 +2058,7 @@ public handle_evolution(id, Float:value)
 
 public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
 {
-	static bool:effect, countdown, anim_finish
+	static countdown, anim_finish
 	
 	anim_finish = get_member(id, m_fSequenceFinished)
 	countdown = floatround(respawntime - gametime, floatround_ceil)
@@ -2316,14 +2259,14 @@ public reset_player(id, new_player, zombie_respawn)
 		g_iMaxLevel[id] = 10
 		g_iEvolution[id] = 0.0
 		g_flinfect_multi[id] = 0.5
-
+		g_zombie_class[id] = 0
 		for(new i = 0; i < MAX_ZOMBIECLASS; i++)
 			g_unlocked_class[id][i] = 0
 	}
 
 	if(!zombie_respawn)
 	{
-		g_zombie[id] = g_zombie_class[id] = g_hero[id] = 0
+		g_zombie[id] = g_hero[id] = 0
 		g_hero_locked[id] = g_HasNvg[id] = 0
 		g_can_choose_class[id] = 1
 		g_level[id] = 0		
@@ -2728,32 +2671,9 @@ stock TeamName:fm_cs_get_user_team(client)
 	return get_member(client, m_iTeam);
 }
 
-stock fm_cs_set_user_team(id, TeamName:team, send_message)
+stock fm_cs_set_user_team(id, TeamName:team)
 {
-	remove_task(id+TASK_TEAMMSG)
-	set_member(id, m_iTeam, team);
-
-	// Send message to update team?
-	if (send_message) set_task(0.1, "fm_cs_set_user_team_msg", id+TASK_TEAMMSG)
-}
-
-// Send User Team Message (Note: this next message can be received by other plugins)
-public fm_cs_set_user_team_msg(taskid)
-{
-	// Tell everyone my new team
-	emessage_begin(MSG_ALL, g_MsgTeamInfo)
-	ewrite_byte(ID_TEAMMSG) // player
-	ewrite_string(CS_TEAM_NAMES[_:fm_cs_get_user_team(ID_TEAMMSG)]) // team
-	emessage_end()
-	
-	// Fix for AMXX/CZ bots which update team paramater from ScoreInfo message
-	emessage_begin(MSG_BROADCAST, g_MsgScoreInfo)
-	ewrite_byte(ID_TEAMMSG) // id
-	ewrite_short(pev(ID_TEAMMSG, pev_frags)) // frags
-	ewrite_short(fm_cs_get_user_deaths(ID_TEAMMSG)) // deaths
-	ewrite_short(0) // class?
-	ewrite_short(_:fm_cs_get_user_team(ID_TEAMMSG)) // team
-	emessage_end()
+	rg_set_user_team(id, team)
 }
 
 public SendScenarioMsg(id, num)
@@ -2775,57 +2695,20 @@ public SendScenarioMsg(id, num)
 // ================================================================
 stock bool:TerminateRound({PlayerTeams,_}:team)
 {
-	new WinStatus:winStatus
-	new ScenarioEventEndRound:event
-	new sound[64]
+	new sound[64]; sound[0] = '^0'
 	
 	switch(team)
 	{
-		case TEAM_ZOMBIE:
-		{
-			winStatus         = WINSTATUS_TERRORISTS
-			event             = ROUND_GAME_OVER
-			
-			g_TeamScore[TEAM_ZOMBIE]++
-			ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
-		
-			client_print(0, print_center, g_WinText[TEAM_ZOMBIE])
-		}
-		case TEAM_HUMAN:
-		{
-			winStatus         = WINSTATUS_CTS
-			event             = ROUND_GAME_OVER
-			
-			g_TeamScore[TEAM_HUMAN]++
-			ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
-			
-			client_print(0, print_center, g_WinText[TEAM_HUMAN])
-		}
-		case TEAM_ALL:
-		{
-			winStatus         = WINSTATUS_DRAW
-			event             = ROUND_END_DRAW
-			
-			client_print(0, print_center, g_WinText[TEAM_ALL])
-		}
-		case TEAM_START:
-		{
-			winStatus         = WINSTATUS_NONE
-			event             = ROUND_GAME_RESTART
-			
-			client_print(0, print_center, g_WinText[TEAM_START])
-		}
-		default:
-		{
-			return false;
-		}
+		case TEAM_ZOMBIE: ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
+		case TEAM_HUMAN: ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
 	}
 	
 	g_gamestatus = STATUS_ENDROUND
-	StopSound(0)
-	
-	rg_round_end(team == TEAM_START ? 3.0 : 5.0, winStatus, event, g_WinText[team]);
-	PlaySound(0, sound)
+
+	rg_update_teamscores(team == TEAM_HUMAN, team == TEAM_ZOMBIE);
+	rg_round_end(team == TEAM_START ? 3.0 : 5.0, WINSTATUS_NONE, ROUND_NONE, g_WinText[team]);
+
+	if(sound[0]) PlaySound(0, sound)
 	
 	ExecuteForward(g_Forwards[FWD_GAME_END], g_fwResult, team)
 	
