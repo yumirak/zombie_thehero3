@@ -1,12 +1,6 @@
-// Default
 #include <amxmodx>
 #include <amxmisc>
-#include <engine>
-#include <fakemeta>
 #include <fakemeta_util>
-#include <xs>
-
-// New
 #include <reapi>
 #include <zombie_thehero2>
 
@@ -413,10 +407,10 @@ public plugin_precache()
 	if(g_fog)
 	{
 		new ent;
-		if(!find_ent_by_class(-1, "env_fog"))
-			ent = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_fog"))
+		if(!rg_find_ent_by_class(-1, "env_fog", true))
+			ent = rg_create_entity("env_fog", true);
 		else
-			ent = find_ent_by_class(-1, "env_fog")
+			ent = rg_find_ent_by_class(-1, "env_fog", true)
 
 		if (pev_valid(ent))
 		{
@@ -427,14 +421,14 @@ public plugin_precache()
 
 	if(g_rain)
 	{
-		if(!find_ent_by_class(-1, "env_rain"))
-			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_rain"))
+		if(!rg_find_ent_by_class(-1, "env_rain", true))
+			rg_create_entity("env_rain", true);
 	}
 
 	if(g_snow)
 	{
-		if(!find_ent_by_class(-1, "env_snow"))
-			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_snow"))
+		if(!rg_find_ent_by_class(-1, "env_snow", true))
+			rg_create_entity("env_snow", true);
 	}
 	
 	g_respawn_iconid = precache_model(g_respawn_icon)
