@@ -1424,7 +1424,10 @@ public show_evolution_hud(id, is_zombie)
 	if(is_user_bot(id))
 		return;
 
-	static i, DamagePercent, level_color[3], PowerUp[32], PowerDown[32], FullText[88]
+	static Float:f , i, DamagePercent, level_color[3], PowerUp[32], PowerDown[32], FullText[88]
+
+	DamagePercent = 0
+	PowerUp[0] = PowerDown[0] = FullText[0] = '^0'
 
 	for(i = 0; i < sizeof(level_color); i++)
 		level_color[i] = get_color_level(id, i)
@@ -1438,9 +1441,9 @@ public show_evolution_hud(id, is_zombie)
 	{
 		DamagePercent = g_level[id]
 		
-		for(new Float:i = 0.0; i < g_iEvolution[id]; i += 1.0)
+		for(f = 0.0; f < g_iEvolution[id]; f += 1.0)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
-		for(new Float:i = 10.0; i > g_iEvolution[id]; i -= 1.0)
+		for(f = 10.0; f > g_iEvolution[id]; f -= 1.0)
 			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
 
 		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "ZOMBIE_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
@@ -1449,9 +1452,9 @@ public show_evolution_hud(id, is_zombie)
 	{
 		DamagePercent = 100 + (g_level[id] * 10)
 
-		for(new i = 0; i < g_level[id]; i++)
+		for(i = 0; i < g_level[id]; i++)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
-		for(new i = g_iMaxLevel[id]; i > g_level[id]; i--)
+		for(i = g_iMaxLevel[id]; i > g_level[id]; i--)
 			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
 
 		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "HUMAN_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
@@ -1493,7 +1496,7 @@ public UpdateLevelZombie(id)
 	// Play Evolution Sound
 	new sound[64]
 	ArrayGetString(zombie_sound_evolution, g_zombie_class[id], sound, charsmax(sound))
-	EmitSound(id, CHAN_ITEM, sound)
+	EmitSound(id, CHAN_AUTO, sound)
 	
 	// Reset Claws
 	Event_CheckWeapon(id)
@@ -1519,7 +1522,7 @@ public UpdateLevelTeamHuman()
 		return
 		
 	for (new id = 1; id <= g_MaxPlayers; id++)
-		set_task(random_float(0.1, 0.5), "delay_UpdateLevelHuman", id)
+		delay_UpdateLevelHuman(id)
 }
 
 public delay_UpdateLevelHuman(id)
@@ -1540,7 +1543,7 @@ public delay_UpdateLevelHuman(id)
 	PlaySound(id, sound_human_levelup)
 	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_HUMAN_LEVELUP", g_level[id])
 
-	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 1, 3.0, 3.0)
+	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 0, 3.0, 3.0)
 	show_dhudmessage(id, szText)
 }
 
