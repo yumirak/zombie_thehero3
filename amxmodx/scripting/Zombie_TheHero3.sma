@@ -30,11 +30,11 @@ new g_UsingCustomSpeed[33]
 new Float:g_PlayerMaxSpeed[33]
 
 // TASK
-#define TASK_COUNTDOWN 52000
-#define TASK_ROUND 52001
-#define TASK_REVIVE 52002
-#define TASK_CHOOSECLASS 52003
-#define TASK_NVGCHANGE 52004
+enum 
+{
+	TASK_CHOOSECLASS = 52001,
+	TASK_NVGCHANGE
+}
 
 #define MAX_SYNCHUD 6
 
@@ -53,6 +53,7 @@ new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_leve
 grenade_default_power, human_health, human_armor,
 g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent, Float:g_flinfect_multi[33]
 
+new Float:g_roundstart_time;
 // Array
 new Array:human_model_male, Array:human_model_female, Array:hero_model_male, Array:hero_model_female,
 Array:sound_infect_male, Array:sound_infect_female
@@ -943,7 +944,7 @@ public Event_NewRound()
 	}	
 
 	g_firstzombie = g_firsthuman = 0
-	g_gamestatus = STATUS_COUNTDOWN
+	g_gamestatus = STATUS_FREEZE
 
 	remove_game_task()
 	
@@ -952,21 +953,22 @@ public Event_NewRound()
 
 public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 {
-	if(g_gamestatus != STATUS_COUNTDOWN)
+	if(g_gamestatus != STATUS_FREEZE)
 		return
 		
 	static GameSound[128]
 	ArrayGetString(sound_game_start, get_random_array(sound_game_start), GameSound, sizeof(GameSound))
 	PlaySound(0, GameSound)
 	
-	start_countdown()
-	set_task(get_cvar_float("mp_roundtime") * 60.0, "Event_TimedOut", TASK_ROUND)
+	g_roundstart_time = get_gametime()
+	g_gamestatus = STATUS_COUNTDOWN
+	
+	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
 }
 
 // public Event_RoundEnd()
 public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDelay)
 {
-	// server_print("status: %i, event: %i, tmDelay: %f", status, event, tmDelay)
 	if((event != ROUND_GAME_RESTART && event != ROUND_END_DRAW && event != ROUND_GAME_OVER))
 	{
 		SetHookChainReturn(ATYPE_BOOL, false)
@@ -994,14 +996,6 @@ public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDel
 public Event_GameRestart()
 {
 	g_gamestatus = STATUS_ENDROUND
-}
-
-public Event_TimedOut(task)
-{
-	if(g_gamestatus != STATUS_PLAY)
-		return
-		
-	TerminateRound(TEAM_HUMAN)
 }
 
 public Event_CheckWeapon(id)
@@ -1140,11 +1134,17 @@ public Time_Change()
 {
 	ExecuteForward(g_Forwards[FWD_TIME_CHANGE], g_fwResult)
 
-	if(g_gamemode <= MODE_ORIGINAL)
-		return
-
 	static i, alive, zombie, Float:gametime, Float:respawntime;
 	gametime = get_gametime()
+
+	switch(g_gamestatus)
+	{
+		case STATUS_COUNTDOWN: handle_countdown(gametime)
+		case STATUS_PLAY:  handle_round_timeout(gametime)
+	}
+	
+	if(g_gamemode <= MODE_ORIGINAL)
+		return
 
 	for(i = 1; i <= g_MaxPlayers; i++)
 	{
@@ -1750,62 +1750,21 @@ public set_player_light(id, const LightStyle[])
 }
 
 public remove_game_task()
-{
-	remove_task(TASK_COUNTDOWN)
-	remove_task(TASK_ROUND)
-	
+{	
 	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
 			continue
 			
-		remove_task(i+TASK_REVIVE)
 		remove_task(i+TASK_CHOOSECLASS)
 		remove_task(i+TASK_NVGCHANGE)
-		remove_task(i+TASK_REVIVE)
 	}
 }
 
 public remove_game_task_player(id)
 {
-	remove_task(id+TASK_REVIVE)
 	remove_task(id+TASK_CHOOSECLASS)
 	remove_task(id+TASK_NVGCHANGE)
-	remove_task(id+TASK_REVIVE)
-}
-public start_countdown()
-{
-	PlaySound(0, sound_remain_time)
-	
-	g_countdown_count = DEF_COUNTDOWN
-	counting_down()
-	
-	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
-}
-
-public counting_down()
-{
-	if(g_gamestatus != STATUS_COUNTDOWN)
-		return
-
-	if(g_countdown_count <= 0)
-	{
-		start_game_now()
-		return
-	}
-	
-	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
-	
-	if(g_countdown_count <= 10)
-	{
-		static sound[64]
-		format(sound, charsmax(sound), sound_game_count, g_countdown_count)
-		
-		PlaySound(0, sound)
-	}
-	
-	g_countdown_count--
-	set_task(1.0, "counting_down", TASK_COUNTDOWN)
 }
 
 public start_game_now()
@@ -2053,6 +2012,31 @@ public handle_evolution(id, Float:value)
 	}
 }
 
+public handle_countdown(Float:gametime)
+{
+	static Float:starttime, count
+	starttime = g_roundstart_time + g_countdown_count
+	count = floatround(starttime - gametime, floatround_ceil)
+
+	if(gametime > starttime) { start_game_now(); return; }
+
+	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", count)
+
+	static sound[64]
+	format(sound, charsmax(sound), sound_game_count, count)
+					
+	PlaySound(0, sound)
+}
+
+public handle_round_timeout(Float:gametime)
+{
+	static Float:endtime;
+	endtime = g_roundstart_time + float(get_member_game(m_iRoundTimeSecs))
+
+	if(gametime > endtime)
+		TerminateRound(TEAM_HUMAN)
+}
+
 public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
 {
 	static countdown, anim_finish
@@ -2175,7 +2159,7 @@ public menu_selectclass_handle(id, menu, item)
 		
 		ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
 
-		fm_reset_user_weapon(id)
+		fm_reset_user_weapon(id, false)
 		set_weapon_anim(id, 3)
 		menu_destroy(menu)
 		
@@ -2504,14 +2488,15 @@ stock fm_reset_user_speed(id)
 	else rg_reset_maxspeed(id)
 }
 
-stock fm_reset_user_weapon(id)
+stock fm_reset_user_weapon(id, bool:strip = true)
 {
 	if(!is_user_alive(id))
 		return
 
 	static ent, Float:distance, Float:scalar;
 
-	rg_remove_all_items(id, false)
+	if(strip)
+		rg_remove_all_items(id, false)
 
 	switch(g_zombie[id])
 	{
@@ -2729,6 +2714,7 @@ public load_config_file()
 	g_evo_need_infect[ZOMBIE_HOST] = str_to_num(buffer)
 
 	// GamePlay Configs
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "COUNTDOWN", buffer, sizeof(buffer), DummyArray); g_countdown_count = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level3_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_ARMOR", buffer, sizeof(buffer), DummyArray); zombie_level2_armor = str_to_num(buffer)
