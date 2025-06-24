@@ -39,6 +39,14 @@ MENU_CANT_SELECT_CLASS = You only can choose class before %i second(s) after get
 MENU_UNLOCKED_CLASS = You have !gUnlocked!n this class zombie. Now you can use it for !gAll Round!n
 MENU_CANT_UNLOCK_CLASS = You !gDon't Have Enough Money!n to unlock this class.
 
+SHOP_WEAPON = Weapon Selection
+SHOP_PRIMARY = Primary 
+SHOP_SECONDARY = Secondary 
+SHOP_MELEE = Melee 
+SHOP_GRENADE = Grenade 
+SHOP_GET = Buy Weapons
+SHOP_MISSCLICK = Press 'buyammo1' to reopen weapon selection.
+
 ZOMBIE_REGULAR_CANTBERSERK = Your Health is too low... Need bigger than 500
 ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
 

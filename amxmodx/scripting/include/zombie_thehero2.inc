@@ -63,7 +63,9 @@ enum
 {
 	WPN_PRIMARY = 1,
 	WPN_SECONDARY,
-	WPN_MELEE
+	WPN_MELEE,
+	WPN_GRENADE,
+	WPN_MAX
 }
 
 enum
@@ -127,6 +129,13 @@ enum
 	FWD_TIME_CHANGE,
 	FWD_SKILL_HUD,
 	FWD_MAX
+}
+enum 
+{
+	WPN_PRE_BOUGHT,
+	WPN_BOUGHT,
+	WPN_REMOVE,
+	WPN_ADDAMMO
 }
 // Natives
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player
