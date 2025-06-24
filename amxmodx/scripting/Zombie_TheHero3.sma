@@ -1236,9 +1236,19 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 
 	if(g_zombie[attacker] && !g_zombie[victim])
 	{
-		set_user_zombie(victim, attacker, inflictor, false, false)
-		SetHookChainReturn(ATYPE_INTEGER, false)
-		return HC_SUPERCEDE;
+		static ent;
+		ent = inflictor;
+		rg_find_ent_by_owner(ent, "weapon_knife", attacker);
+
+		if(get_entvar(ent, var_impulse) == KNIFE_IMPULSE)
+		{
+			set_user_zombie(victim, attacker, ent, false, false)
+			SetHookChainReturn(ATYPE_INTEGER, false)
+			return HC_SUPERCEDE;
+		}
+
+		SetHookChainReturn(ATYPE_INTEGER, true)
+		return HC_CONTINUE;
 	}
 
 	static Float:zb_class_dmgmulti; zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
