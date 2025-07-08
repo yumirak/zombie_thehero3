@@ -24,17 +24,13 @@ new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:C
 new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new BatModel[64], BatFireSound[64], BatFlySound[64], BatFailSound[64], Catch_Player_Male[64], Catch_Player_Female[64], BatExpSpr[64]
-new Float:g_bat_cooldown[2], g_bat_range[2], Float:g_bat_starttime, g_bat_velocity[2], g_bat_catch_velocity[2], Float:g_bat_timelive[2]
+new Float:g_bat_cooldown[2], Float:g_bat_grouprange[2], Float:g_bat_starttime, g_bat_velocity[2], g_bat_catch_velocity[2], Float:g_bat_timelive[2]
 
 new g_zombie_classid
 new g_synchud1, g_Msg_Shake, g_BatExpSpr_Id, Float:g_current_time[33]
 new g_can_skill[33], g_skilling[33]
 
-const pev_catched = pev_iuser1
 const pev_catchid = pev_iuser2
-const pev_maxdistance = pev_iuser3
-const pev_catchedspeed = pev_iuser4
-const pev_timechange = pev_fuser1
 const pev_livetime = pev_fuser2
 
 #define LANG_OFFICIAL LANG_PLAYER
@@ -54,11 +50,7 @@ public plugin_init()
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
 	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
-	register_clcmd("drop", "cmd_drop")
-	
-	//register_forward(FM_EmitSound, "fw_EmitSound")
-	//register_forward(FM_TraceLine, "fw_TraceLine")
-	//register_forward(FM_TraceHull, "fw_TraceHull")		
+	register_clcmd("drop", "cmd_drop")	
 
 	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
 
@@ -149,8 +141,8 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_CATCH_SPEED_ORIGIN", buffer, sizeof(buffer), DummyArray); g_bat_catch_velocity[ZOMBIE_ORIGIN] = str_to_num(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_CATCH_SPEED_HOST", buffer, sizeof(buffer), DummyArray); g_bat_catch_velocity[ZOMBIE_HOST] = str_to_num(buffer)
 
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_MAX_DISTANCE_ORIGIN", buffer, sizeof(buffer), DummyArray); g_bat_range[ZOMBIE_ORIGIN] = str_to_num(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_MAX_DISTANCE_HOST", buffer, sizeof(buffer), DummyArray); g_bat_range[ZOMBIE_HOST] = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_GROUP_DISTANCE_ORIGIN", buffer, sizeof(buffer), DummyArray); g_bat_grouprange[ZOMBIE_ORIGIN] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_GROUP_DISTANCE_HOST", buffer, sizeof(buffer), DummyArray); g_bat_grouprange[ZOMBIE_HOST] = str_to_float(buffer)
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_SOUND_START", BatFireSound, sizeof(BatFireSound), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_SOUND_FLY", BatFlySound, sizeof(BatFlySound), DummyArray);
@@ -296,20 +288,20 @@ public CreateBat(id)
 		
 	static Float:BatOrigin[3], Float:Angles[3], Float:Velocity[3]
 	
-	get_position(id, 50.0, 0.0, 0.0, BatOrigin)
+	// get_position(id, 50.0, 0.0, 0.0, BatOrigin)
+	pev(id, pev_origin, BatOrigin)
 	pev(id, pev_angles, Angles)
 	
 	set_pev(bat, pev_origin, BatOrigin)
 	set_pev(bat, pev_angles, Angles)
 	
 	engfunc(EngFunc_SetModel, bat, BatModel)
-	engfunc(EngFunc_SetSize, bat, {-10.0,-7.5,-4.0}, {10.0,7.5,4.0})
+	engfunc(EngFunc_SetSize, bat, {-3.0,-3.0,-3.0}, {3.0,3.0,3.0}) // {-10.0,-7.5,-4.0}, {10.0,7.5,4.0})
 	
 	set_pev(bat, pev_classname, BAT_CLASSNAME)
-	set_pev(bat, pev_solid, 2)
+	set_pev(bat, pev_solid, SOLID_TRIGGER)
 	set_pev(bat, pev_movetype, MOVETYPE_FLY)
 	set_pev(bat, pev_owner, id)
-	// set_pev(bat, pev_fuser1, g_bat_timelive[zb3_get_user_zombie_type(id)]) //(zb3_get_user_level(id) > 1 ? BAT_TIMELIVE_ORIGIN : BAT_TIMELIVE_HOST))
 	
 	velocity_by_aim(id, g_bat_velocity[zb3_get_user_zombie_type(id)], Velocity)
 	set_pev(bat, pev_velocity, Velocity)
@@ -318,13 +310,8 @@ public CreateBat(id)
 	set_pev(bat, pev_nextthink, get_gametime() + 0.1)
 	
 	// Set Secret Data
-	set_pev(bat, pev_catched, 0)
 	set_pev(bat, pev_catchid, 0)
-	set_pev(bat, pev_maxdistance, g_bat_range[zb3_get_user_zombie_type(id)])
-	set_pev(bat, pev_catchedspeed, g_bat_catch_velocity[zb3_get_user_zombie_type(id)])
-	
-	set_pev(bat, pev_timechange, 0.0)
-	set_pev(bat, pev_livetime, g_bat_timelive[zb3_get_user_zombie_type(id)])
+	set_pev(bat, pev_livetime, get_gametime() + g_bat_timelive[zb3_get_user_zombie_type(id)])
 
 	EmitSound(bat, CHAN_BODY, BatFlySound)
 }
@@ -334,69 +321,46 @@ public fw_Bat_Think(ent)
 	if(!pev_valid(ent))
 		return
 
-	static Owner
+	static Owner, catchid, Victim, Float:Origin[3]; 
 	Owner = pev(ent, pev_owner)
 	
-	if(!is_user_alive(Owner) || zb3_get_user_zombie_class(Owner) != g_zombie_classid)
-	{
-		Bat_Explosion(ent)
-		return
-	}		
-		
-	static catched, catchid
-	
-	catched = pev(ent, pev_catched)
-	catchid = pev(ent, pev_catchid)
-	
-	if(get_gametime() - 1.0 > pev(ent, pev_timechange))
-	{
-		set_pev(ent, pev_livetime, pev(ent, pev_livetime) - 1.0)
-		set_pev(ent, pev_timechange, get_gametime())
-	}
-	
-	if(pev(ent, pev_livetime) <= 0.0)
+	if(get_gametime() > pev(ent, pev_livetime) || !is_user_alive(Owner) || zb3_get_user_zombie_class(Owner) != g_zombie_classid)
 	{
 		Bat_Explosion(ent)
 		Reset_Owner(Owner)
-				
 		return
-	}
-	
-	if(catched)
-	{
-		if(is_user_alive(catchid))
-		{
-			if(entity_range(catchid, Owner) >= 70)
-				hook_ent(catchid, Owner, float(pev(ent, pev_catchedspeed)))
-			else 
-			{
-				Bat_Explosion(ent)
-				Reset_Owner(Owner)
-				
-				return
-			}
-		} else {
-			Bat_Explosion(ent)
-			Reset_Owner(Owner)
-			
-			return
-		}
-	} else {
-		if(entity_range(ent, Owner) > pev(ent, pev_maxdistance))
-		{
-			Bat_Explosion(ent)
-			Reset_Owner(Owner)
-			
-			return
-		}
-	}
+	}		
 	
 	set_pev(ent, pev_nextthink, get_gametime() + 0.1)
+
+	catchid = pev(ent, pev_catchid)
+	
+	if(!is_user_alive(catchid))
+		return
+
+	pev(catchid, pev_origin, Origin)
+
+	if(!zb3_get_user_zombie(catchid) && entity_range(catchid, Owner) >= 128)
+	{
+		while((Victim = find_ent_in_sphere(Victim, Origin, g_bat_grouprange[zb3_get_user_zombie_type(Owner)])) != 0)
+		{
+			if(!is_user_alive(Victim) && zb3_get_user_zombie(Victim))
+				continue
+				
+			hook_ent(Victim, Owner, float(g_bat_catch_velocity[zb3_get_user_zombie_type(Owner)]))
+		}
+	}
+	else
+	{
+		Bat_Explosion(ent)
+		Reset_Owner(Owner)
+		return
+	}	
 }
 
 public fw_Bat_Touch(bat, id)
 {
-	if(!pev_valid(bat))
+	if(!pev_valid(bat) || zb3_get_user_zombie(id))
 		return
 	
 	static Owner
@@ -422,7 +386,6 @@ public Catch_Player(ent, id, owner)
 	if(!pev_valid(ent) || !is_user_alive(id) || zb3_get_user_zombie_class(owner) != g_zombie_classid)
 		return
 	
-	set_pev(ent, pev_catched, 1)
 	set_pev(ent, pev_catchid, id)
 	set_pev(ent, pev_solid, SOLID_NOT)
 	set_pev(ent, pev_aiment, id)
@@ -430,16 +393,9 @@ public Catch_Player(ent, id, owner)
 
 	if(!zb3_get_user_zombie(id))
 	{
-		if(!zb3_get_user_hero(id))
-		{
-			ScreenShake(id)
-			EmitSound(id, CHAN_VOICE, zb3_get_user_sex(id) == SEX_MALE ? Catch_Player_Male : Catch_Player_Female)
-		} else {
-			Bat_Explosion(ent)
-			Reset_Owner(owner)
-			
-			return
-		}
+		ScreenShake(id)
+		EmitSound(id, CHAN_VOICE, zb3_get_user_sex(id) == SEX_MALE ? Catch_Player_Male : Catch_Player_Female)
+		EmitSound(ent, CHAN_BODY, BatFlySound)
 	}
 }
 
