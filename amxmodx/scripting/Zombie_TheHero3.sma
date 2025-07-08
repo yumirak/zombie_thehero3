@@ -2234,7 +2234,7 @@ public set_human_model(id)
 	
 	switch(g_sex[id])
 	{
-		case SEX_FEMALE: ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
+		case SEX_FEMALE: ArrayGetString(human_model_female, get_random_array(human_model_female), Model, sizeof(Model))
 		default: ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
 	}
 	
@@ -2273,7 +2273,7 @@ public sex_selection(id)
 	if(!is_user_connected(id))
 		return SEX_NONE
 	
-	return random_num(SEX_MALE, SEX_FEMALE)
+	return random_num(0, 2) > 0 ? SEX_FEMALE : SEX_MALE
 }
 
 public do_random_spawn(id, retry_count)
