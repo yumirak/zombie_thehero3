@@ -33,7 +33,8 @@ new Float:g_PlayerMaxSpeed[33]
 enum 
 {
 	TASK_CHOOSECLASS = 52001,
-	TASK_NVGCHANGE
+	TASK_NVGCHANGE,
+	TASK_COUNTDOWN
 }
 
 #define MAX_SYNCHUD 6
@@ -41,7 +42,7 @@ enum
 new g_gamemode, g_evo_need_infect[2]
 // Game Vars
 new iGameCurStatus:g_gamestatus, g_MaxPlayers,
-g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count,
+g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
@@ -962,7 +963,9 @@ public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 	
 	g_roundstart_time = get_gametime()
 	g_gamestatus = STATUS_COUNTDOWN
-	
+	g_countdown_count = g_countdown_time
+	set_task(1.0, "handle_countdown", TASK_COUNTDOWN, _, _, "b")
+
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
 }
 
@@ -1137,11 +1140,8 @@ public Time_Change()
 	static i, alive, zombie, Float:gametime, Float:respawntime;
 	gametime = get_gametime()
 
-	switch(g_gamestatus)
-	{
-		case STATUS_COUNTDOWN: handle_countdown(gametime)
-		case STATUS_PLAY:  handle_round_timeout(gametime)
-	}
+	if(g_gamestatus == STATUS_PLAY)
+		handle_round_timeout(gametime)
 	
 	if(g_gamemode <= MODE_ORIGINAL)
 		return
@@ -2022,20 +2022,27 @@ public handle_evolution(id, Float:value)
 	}
 }
 
-public handle_countdown(Float:gametime)
+public handle_countdown()
 {
-	static Float:starttime, count
-	starttime = g_roundstart_time + g_countdown_count
-	count = floatround(starttime - gametime, floatround_ceil)
+	if(g_gamestatus != STATUS_COUNTDOWN)
+	{
+		remove_task(TASK_COUNTDOWN)
+		return
+	}
 
-	if(gametime > starttime) { start_game_now(); return; }
+	if(g_countdown_count < 0)
+	{
+		start_game_now()
+		return
+	}
 
-	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", count)
+	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
 
 	static sound[64]
-	format(sound, charsmax(sound), sound_game_count, count)
+	format(sound, charsmax(sound), sound_game_count, g_countdown_count)
 					
 	PlaySound(0, sound)
+	g_countdown_count--
 }
 
 public handle_round_timeout(Float:gametime)
@@ -2724,7 +2731,7 @@ public load_config_file()
 	g_evo_need_infect[ZOMBIE_HOST] = str_to_num(buffer)
 
 	// GamePlay Configs
-	amx_load_setting_string( false, SETTING_FILE, "Config Value", "COUNTDOWN", buffer, sizeof(buffer), DummyArray); g_countdown_count = str_to_num(buffer)
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "COUNTDOWN", buffer, sizeof(buffer), DummyArray); g_countdown_time = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level3_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_ARMOR", buffer, sizeof(buffer), DummyArray); zombie_level2_armor = str_to_num(buffer)
