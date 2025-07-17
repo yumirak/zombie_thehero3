@@ -3,8 +3,7 @@
 #include <engine>
 #include <fakemeta>
 #include <hamsandwich>
-#include <cstrike>
-#include <fun>
+#include <reapi>
 #include <zombie_thehero2>
 
 #define PLUGIN "[Zombie: The Hero] Human Item"
@@ -12,75 +11,43 @@
 #define AUTHOR "Dias"
 
 #define DELAY_TIME 2.0
-#define ITEM_FILE "zombie_thehero_item.ini"
+new const LANG_FILE[] = "zombie_thehero2.txt"
+new const SETTING_FILE[] = "zombie_thehero2/items.ini"
 
-// Configs
-const g_wb_cost = 2000
-const Float:g_wb_gravity = 0.75
-
-const g_dg_cost = 3000
-const g_p30_cost = 3000
-	
-const g_sprint_cost = 5000
-const Float:fastrun_time = 10.0
-const Float:fastrun_speed = 400.0
-const Float:slowrun_time = 5.0
-const Float:slowrun_speed = 140.0
-new const sound_fastrun_start[] = "zombie_thehero/speedup.wav"
-new const sound_fastrun_heartbeat[] = "zombie_thehero/speedup_heartbeat.wav"
-new const sound_breath_male[] = "zombie_thehero/human_breath_male.wav"
-new const sound_breath_female[] = "zombie_thehero/human_breath_female.wav"
-
-const g_deadlyshot_cost = 7000
-const Float:g_deadlyshot_time = 5.0
-new const g_deadlyshot_icon[] = "sprites/zombie_thehero/zb_skill_headshot.spr"
-	
-const g_bloodyblade_cost = 5000
-const Float:g_bloodyblade_damage = 2.0	
-const Float:g_bloodyblade_time = 5.0
-new const g_bloodyblade_icon[] = "sprites/zombie_thehero/zb_meleeup.spr"
 /// ===== Configs
-
 new g_sync_hud1, g_sync_hud2
 new Float:g_hud_delay[33]
 new g_register, g_zombie_appear
 
 // Wing Boot
-new g_wing_boot, g_had_wing_boot[33]
-
+new g_wing_boot, g_wing_boot_name[24], g_wing_boot_desc[24], g_had_wing_boot[33]
+new g_wb_cost, Float:g_wb_gravity
 // Double Grenade
-new g_double_grenade, g_had_double_grenade[33], g_doubled_grenade[33]
+new g_double_grenade, g_double_grenade_name[24], g_double_grenade_desc[24], g_dg_cost, g_had_double_grenade[33], g_doubled_grenade[33]
 
 // Sprint
-new g_sprint
+new g_sprint, g_sprint_name[24], g_sprint_desc[24], g_sprint_cost, Float:fastrun_time, Float:fastrun_speed, Float:slowrun_speed, Float:slowrun_time
 new g_had_sprint[33], g_can_use_sprint[33], g_using_sprint[33], g_sprint_status[33]
+new sound_fastrun_start[64], sound_fastrun_heartbeat[64], sound_breath_male[64], sound_breath_female[64]
 
 #define TASK_REMOVE_FASTRUN 59384543
 #define TASK_REMOVE_SLOWRUN 5893485
 #define TASK_HUMAN_SOUND 53450834
 
 // +30% Damage
-new g_p30_damage, g_had_p30_damage[33]
+new g_p30_damage, g_p30_damage_name[24], g_p30_damage_desc[24], g_p30_cost, g_had_p30_damage[33]
 
 // Deadly Shot
-new g_deadlyshot, g_had_deadlyshot[33], g_can_use_deadlyshot[33], g_using_deadlyshot[33]
-new g_deadlyshot_icon_id
+new g_deadlyshot, g_deadlyshot_name[24], g_deadlyshot_desc[24], g_had_deadlyshot[33], g_can_use_deadlyshot[33], g_using_deadlyshot[33]
+new g_deadlyshot_cost, Float:g_deadlyshot_time, g_deadlyshot_icon[64], g_deadlyshot_sound[64]
 
 #define TASK_REMOVE_DEADLYSHOT 839483
-#define TASK_DEADLYSHOT_ICON 534534
 
 // Bloody Blade
-new g_bloodyblade, g_had_bloodyblade[33], g_can_use_bloodyblade[33], g_using_bloodyblade[33]
-new g_bloodyblade_icon_id
+new g_bloodyblade, g_bloodyblade_name[24], g_bloodyblade_desc[24], g_had_bloodyblade[33], g_can_use_bloodyblade[33], g_using_bloodyblade[33]
+new g_bloodyblade_cost, Float:g_bloodyblade_time, Float:g_bloodyblade_damage, g_bloodyblade_icon[64], g_bloodyblade_sound[64]
 
 #define TASK_REMOVE_BLOODYBLADE 839485
-#define TASK_BLOODYBLADE_ICON 535534
-
-new g_Msg_ScreenFade
-
-// NightVision
-new g_nightvision, g_had_nvg[33]
-const g_nightvision_cost = 2500
 
 public plugin_init()
 {
@@ -92,37 +59,102 @@ public plugin_init()
 	RegisterHam(Ham_Item_AddToPlayer, "weapon_hegrenade", "fw_Add_Hegrenade_Post", 1)
 	RegisterHam(Ham_TraceAttack, "player", "fw_TraceAttack")
 	
-	g_Msg_ScreenFade = get_user_msgid("ScreenFade")
-	
 	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
 
-	register_clcmd("fastrun", "do_fastrun")
+	register_clcmd("sp", "do_fastrun")
+	register_clcmd("ds", "do_deadlyshot")
+	register_clcmd("bb", "do_bloodyblade")
+
+	register_clcmd("sprint", "do_fastrun")
+	register_clcmd("deadlyshot", "do_deadlyshot")
+	register_clcmd("bloodyblade", "do_bloodyblade")
+
+	register_clcmd("use_sprint", "do_fastrun")
 	register_clcmd("use_deadlyshot", "do_deadlyshot")
 	register_clcmd("use_bloodyblade", "do_bloodyblade")
 }
 
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
+
+	formatex(g_sprint_name, charsmax(g_sprint_name), "%L", LANG_SERVER, "ITEM_SPRINT_NAME")
+	formatex(g_sprint_desc, charsmax(g_sprint_desc), "%L", LANG_SERVER, "ITEM_SPRINT_DESC")
+
+	formatex(g_deadlyshot_name, charsmax(g_deadlyshot_name), "%L", LANG_SERVER, "ITEM_DS_NAME")
+	formatex(g_deadlyshot_desc, charsmax(g_deadlyshot_desc), "%L", LANG_SERVER, "ITEM_DS_DESC")
+
+	formatex(g_bloodyblade_name, charsmax(g_bloodyblade_name), "%L", LANG_SERVER, "ITEM_BB_NAME")
+	formatex(g_bloodyblade_desc, charsmax(g_bloodyblade_desc), "%L", LANG_SERVER, "ITEM_BB_DESC")
+
+	formatex(g_wing_boot_name, charsmax(g_wing_boot_name), "%L", LANG_SERVER, "ITEM_WB_NAME")
+	formatex(g_wing_boot_desc, charsmax(g_wing_boot_desc), "%L", LANG_SERVER, "ITEM_WB_DESC")
+
+	formatex(g_double_grenade_name, charsmax(g_double_grenade_name), "%L", LANG_SERVER, "ITEM_DG_NAME")
+	formatex(g_double_grenade_desc, charsmax(g_double_grenade_desc), "%L", LANG_SERVER, "ITEM_DG_DESC")
+
+	formatex(g_p30_damage_name, charsmax(g_p30_damage_name), "%L", LANG_SERVER, "ITEM_DMG_NAME")
+	formatex(g_p30_damage_desc, charsmax(g_p30_damage_desc), "%L", LANG_SERVER, "ITEM_DMG_DESC")
+
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "COST", buffer, sizeof(buffer), DummyArray); g_sprint_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_SPEED", buffer, sizeof(buffer), DummyArray); fastrun_speed = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_TIME", buffer, sizeof(buffer), DummyArray); fastrun_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_SPEED", buffer, sizeof(buffer), DummyArray); slowrun_speed = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_TIME", buffer, sizeof(buffer), DummyArray); slowrun_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_CAST", sound_fastrun_start, sizeof(sound_fastrun_start), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_BEAT", sound_fastrun_heartbeat, sizeof(sound_fastrun_heartbeat), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_BREATH_MALE", sound_breath_male, sizeof(sound_breath_male), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_BREATH_FEMALE", sound_breath_female, sizeof(sound_breath_female), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, "Deadly Shot", "COST", buffer, sizeof(buffer), DummyArray); g_deadlyshot_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Deadly Shot", "TIME", buffer, sizeof(buffer), DummyArray); g_deadlyshot_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Deadly Shot", "ICON", g_deadlyshot_icon, sizeof(g_deadlyshot_icon), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Deadly Shot", "SOUND_CAST", g_deadlyshot_sound, sizeof(g_deadlyshot_sound), DummyArray);
+	
+
+	zb3_load_setting_string(false, SETTING_FILE, "Bloody Blade", "COST", buffer, sizeof(buffer), DummyArray); g_bloodyblade_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Bloody Blade", "TIME", buffer, sizeof(buffer), DummyArray); g_bloodyblade_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Bloody Blade", "DAMAGE", buffer, sizeof(buffer), DummyArray); g_bloodyblade_damage = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Bloody Blade", "ICON", g_bloodyblade_icon, sizeof(g_bloodyblade_icon), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Bloody Blade", "SOUND_CAST", g_bloodyblade_sound, sizeof(g_bloodyblade_sound), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, "Gravity", "COST", buffer, sizeof(buffer), DummyArray); g_wb_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Gravity", "GRAVITY", buffer, sizeof(buffer), DummyArray); g_wb_gravity = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, "Grenade", "COST", buffer, sizeof(buffer), DummyArray); g_dg_cost = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, "Damage 30%", "COST", buffer, sizeof(buffer), DummyArray); g_p30_cost = str_to_num(buffer)
+}
+
 public plugin_precache()
 {
+	register_dictionary(LANG_FILE)
+
+	load_cfg()
+
 	precache_sound(sound_fastrun_start)
 	precache_sound(sound_fastrun_heartbeat)
 	precache_sound(sound_breath_male)
 	precache_sound(sound_breath_female)
+
+	precache_sound(g_deadlyshot_sound)
+	precache_sound(g_bloodyblade_sound)
 	
-	g_deadlyshot_icon_id = precache_model(g_deadlyshot_icon)
-	g_bloodyblade_icon_id = precache_model(g_bloodyblade_icon)
+	precache_model(g_deadlyshot_icon)
+	precache_model(g_bloodyblade_icon)
 	
+	if(zb3_get_mode() >= MODE_ORIGINAL)
+		g_wing_boot = zb3_register_item(g_wing_boot_name, g_wing_boot_desc, g_wb_cost, TEAM2_HUMAN, 1)
 	if(zb3_get_mode() >= MODE_MUTATION) 
 	{
-		g_wing_boot = zb3_register_item("Wing Boot", "More High Jump", g_wb_cost, TEAM2_HUMAN, 1)
-		g_double_grenade = zb3_register_item("x2 HeGrenade", "+1 More HeGrenade", g_dg_cost, TEAM2_HUMAN, 1)
-		g_nightvision = zb3_register_item("NightVision", "See in Dark", g_nightvision_cost, TEAM2_HUMAN, 1)
-		g_sprint = zb3_register_item("Sprint", "FastRun (10 seconds)", g_sprint_cost, TEAM2_HUMAN, 1)
+		g_double_grenade = zb3_register_item(g_double_grenade_name, g_double_grenade_desc, g_dg_cost, TEAM2_HUMAN, 1)
+		g_sprint = zb3_register_item(g_sprint_name, g_sprint_desc, g_sprint_cost, TEAM2_HUMAN, 1)
 	}
 	if(zb3_get_mode() >= MODE_HERO)
 	{
-		g_deadlyshot = zb3_register_item("Deadly Shot", "Deal All Damage to the Head", g_deadlyshot_cost, TEAM2_HUMAN, 1)
-		g_bloodyblade = zb3_register_item("Bloody Blade", "x2 Melee Damage", g_bloodyblade_cost, TEAM2_HUMAN, 1)
-		g_p30_damage = zb3_register_item("+30% Damage", "Start Damage is 130%", g_p30_cost, TEAM2_HUMAN, 1)
+		g_deadlyshot = zb3_register_item(g_deadlyshot_name, g_deadlyshot_desc, g_deadlyshot_cost, TEAM2_HUMAN, 1)
+		g_bloodyblade = zb3_register_item(g_bloodyblade_name, g_bloodyblade_desc, g_bloodyblade_cost, TEAM2_HUMAN, 1)
+		g_p30_damage = zb3_register_item(g_p30_damage_name, g_p30_damage_desc, g_p30_cost, TEAM2_HUMAN, 1)
 	}
 	
 }
@@ -142,7 +174,6 @@ public client_connect(id)
 	g_had_bloodyblade[id] = 0
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
-	g_had_nvg[id] = 0
 }
 
 public client_putinserver(id)
@@ -191,9 +222,6 @@ public zb3_item_selected_post(id, itemid)
 	} else if(itemid == g_bloodyblade) {
 		g_had_bloodyblade[id] = 1
 		set_user_bloodyblade(id)
-	} else if(itemid == g_nightvision) {
-		g_had_nvg[id] = 1
-		zb3_set_user_nvg(id, 0, 0, 1, 0)
 	}
 }
 
@@ -215,10 +243,7 @@ public client_PostThink(id)
 	
 	if(CurTime - DELAY_TIME > g_hud_delay[id])
 	{
-#if 0
 		sync_hud1_handle(id)
-#endif
-		sync_hud2_handle(id)
 		
 		g_hud_delay[id] = CurTime
 	}
@@ -234,80 +259,33 @@ public client_PostThink(id)
 	}
 }
 
-#if 0
 public sync_hud1_handle(id)
 {
-	static Temp_String[128], Temp_String2[128], Temp_String3[128]
-	formatex(Temp_String, sizeof(Temp_String), "[Items]^n")
-	
-	if(g_had_wing_boot[id])
-	{
-		formatex(Temp_String2, sizeof(Temp_String2), " Wing Boot", Temp_String)
-		formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-		formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-	}
-	if(g_had_double_grenade[id])
-	{
-		formatex(Temp_String2, sizeof(Temp_String2), " x2 HeGrenade", Temp_String)
-		formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-		formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-	}
-	if(g_had_p30_damage[id])
-	{
-		formatex(Temp_String2, sizeof(Temp_String2), " x1.3 Damage", Temp_String)
-		formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-		formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-	}		
-	if(g_had_nvg[id])
-	{
-		formatex(Temp_String2, sizeof(Temp_String2), " NightVision", Temp_String)
-		formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-		formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-	}		
-	
-	set_hudmessage(0, 255, 0, 0.015, 0.20, 0, 2.0, 2.0)
-	ShowSyncHudMsg(id, g_sync_hud1, Temp_String3)	
-}
-#endif
+	if(is_user_bot(id))
+		return
 
-public sync_hud2_handle(id)
-{
-	static Temp_String_Sprint[128], Temp_String_DeadlyShot[128], Temp_String_BloodyBlade[128]
-	static Temp_String_Hud[128]
+	static Temp_String[32], Temp_String_Hud[128]
+	Temp_String[0] = Temp_String_Hud[0] = '^0'
 	
-	if(g_had_sprint[id])
+	if(g_can_use_sprint[id])
 	{
-		if(g_can_use_sprint[id])
-			formatex(Temp_String_Sprint, sizeof(Temp_String_Sprint), "[F1] - Sprint (Ready)")
-		else 
-			formatex(Temp_String_Sprint, sizeof(Temp_String_Sprint), "[F1] - Sprint (Disabled)")
-	} else {
-		formatex(Temp_String_Sprint, sizeof(Temp_String_Sprint), "")
+		formatex(Temp_String, sizeof(Temp_String), "%L", LANG_SERVER, "ITEM_SPRINT_NAME")
+		strcat(Temp_String_Hud, Temp_String, sizeof(Temp_String_Hud))
+	}
+
+	if(g_can_use_deadlyshot[id])
+	{
+		formatex(Temp_String, sizeof(Temp_String), "^n%L", LANG_SERVER, "ITEM_DS_NAME")
+		strcat(Temp_String_Hud, Temp_String, sizeof(Temp_String_Hud))
+	}
+
+	if(g_can_use_bloodyblade[id])
+	{
+		formatex(Temp_String, sizeof(Temp_String), "^n%L", LANG_SERVER, "ITEM_BB_NAME")
+		strcat(Temp_String_Hud, Temp_String, sizeof(Temp_String_Hud))
 	}
 	
-	if(g_had_deadlyshot[id])
-	{
-		if(g_can_use_deadlyshot[id])
-			formatex(Temp_String_DeadlyShot, sizeof(Temp_String_DeadlyShot), "^n[F2] - Deadly Shot (Ready)")
-		else 
-			formatex(Temp_String_DeadlyShot, sizeof(Temp_String_DeadlyShot), "^n[F2] - Deadly Shot (Disabled)")
-	} else {
-		formatex(Temp_String_DeadlyShot, sizeof(Temp_String_DeadlyShot), "")
-	}	
-	
-	if(g_had_bloodyblade[id])
-	{
-		if(g_can_use_bloodyblade[id])
-			formatex(Temp_String_BloodyBlade, sizeof(Temp_String_BloodyBlade), "^n[F3] - Bloody Blade (Ready)")
-		else 
-			formatex(Temp_String_BloodyBlade, sizeof(Temp_String_BloodyBlade), "^n[F3] - Bloody Blade (Disabled)")
-	} else {
-		formatex(Temp_String_BloodyBlade, sizeof(Temp_String_BloodyBlade), "")
-	}	
-		
-	formatex(Temp_String_Hud, sizeof(Temp_String_Hud), "%s%s%s", Temp_String_Sprint, Temp_String_DeadlyShot, Temp_String_BloodyBlade)
-	
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 2.0, 2.0)
+	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 0.0, 2.1)
 	ShowSyncHudMsg(id, g_sync_hud2, Temp_String_Hud)
 }
 
@@ -323,7 +301,6 @@ public zb3_user_spawned(id)
 	set_p30_damage(id)
 	set_user_deadlyshot(id)
 	set_user_bloodyblade(id)
-	set_user_nightvision(id)
 	
 	return HAM_HANDLED
 }
@@ -340,9 +317,6 @@ public reset_all_item(id)
 	g_sprint_status[id] = 0
 	g_can_use_deadlyshot[id] = 0
 	g_using_deadlyshot[id] = 0	
-	
-	remove_deadlyshot_icon(id)
-	remove_bloodblade_icon(id)
 }
 
 public remove_all_item(id)
@@ -360,7 +334,6 @@ public remove_all_item(id)
 	g_had_bloodyblade[id] = 0
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
-	g_had_nvg[id] = 0
 	zb3_reset_user_maxlevel(id)
 }
 // =========== Item: Wing Boot
@@ -402,9 +375,9 @@ public set_double_grenade(id)
 		return
 		
 	g_doubled_grenade[id] = 1
-	give_item(id, "weapon_hegrenade")
+	rg_give_item(id, "weapon_hegrenade")
 	
-	cs_set_user_bpammo(id, CSW_HEGRENADE, 2)
+	rg_set_user_bpammo(id, WEAPON_HEGRENADE, 2)
 }
 
 // ============ Item: Sprint
@@ -420,8 +393,12 @@ public set_user_item_sprint(id)
 	g_can_use_sprint[id] = 1
 	g_using_sprint[id] = 0
 	g_sprint_status[id] = 0
+
+	remove_task(id+TASK_REMOVE_FASTRUN)
+	remove_task(id+TASK_REMOVE_SLOWRUN)
 	
-	client_cmd(id, "bind F1 fastrun")
+	client_print(id, print_chat, "'bind <key> sp' to use Sprint")
+	// client_cmd(id, "bind F1 fastrun")
 }
 
 public do_fastrun(id)
@@ -439,23 +416,12 @@ public do_fastrun(id)
 		g_using_sprint[id] = 1
 		g_sprint_status[id] = 1
 		
-		message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-		write_short(0) // duration
-		write_short(0) // hold time
-		write_short(0x0004) // fade type
-		write_byte(255) // r
-		write_byte(255) // g
-		write_byte(255) // b
-		write_byte(100) // alpha
-		message_end()
-		
 		remove_task(id+TASK_REMOVE_FASTRUN)
 		set_task(fastrun_time, "task_remove_fastrun", id+TASK_REMOVE_FASTRUN)
 		
 		zb3_set_user_speed(id, floatround(fastrun_speed))
 		
 		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
-		emit_sound(id, CHAN_AUTO, sound_fastrun_heartbeat, 1.0, ATTN_NORM, 0, PITCH_NORM)
 		
 		set_task(1.0, "task_human_sound", id+TASK_HUMAN_SOUND, _, _, "b")
 	}
@@ -517,16 +483,6 @@ public task_remove_fastrun(id)
 		remove_task(id+TASK_HUMAN_SOUND)
 		return
 	}	
-
-	message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-	write_short(0) // duration
-	write_short(0) // hold time
-	write_short(0x0004) // fade type
-	write_byte(255) // r
-	write_byte(255) // g
-	write_byte(255) // b
-	write_byte(0) // alpha
-	message_end()
 	
 	g_sprint_status[id] = 2
 	
@@ -591,9 +547,10 @@ public set_user_deadlyshot(id)
 		
 	g_can_use_deadlyshot[id] = 1
 	g_using_deadlyshot[id] = 0
-	
-	remove_deadlyshot_icon(id)
-	client_cmd(id, "bind F2 use_deadlyshot")	
+
+	remove_task(id+TASK_REMOVE_DEADLYSHOT)
+	client_print(id, print_chat, "'bind <key> ds' to use Deadly Shot")
+	// client_cmd(id, "bind F2 use_deadlyshot")	
 }
 
 public do_deadlyshot(id)
@@ -611,73 +568,11 @@ public do_deadlyshot(id)
 		g_using_deadlyshot[id] = 1
 		
 		zb3_set_head_attachment(id, g_deadlyshot_icon, g_deadlyshot_time, 1.0, 1.0, 0)
-		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
-		
-		if(!zb3_get_user_nvg(id))
-		{
-			message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-			write_short(0) // duration
-			write_short(0) // hold time
-			write_short(0x0004) // fade type
-			write_byte(255) // r
-			write_byte(255) // g
-			write_byte(255) // b
-			write_byte(100) // alpha
-			message_end()
-		}
+		emit_sound(id, CHAN_AUTO, g_deadlyshot_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 		
 		remove_task(id+TASK_REMOVE_DEADLYSHOT)
 		set_task(g_deadlyshot_time, "task_remove_headshot", id+TASK_REMOVE_DEADLYSHOT)
 	}
-}
-
-public make_deadlyshoot_icon(id)
-{
-	if(!is_user_connected(id))
-		return
-		
-	remove_deadlyshot_icon(id)
-	set_task(0.1, "make_ds_spr", id+TASK_DEADLYSHOT_ICON)
-}
-
-public make_ds_spr(id)
-{
-	id -= TASK_DEADLYSHOT_ICON
-	
-	if(!is_user_connected(id))
-		return
-	if(!is_user_alive(id))
-		return
-	if(!g_using_deadlyshot[id])
-		return
-		
-	static Float:Origin[3], Float:Add_Point
-	pev(id, pev_origin, Origin)
-	
-	if(!(pev(id, pev_flags) & FL_DUCKING))
-		Add_Point = 25.0
-	else
-		Add_Point = 17.0
-	
-	engfunc(EngFunc_MessageBegin, MSG_PVS, SVC_TEMPENTITY, Origin, 0)
-	write_byte(TE_SPRITE)
-	engfunc(EngFunc_WriteCoord,Origin[0])
-	engfunc(EngFunc_WriteCoord,Origin[1])
-	engfunc(EngFunc_WriteCoord,Origin[2] + Add_Point)
-	write_short(g_deadlyshot_icon_id)
-	write_byte(8)
-	write_byte(255)
-	message_end()	
-		
-	set_task(0.1, "make_ds_spr", id+TASK_DEADLYSHOT_ICON)
-}
-
-public remove_deadlyshot_icon(id)
-{
-	if(!is_user_connected(id))
-		return
-		
-	remove_task(id+TASK_DEADLYSHOT_ICON)
 }
 
 public task_remove_headshot(id)
@@ -689,50 +584,22 @@ public task_remove_headshot(id)
 	if(zb3_get_user_zombie(id))
 		return			
 	if(!g_had_deadlyshot[id])
+		return
+	if(g_can_use_deadlyshot[id])
 		return		
 		
-	if(!zb3_get_user_nvg(id))
-	{
-		message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-		write_short(0) // duration
-		write_short(0) // hold time
-		write_short(0x0004) // fade type
-		write_byte(255) // r
-		write_byte(255) // g
-		write_byte(255) // b
-		write_byte(0) // alpha
-		message_end()
-	}
-	
-	remove_deadlyshot_icon(id)
-	
 	g_can_use_deadlyshot[id] = 0
 	g_using_deadlyshot[id] = 0
-}
-
-// NightVision
-public set_user_nightvision(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(zb3_get_user_zombie(id))
-		return			
-	if(!g_had_nvg[id])
-		return	
-		
-	zb3_set_user_nvg(id, 0, 0, 1, 0)
 }
 
 public fw_TraceAttack(victim, attacker, Float:damage, Float:direction[3], tracehandle, damage_type)
 {
 	if (victim == attacker || !is_user_alive(attacker) || !is_user_alive(victim))
 		return HAM_IGNORED;
-	if (cs_get_user_team(victim) == cs_get_user_team(attacker))
-		return HAM_IGNORED
 		
 	if(g_using_bloodyblade[attacker] && get_user_weapon(attacker) == CSW_KNIFE)
 		SetHamParamFloat(3, damage * g_bloodyblade_damage)
-	if(g_using_deadlyshot[attacker])
+	if(g_using_deadlyshot[attacker] && get_user_weapon(attacker) != CSW_KNIFE)
 		set_tr2(tracehandle, TR_iHitgroup, HIT_HEAD)
 	
 	return HAM_IGNORED
@@ -751,7 +618,10 @@ public set_user_bloodyblade(id)
 	g_can_use_bloodyblade[id] = 1
 	g_using_bloodyblade[id] = 0
 	
-	client_cmd(id, "bind F3 use_bloodyblade")		
+	remove_task(id+TASK_REMOVE_BLOODYBLADE)
+
+	client_print(id, print_chat, "'bind <key> bb' to use Bloody Blade")
+	// client_cmd(id, "bind F3 use_bloodyblade")		
 }
 
 public do_bloodyblade(id)
@@ -769,21 +639,8 @@ public do_bloodyblade(id)
 		g_using_bloodyblade[id] = 1
 		zb3_set_head_attachment(id, g_bloodyblade_icon, g_bloodyblade_time, 1.0, 1.0, 0)
 		
-		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
-		
-		if(!zb3_get_user_nvg(id))
-		{
-			message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-			write_short(0) // duration
-			write_short(0) // hold time
-			write_short(0x0004) // fade type
-			write_byte(255) // r
-			write_byte(255) // g
-			write_byte(255) // b
-			write_byte(100) // alpha
-			message_end()
-		}
-		
+		emit_sound(id, CHAN_AUTO, g_bloodyblade_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
+
 		remove_task(id+TASK_REMOVE_BLOODYBLADE)
 		set_task(g_bloodyblade_time, "task_remove_bloodyblade", id+TASK_REMOVE_BLOODYBLADE)
 	}
@@ -798,72 +655,10 @@ public task_remove_bloodyblade(id)
 	if(zb3_get_user_zombie(id))
 		return			
 	if(!g_had_bloodyblade[id])
-		return		
-		
-	if(!zb3_get_user_nvg(id))
-	{
-		message_begin(MSG_ONE_UNRELIABLE, g_Msg_ScreenFade, _, id)
-		write_short(0) // duration
-		write_short(0) // hold time
-		write_short(0x0004) // fade type
-		write_byte(255) // r
-		write_byte(255) // g
-		write_byte(255) // b
-		write_byte(0) // alpha
-		message_end()
-	}
-	
-	remove_bloodblade_icon(id)
+		return	
+	if(g_can_use_bloodyblade[id])
+		return	
+
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
-}
-
-public make_bloodblade_icon(id)
-{
-	if(!is_user_connected(id))
-		return	
-	
-	remove_bloodblade_icon(id)
-	set_task(0.1, "make_bb_spr", id+TASK_BLOODYBLADE_ICON)
-	
-}	
-
-public make_bb_spr(id)
-{
-	id -= TASK_BLOODYBLADE_ICON
-	
-	if(!is_user_connected(id))
-		return
-	if(!is_user_alive(id))
-		return
-	if(!g_using_bloodyblade[id])
-		return
-		
-	static Float:Origin[3], Float:Add_Point
-	pev(id, pev_origin, Origin)
-	
-	if(!(pev(id, pev_flags) & FL_DUCKING))
-		Add_Point = 25.0
-	else
-		Add_Point = 17.0
-	
-	engfunc(EngFunc_MessageBegin, MSG_PVS, SVC_TEMPENTITY, Origin, 0)
-	write_byte(TE_SPRITE)
-	engfunc(EngFunc_WriteCoord,Origin[0])
-	engfunc(EngFunc_WriteCoord,Origin[1])
-	engfunc(EngFunc_WriteCoord,Origin[2] + Add_Point)
-	write_short(g_bloodyblade_icon_id)
-	write_byte(8)
-	write_byte(255)
-	message_end()	
-		
-	set_task(0.1, "make_bb_spr", id+TASK_BLOODYBLADE_ICON)
-}
-
-public remove_bloodblade_icon(id)
-{
-	if(!is_user_connected(id))
-		return
-	
-	remove_task(id+TASK_BLOODYBLADE_ICON)
 }

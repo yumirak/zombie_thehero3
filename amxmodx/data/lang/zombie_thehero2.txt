@@ -85,3 +85,25 @@ ZCLASS_STAMPER_DESC = Stamping
 ZCLASS_RESIDENT_NAME = Sting Finger
 ZCLASS_RESIDENT_DESC = Penetration
 ZCLASS_RESIDENT_DESC2 = Heavenly Jump
+
+ITEM_SPRINT_NAME = Sprint
+ITEM_DS_NAME = Deadly Shot
+ITEM_BB_NAME = Bloody Blade
+ITEM_WB_NAME = Wing Boots
+ITEM_DMG_NAME = Morale Boost+
+ITEM_DG_NAME = Double Grenade
+ITEM_70INFECT_NAME = 70%% Infect Health
+ITEM_ZGREN_NAME = Zombie Grenade
+ITEM_IM_NAME = Instart Respawn
+ITEM_HABOOST_NAME = Strong Infected
+
+ITEM_SPRINT_DESC = Run Faster
+ITEM_DS_DESC = Do Headshot Only
+ITEM_BB_DESC = 2x Melee DMG
+ITEM_DMG_DESC = 30%% DMG Boost
+ITEM_WB_DESC = -0.2 Gravity
+ITEM_DG_DESC = +1 Grenade
+ITEM_70INFECT_DESC = -20%% Penalty
+ITEM_ZGREN_DESC = Knockback Utility
+ITEM_IM_DESC = 0" Respawn
+ITEM_HABOOST_DESC = 1000HP + 100AP

@@ -4,7 +4,7 @@
 #include <fakemeta>
 #include <fakemeta_util>
 #include <hamsandwich>
-#include <fun>
+#include <reapi>
 #include <zombie_thehero2>
 
 #define PLUGIN "[Zombie: The Hero] Zombie Item"
@@ -13,52 +13,39 @@
 
 #define MAX_CLASS 20
 #define DELAY_TIME 2.0
-#define ITEM_FILE "zombie_thehero_item.ini"
+new const LANG_FILE[] = "zombie_thehero2.txt"
+new const SETTING_FILE[] = "zombie_thehero2/items.ini"
 
 /// ============== CONFIGS ===================
-const g_x_health_armor_cost = 5000
-const zombie_grenade_cost = 7000
-const g_70_infect_cost = 5000
-new const ZOMBIEBOM_MODEL[] = "zombibomb"
-const Float:ZOMBIEBOM_RADIUS = 250.0
-const Float:ZOMBIEBOM_POWER = 700.0
-new const ZOMBIEBOM_SPRITES_EXP[] = "sprites/zombie_thehero/zombiebomb_exp.spr"
-new const ZOMBIEBOM_SOUND_EXP[] = "zombie_thehero/zombi_bomb_exp.wav"
-const g_im_respawn_cost = 3000
-new const zombi_bomb_sound[][] =
-{
-	"zombie_thehero/zombi_bomb_throw.wav",
-	"zombie_thehero/zombi_bomb_pull_1.wav",
-	"zombie_thehero/zombi_bomb_idle_4.wav",
-	"zombie_thehero/zombi_bomb_idle_3.wav",
-	"zombie_thehero/zombi_bomb_idle_2.wav",
-	"zombie_thehero/zombi_bomb_idle_1.wav",
-	"zombie_thehero/zombi_bomb_deploy.wav",
-	"zombie_thehero/zombi_bomb_bounce_2.wav",
-	"zombie_thehero/zombi_bomb_bounce_1.wav"
-}
-/// ==========================================
-
-new Float:g_hud_delay[33], g_sync_hud1
-
-// Item: x Health & Armor
-new g_x_health_armor, g_had_x_health_armor[33], g_x_health_armor_used[33]
-
-// Item: Zombie Grenade
 new Array:model_host, Array:model_origin
 new ZOMBIEBOM_IDSPRITES_EXP,
 ZOMBIEBOM_P_MODEL[64], ZOMBIEBOM_W_MODEL[64]
 
 const PEV_NADE_TYPE = pev_flTimeStepSound
 const NADE_TYPE_BLAST = 1123
+new Array:viewmodel_sound
 
-new zombie_grenade
-new g_had_zombie_grenade[33]
+new const hit_sound[3][] =
+{
+	"player/bhit_flesh-1.wav",
+	"player/bhit_flesh-2.wav",
+	"player/bhit_flesh-3.wav"
+}	
+/// ==========================================
+
+// Item: x Health & Armor
+new g_x_health_armor, g_x_health_armor_cost, g_x_health_armor_name[24], g_x_health_armor_desc[24],  g_had_x_health_armor[33], g_x_health_armor_used[33],
+g_x_health_armor_hp, g_x_health_armor_ap
+
+// Item: Zombie Grenade
+new zombie_grenade, zombie_grenade_cost, zombie_grenade_name[24], zombie_grenade_desc[24],
+g_had_zombie_grenade[33], g_zombie_grenade_model[24], g_zombie_grenade_sound[64], g_zombie_grenade_sprite[64],
+Float:g_zombie_grenade_radius, Float:g_zombie_grenade_power
 // Item: Immediate Respawn
-new g_im_respawn, g_had_im_respawn[33]
+new g_im_respawn, g_im_respawn_cost, g_im_respawn_name[24], g_im_respawn_desc[24], g_had_im_respawn[33]
 
 // Item: 70% Infect Health
-new g_70_infect, g_had_70_infect[33]
+new g_70_infect, g_70_infect_cost, g_70_infect_name[24], g_70_infect_desc[24], g_had_70_infect[33]
 
 public plugin_init() 
 {
@@ -69,23 +56,56 @@ public plugin_init()
 	register_forward(FM_SetModel, "fw_SetModel")
 	
 	RegisterHam(Ham_Think, "grenade", "fw_ThinkGrenade")
-	
-	g_sync_hud1 = zb3_get_synchud_id(SYNCHUD_HUMANZOMBIE_ITEM)
 }
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
 
+	formatex(g_70_infect_name, charsmax(g_70_infect_name), "%L", LANG_SERVER, "ITEM_70INFECT_NAME")
+	formatex(g_70_infect_desc, charsmax(g_70_infect_desc), "%L", LANG_SERVER, "ITEM_70INFECT_DESC")
+
+	formatex(g_im_respawn_name, charsmax(g_im_respawn_name), "%L", LANG_SERVER, "ITEM_IM_NAME")
+	formatex(g_im_respawn_desc, charsmax(g_im_respawn_desc), "%L", LANG_SERVER, "ITEM_IM_DESC")
+
+	formatex(g_x_health_armor_name, charsmax(g_x_health_armor_name), "%L", LANG_SERVER, "ITEM_HABOOST_NAME")
+	formatex(g_x_health_armor_desc, charsmax(g_x_health_armor_desc), "%L", LANG_SERVER, "ITEM_HABOOST_DESC")
+
+	formatex(zombie_grenade_name, charsmax(zombie_grenade_name), "%L", LANG_SERVER, "ITEM_ZGREN_NAME")
+	formatex(zombie_grenade_desc, charsmax(zombie_grenade_name), "%L", LANG_SERVER, "ITEM_ZGREN_DESC")
+
+	zb3_load_setting_string(false, SETTING_FILE, "70% Infect", "COST", buffer, sizeof(buffer), DummyArray); g_70_infect_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Instant Respawn", "COST", buffer, sizeof(buffer), DummyArray); g_im_respawn_cost = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, "HP AP Addition", "COST", buffer, sizeof(buffer), DummyArray); g_x_health_armor_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "HP AP Addition", "HP_ADD", buffer, sizeof(buffer), DummyArray); g_x_health_armor_hp = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "HP AP Addition", "AP_ADD", buffer, sizeof(buffer), DummyArray); g_x_health_armor_ap = str_to_num(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "COST", buffer, sizeof(buffer), DummyArray); zombie_grenade_cost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "MODEL", g_zombie_grenade_model, sizeof(g_zombie_grenade_model), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "SPRITE", g_zombie_grenade_sprite, sizeof(g_zombie_grenade_sprite), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "SOUND", g_zombie_grenade_sound, sizeof(g_zombie_grenade_sound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "RADIUS", buffer, sizeof(buffer), DummyArray); g_zombie_grenade_radius = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Zombie Grenade", "POWER", buffer, sizeof(buffer), DummyArray); g_zombie_grenade_power = str_to_float(buffer)
+	zb3_load_setting_string(true,  SETTING_FILE, "Zombie Grenade", "SOUND_VIEWMODEL", buffer, 0, viewmodel_sound);
+}
 public plugin_precache()
 {
+	register_dictionary(LANG_FILE)
+
 	model_host = ArrayCreate(64, 1)
 	model_origin = ArrayCreate(64, 1)
+	viewmodel_sound = ArrayCreate(64, 1)
+
+	load_cfg()
 	
-	format(ZOMBIEBOM_P_MODEL, charsmax(ZOMBIEBOM_P_MODEL), "models/zombie_thehero/p_%s.mdl", ZOMBIEBOM_MODEL)
-	format(ZOMBIEBOM_W_MODEL, charsmax(ZOMBIEBOM_W_MODEL), "models/zombie_thehero/w_%s.mdl", ZOMBIEBOM_MODEL)
+	format(ZOMBIEBOM_P_MODEL, charsmax(ZOMBIEBOM_P_MODEL), "models/zombie_thehero/p_%s.mdl", g_zombie_grenade_model)
+	format(ZOMBIEBOM_W_MODEL, charsmax(ZOMBIEBOM_W_MODEL), "models/zombie_thehero/w_%s.mdl", g_zombie_grenade_model)
 	
 	precache_model(ZOMBIEBOM_P_MODEL)
 	precache_model(ZOMBIEBOM_W_MODEL)
 	
-	ZOMBIEBOM_IDSPRITES_EXP = precache_model(ZOMBIEBOM_SPRITES_EXP)
-	precache_sound(ZOMBIEBOM_SOUND_EXP)	
+	ZOMBIEBOM_IDSPRITES_EXP = precache_model(g_zombie_grenade_sprite)
+	precache_sound(g_zombie_grenade_sound)	
 	
 	static Temp_String[128], i, size
 
@@ -103,18 +123,22 @@ public plugin_precache()
 		engfunc(EngFunc_PrecacheModel, Temp_String)
 	}
 
-	size = sizeof(zombi_bomb_sound)
+	size = ArraySize(viewmodel_sound) // sizeof(zombi_bomb_sound)
 	for(i = 0; i < size; i++)
-		engfunc(EngFunc_PrecacheSound, zombi_bomb_sound[i])
-	
-
-	if(zb3_get_mode() >= MODE_MUTATION) 
 	{
-		g_x_health_armor = zb3_register_item("x1.5 Health & Armor", "More Health & Armor for Zombie", g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
-		g_70_infect = zb3_register_item("70% Infect Health", "Lesser Health Penalty", g_70_infect_cost, TEAM2_ZOMBIE, 1)
-		zombie_grenade = zb3_register_item("Zombie Grenade", "Knock Human Back", zombie_grenade_cost, TEAM2_ZOMBIE, 1)
-		g_im_respawn = zb3_register_item("Immediate Respawn", "No Respawn Delay", g_im_respawn_cost, TEAM2_ZOMBIE, 1)
+		ArrayGetString(viewmodel_sound, i, Temp_String, charsmax(Temp_String))
+		engfunc(EngFunc_PrecacheSound, Temp_String)
 	}
+
+	if(zb3_get_mode() >= MODE_ORIGINAL) 
+	{
+		g_x_health_armor = zb3_register_item(g_x_health_armor_name, g_x_health_armor_desc, g_x_health_armor_cost, TEAM2_ZOMBIE, 1)
+		g_70_infect = zb3_register_item(g_70_infect_name, g_70_infect_desc, g_70_infect_cost, TEAM2_ZOMBIE, 1)
+	}
+	if(zb3_get_mode() >= MODE_MUTATION) 
+		zombie_grenade = zb3_register_item(zombie_grenade_name, zombie_grenade_desc, zombie_grenade_cost, TEAM2_ZOMBIE, 1)
+	if(zb3_get_mode() >= MODE_HERO) 
+		g_im_respawn = zb3_register_item(g_im_respawn_name, g_im_respawn_desc, g_im_respawn_cost, TEAM2_ZOMBIE, 1)
 }
 
 public plugin_natives()
@@ -169,7 +193,7 @@ public zb3_user_infected(id)
 	x_health_armor_handle(id)
 	zombie_grenade_handle(id)
 }
-
+#if 0 // Needed ? 
 public zb3_zombie_evolution(id, level)
 {
 	if(level > 1)
@@ -177,8 +201,7 @@ public zb3_zombie_evolution(id, level)
 		if(g_had_zombie_grenade[id] && get_user_weapon(id) == CSW_HEGRENADE)
 		{
 			new model[64]
-			if (zb3_get_user_level(id) > 1) ArrayGetString(model_origin, zb3_get_user_zombie_class(id), model, charsmax(model))
-			else ArrayGetString(model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
+			ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
 			
 			set_pev(id, pev_viewmodel2, model)
 			set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
@@ -191,14 +214,13 @@ public zb3_user_change_class(id, class)
 	if(g_had_zombie_grenade[id] && get_user_weapon(id) == CSW_HEGRENADE)
 	{
 		new model[64]
-		if (zb3_get_user_level(id) > 1) ArrayGetString(model_origin, class, model, charsmax(model))
-		else ArrayGetString(model_host, class, model, charsmax(model))
+		ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
 		
 		set_pev(id, pev_viewmodel2, model)
 		set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
 	}	
 }
-
+#endif 
 public client_putinserver(id)
 {
 	reset_value(id)
@@ -216,49 +238,6 @@ public reset_value(id)
 	zb3_reset_user_respawn_time(id)
 	zb3_reset_user_infect_mod(id)
 }
-
-#if 0
-public client_PostThink(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-		
-	static Float:CurTime
-	CurTime = get_gametime()
-	
-	if(CurTime - DELAY_TIME > g_hud_delay[id])
-	{
-		static Temp_String[128], Temp_String2[128], Temp_String3[128]
-		formatex(Temp_String, sizeof(Temp_String), "[Items]^n")
-		
-		if(g_had_x_health_armor[id])
-		{
-			formatex(Temp_String2, sizeof(Temp_String2), " x1.5 Health & Armor", Temp_String)
-			formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-			formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-		}
-		if(g_had_zombie_grenade[id])
-		{
-			formatex(Temp_String2, sizeof(Temp_String2), " Zombie Grenade", Temp_String)
-			formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-			formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-		}
-		if(g_had_im_respawn[id])
-		{
-			formatex(Temp_String2, sizeof(Temp_String2), " Immediate Respawn", Temp_String)
-			formatex(Temp_String3, sizeof(Temp_String3), "%s^n%s", Temp_String, Temp_String2)
-			formatex(Temp_String, sizeof(Temp_String), "%s", Temp_String3)
-		}
-
-		set_hudmessage(0, 255, 0, 0.015, 0.20, 0, 2.0, 2.0)
-		ShowSyncHudMsg(id, g_sync_hud1, Temp_String3)		
-		
-		g_hud_delay[id] = CurTime
-	}
-}
-#endif
 
 // ================= Item: x Health & Armor
 public x_health_armor_handle(id)
@@ -281,14 +260,18 @@ public x_health_armor_handle(id)
 	MaxHealth =  float(zb3_get_user_maxhealth(id))
 	MaxArmor =  float(zb3_get_user_maxarmor(id))
 
-	NewHealth = floatclamp(Health * 1.5, Health , MaxHealth)
-	NewArmor = floatclamp(Armor* 1.5 , Armor , MaxArmor)
+	// client_print(id, print_chat,"HP = %f, AP = %f", Health, Armor)
+
+	NewHealth = floatclamp(Health + g_x_health_armor_hp, Health, MaxHealth)
+	NewArmor = floatclamp(Armor + g_x_health_armor_ap, Armor, MaxArmor)
 	
+	// client_print(id, print_chat,"NEW! HP = %f, AP = %f", NewHealth, NewArmor)
+
 	zb3_set_user_starthealth(id, floatround(NewHealth))
 	zb3_set_user_startarmor(id, floatround(NewArmor))
 	
-	set_user_health(id, floatround(NewHealth))
-	set_user_armor(id, floatround(NewArmor))
+	zb3_set_user_health(id, floatround(NewHealth))
+	rg_set_user_armor(id, floatround(NewArmor), ARMOR_KEVLAR)
 
 	g_x_health_armor_used[id] = 1
 }
@@ -302,8 +285,8 @@ public zombie_grenade_handle(id)
 	if(!g_had_zombie_grenade[id])
 		return	
 	
-	give_item(id, "weapon_hegrenade")
-	engclient_cmd(id, "weapon_knife")
+	rg_give_item(id, "weapon_hegrenade")
+	rg_switch_best_weapon(id)
 }
 
 public fw_SetModel(entity, const model[])
@@ -375,21 +358,14 @@ stock zombiebomb_explode(ent)
 	// Make the explosion
 	EffectZombieBomExp(ent)
 	
-	engfunc(EngFunc_EmitSound, ent, CHAN_AUTO, ZOMBIEBOM_SOUND_EXP, 1.0, ATTN_NORM, 0, PITCH_NORM)
+	engfunc(EngFunc_EmitSound, ent, CHAN_AUTO, g_zombie_grenade_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 	
 	// Collisions
 	static victim
 	victim = -1
 	
-	static const hit_sound[3][] =
-	{
-		"player/bhit_flesh-1.wav",
-		"player/bhit_flesh-2.wav",
-		"player/bhit_flesh-3.wav"
-	}	
-	
 	new Float:fOrigin[3],Float:fDistance,Float:fDamage
-	while ((victim = engfunc(EngFunc_FindEntityInSphere, victim, originF, ZOMBIEBOM_RADIUS)) != 0)
+	while ((victim = engfunc(EngFunc_FindEntityInSphere, victim, originF, g_zombie_grenade_radius)) != 0)
 	{
 		// Only effect alive non-spawnprotected humans
 		if (!is_user_alive(victim))
@@ -401,29 +377,14 @@ stock zombiebomb_explode(ent)
 			continue		
 		
 		fDistance = get_distance_f(fOrigin, originF)
-		fDamage = ZOMBIEBOM_POWER - floatmul(ZOMBIEBOM_POWER, floatdiv(fDistance, ZOMBIEBOM_RADIUS))//get the damage value
+		fDamage = g_zombie_grenade_power - floatmul(g_zombie_grenade_power, floatdiv(fDistance, g_zombie_grenade_radius))//get the damage value
 		fDamage *= estimate_take_hurt(originF, victim, 0)//adjust
 		if (fDamage < 0)
 			continue
-
-		// create effect
-		//manage_effect_action(victim, fOrigin, originF, fDistance, fDamage * 8.0)
-		
+	
 		shake_screen(victim)
-		
-		/*
-		if(is_in_viewcone(victim, originF, 1))
-		{
-			hook_ent2(victim, originF, ZOMBIEBOM_POWER, 2)
-			client_print(victim, print_chat, "2")
-		}
-		else
-		{*/
-		hook_ent2(victim, originF, ZOMBIEBOM_POWER, 2)
-		//}
-		
-		//ExecuteHamB(Ham_TakeDamage, victim, 0, victim, 0.0, DMG_BULLET)
-		emit_sound(victim, CHAN_BODY, hit_sound[random(sizeof(hit_sound))], 1.0, ATTN_NORM, 0, PITCH_NORM)	
+		hook_ent2(victim, originF, g_zombie_grenade_power, 2)
+		emit_sound(victim, CHAN_AUTO, hit_sound[random(sizeof(hit_sound))], 1.0, ATTN_NORM, 0, PITCH_NORM)	
 	
 		continue;
 	}
@@ -434,41 +395,21 @@ stock zombiebomb_explode(ent)
 
 stock EffectZombieBomExp(id)
 {
-	static Float:origin[3];
+	static i, j, Float:origin[3];
 	pev(id,pev_origin,origin);
 
-	message_begin(MSG_BROADCAST,SVC_TEMPENTITY); 
-	write_byte(TE_EXPLOSION); // TE_EXPLOSION
-	write_coord(floatround(origin[0])); // origin x
-	write_coord(floatround(origin[1])); // origin y
-	write_coord(floatround(origin[2])); // origin z
-	write_short(ZOMBIEBOM_IDSPRITES_EXP); // sprites
-	write_byte(40); // scale in 0.1's
-	write_byte(30); // framerate
-	write_byte(14); // flags 
-	message_end(); // message end
-	
-	message_begin(MSG_BROADCAST,SVC_TEMPENTITY); 
-	write_byte(TE_EXPLOSION); // TE_EXPLOSION
-	write_coord(floatround(origin[0])); // origin x
-	write_coord(floatround(origin[1])); // origin y
-	write_coord(floatround(origin[2])); // origin z
-	write_short(ZOMBIEBOM_IDSPRITES_EXP); // sprites
-	write_byte(40); // scale in 0.1's
-	write_byte(30); // framerate
-	write_byte(14); // flags 
-	message_end(); // message end
-	
-	message_begin(MSG_BROADCAST,SVC_TEMPENTITY); 
-	write_byte(TE_EXPLOSION); // TE_EXPLOSION
-	write_coord(floatround(origin[0])); // origin x
-	write_coord(floatround(origin[1])); // origin y
-	write_coord(floatround(origin[2])); // origin z
-	write_short(ZOMBIEBOM_IDSPRITES_EXP); // sprites
-	write_byte(40); // scale in 0.1's
-	write_byte(30); // framerate
-	write_byte(14); // flags 
-	message_end(); // message end	
+	for(i = 0; i < 3;i++)
+	{
+		message_begin(MSG_BROADCAST,SVC_TEMPENTITY); 
+		write_byte(TE_EXPLOSION); // TE_EXPLOSION
+		for(j = 0; j < 3;j++)
+			write_coord(floatround(origin[j]));
+		write_short(ZOMBIEBOM_IDSPRITES_EXP); // sprites
+		write_byte(40); // scale in 0.1's
+		write_byte(30); // framerate
+		write_byte(14); // flags 
+		message_end(); // message end
+	}
 }
 
 stock manage_effect_action(iEnt, Float:fEntOrigin[3], Float:fPoint[3], Float:fDistance, Float:fDamage)
@@ -546,8 +487,7 @@ public event_CurWeapon(id)
 		if(zb3_get_user_zombie(id))
 		{
 			new model[64]
-			if (zb3_get_user_level(id) > 1) ArrayGetString(model_origin, zb3_get_user_zombie_class(id), model, charsmax(model))
-			else ArrayGetString(model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
+			ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
 			
 			set_pev(id, pev_viewmodel2, model)
 			set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
@@ -556,78 +496,6 @@ public event_CurWeapon(id)
 }
 
 // ================ Stock
-stock bool:can_see_fm(entindex1, entindex2)
-{
-	if (!entindex1 || !entindex2)
-		return false
-
-	if (pev_valid(entindex1) && pev_valid(entindex1))
-	{
-		new flags = pev(entindex1, pev_flags)
-		if (flags & EF_NODRAW || flags & FL_NOTARGET)
-		{
-			return false
-		}
-
-		new Float:lookerOrig[3]
-		new Float:targetBaseOrig[3]
-		new Float:targetOrig[3]
-		new Float:temp[3]
-
-		pev(entindex1, pev_origin, lookerOrig)
-		pev(entindex1, pev_view_ofs, temp)
-		lookerOrig[0] += temp[0]
-		lookerOrig[1] += temp[1]
-		lookerOrig[2] += temp[2]
-
-		pev(entindex2, pev_origin, targetBaseOrig)
-		pev(entindex2, pev_view_ofs, temp)
-		targetOrig[0] = targetBaseOrig [0] + temp[0]
-		targetOrig[1] = targetBaseOrig [1] + temp[1]
-		targetOrig[2] = targetBaseOrig [2] + temp[2]
-
-		engfunc(EngFunc_TraceLine, lookerOrig, targetOrig, 0, entindex1, 0) //  checks the had of seen player
-		if (get_tr2(0, TraceResult:TR_InOpen) && get_tr2(0, TraceResult:TR_InWater))
-		{
-			return false
-		} 
-		else 
-		{
-			new Float:flFraction
-			get_tr2(0, TraceResult:TR_flFraction, flFraction)
-			if (flFraction == 1.0 || (get_tr2(0, TraceResult:TR_pHit) == entindex2))
-			{
-				return true
-			}
-			else
-			{
-				targetOrig[0] = targetBaseOrig [0]
-				targetOrig[1] = targetBaseOrig [1]
-				targetOrig[2] = targetBaseOrig [2]
-				engfunc(EngFunc_TraceLine, lookerOrig, targetOrig, 0, entindex1, 0) //  checks the body of seen player
-				get_tr2(0, TraceResult:TR_flFraction, flFraction)
-				if (flFraction == 1.0 || (get_tr2(0, TraceResult:TR_pHit) == entindex2))
-				{
-					return true
-				}
-				else
-				{
-					targetOrig[0] = targetBaseOrig [0]
-					targetOrig[1] = targetBaseOrig [1]
-					targetOrig[2] = targetBaseOrig [2] - 17.0
-					engfunc(EngFunc_TraceLine, lookerOrig, targetOrig, 0, entindex1, 0) //  checks the legs of seen player
-					get_tr2(0, TraceResult:TR_flFraction, flFraction)
-					if (flFraction == 1.0 || (get_tr2(0, TraceResult:TR_pHit) == entindex2))
-					{
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 stock is_wall_between_points(Float:start[3], Float:end[3], ignore_ent)
 {
 	static ptr
