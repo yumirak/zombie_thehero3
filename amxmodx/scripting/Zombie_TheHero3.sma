@@ -46,8 +46,8 @@ g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
-new g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
-g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
+new bool:g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
+g_zombie_class[33], g_next_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
 g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33]
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
@@ -196,6 +196,7 @@ public plugin_init()
 
 	register_clcmd("nightvision", "cmd_nightvision")
 	register_clcmd("drop", "cmd_drop")
+	register_clcmd("buyammo2", "cmd_sel_zombie")
 	
 	set_member_game(m_GameDesc, GAMENAME);
 
@@ -1147,6 +1148,10 @@ public cmd_drop(id)
 	return PLUGIN_CONTINUE
 }
 
+public cmd_sel_zombie(id)
+{
+	show_menu_zombieclass(id, 0)
+}
 public Time_Change() 
 {
 	ExecuteForward(g_Forwards[FWD_TIME_CHANGE], g_fwResult)
@@ -1486,30 +1491,13 @@ public UpdateLevelZombie(id)
 	g_level[id]++ //= g_level[id] == 1 ? 2 : 3
 
 	g_zombie_type[id] = ZOMBIE_ORIGIN
-	
-	// Update Health & Armor
-	fm_set_user_health(id, g_StartHealth[id])
-	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
-	
-	// Update Speed
-	new Float:speed = ArrayGetCell(zombie_speed_origin, g_zombie_class[id])
-	fm_set_user_speed(id, speed)
-	
-	// Update Player Model
-	new model[64]
-	ArrayGetString(zombie_model_origin, g_zombie_class[id], model, charsmax(model))
-	
-	set_model(id, model)
-	
+	set_zombie_class(id, g_zombie_class[id], -1, true, INFECT_CHANGECLASS)
+
 	// Play Evolution Sound
 	new sound[64]
 	ArrayGetString(zombie_sound_evolution, g_zombie_class[id], sound, charsmax(sound))
 	EmitSound(id, CHAN_AUTO, sound)
-	
-	// Reset Claws
-	Event_CheckWeapon(id)
-	set_weapon_anim(id, 3)
-	
+
 	// Show Hud
 	new szText[128]
 	format(szText, charsmax(szText), "%L", LANG_PLAYER, g_level[id] > 2 ? "NOTICE_ZOMBIE_LEVELUP3" : "NOTICE_ZOMBIE_LEVELUP2")
@@ -1899,7 +1887,7 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	if(g_gamestatus < STATUS_PLAY)
 		return
 
-	static DeathSound[64], PlayerModel[64]
+	static DeathSound[64]
 	static zombie_maxhealth, zombie_maxarmor;
 	static start_zombie_health[2], start_zombie_armor[2] , respawn_zombie_health, respawn_zombie_armor
 
@@ -1927,7 +1915,13 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	}
 
 	reset_player(id, 0, Respawn)
-	g_zombie[id] = 1
+	g_zombie[id] = true
+	g_can_choose_class[id] = 1
+	if(g_next_zombie_class[id] >= 0)
+	{
+		g_zombie_class[id] = g_next_zombie_class[id]
+		g_next_zombie_class[id] = -1
+	}
 	
 	// Zombie Class
 	if(!Respawn)
@@ -1973,9 +1967,6 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 
 	respawn_zombie_health = clamp( floatround(g_StartHealth[id] * g_health_reduce_percent ), zombie_minhealth, zombie_maxhealth )
 	respawn_zombie_armor  = clamp( floatround(g_StartArmor[id]  * g_health_reduce_percent ), zombie_minarmor, zombie_maxarmor)
-
-	fm_set_rendering(id)
-	fm_reset_user_weapon(id)
 	
 	// Set Zombie
 	set_team(id, TEAM_ZOMBIE)
@@ -1985,22 +1976,11 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	g_StartArmor[id]  = Respawn ? respawn_zombie_armor  : start_zombie_armor [ g_zombie_type[id] ]
 
 	set_zombie_nvg(id, 1)
-	set_weapon_anim(id, 3)
-	
-	fm_set_user_health(id, g_StartHealth[id])
-	set_pev(id, pev_max_health, float(g_StartHealth[id]))
-	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
 
-	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] == ZOMBIE_HOST ? zombie_speed_host : zombie_speed_origin , g_zombie_class[id]))
-	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
-
-	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_model_host : zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	set_model(id, PlayerModel)
-	
 	if(g_gamemode == MODE_MUTATION)
 		SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
 
-	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
+	set_zombie_class(id, g_zombie_class[id], attacker, true, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
 
 	gameplay_check()
 }
@@ -2087,15 +2067,13 @@ public set_menu_zombieclass(id)
 	classid = random_num(0, g_zombieclass_i - 1)
 
 	ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-
-	g_zombie_class[id] = classid
-	set_zombie_class(id, g_zombie_class[id])
+	set_zombie_class(id, classid, -1, false, INFECT_VICTIM)
 }
 public show_menu_zombieclass(id, page)
 {
 	if(!is_user_connected(id))
 		return
-	if(!g_zombie[id] || g_gamemode <= MODE_ORIGINAL)
+	if(g_gamemode <= MODE_ORIGINAL)
 		return
 		
 	if(pev_valid(id) == 2) set_member(id, m_iMenu, CS_Menu_OFF)
@@ -2132,8 +2110,12 @@ public show_menu_zombieclass(id, page)
 	menu_display(id, mHandleID, page)
 	
 	remove_task(id+TASK_CHOOSECLASS)
-	set_task(float(g_classchoose_time), "Remove_ChooseClass", id+TASK_CHOOSECLASS)
-	client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
+
+	if(g_can_choose_class[id])
+	{ 
+		set_task(float(g_classchoose_time), "Remove_ChooseClass", id+TASK_CHOOSECLASS)
+		client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
+	}
 }
 
 public Remove_ChooseClass(id)
@@ -2152,40 +2134,33 @@ public menu_selectclass_handle(id, menu, item)
 {
 	if(!is_user_connected(id))
 		return PLUGIN_HANDLED
-	if(!g_zombie[id]) 
-		return PLUGIN_HANDLED
-	
+
 	if(item == MENU_EXIT)
 	{
 		menu_destroy(menu)
 		return PLUGIN_HANDLED
 	}
-	if(!g_can_choose_class[id])
-	{
-		client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_SELECT_CLASS", g_classchoose_time)
-		return PLUGIN_HANDLED
-	}
+	
 	
 	new idclass[32], name[32], access, classid
 	menu_item_getinfo(menu, item, access, idclass, 31, name, 31, access)
 	
 	classid = str_to_num(idclass)	
-	
+
+	if(!g_can_choose_class[id])
+	{
+		if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid])
+			g_next_zombie_class[id] = classid
+		return PLUGIN_HANDLED
+	}
+
 	if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid] )
 	{
 		ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-		
-		g_zombie_class[id] = classid
-		set_zombie_class(id, g_zombie_class[id])
-		
-		ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
+		set_zombie_class(id, classid, -1, false, INFECT_CHANGECLASS)
 
-		fm_reset_user_weapon(id, false)
-		set_weapon_anim(id, 3)
-		menu_destroy(menu)
-		
-		if(classid != 0)
-			g_can_choose_class[id] = 0
+		menu_destroy(menu)	
+		g_can_choose_class[id] = 0
 	} 
 	else 
 	{
@@ -2210,32 +2185,33 @@ public menu_selectclass_handle(id, menu, item)
 	return PLUGIN_HANDLED
 }
 
-public set_zombie_class(id, idclass)
+public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 {
 	if(!is_user_connected(id))
 		return
 	if(!g_zombie[id])
 		return
-		
-	static PlayerModel[64]
-
-	switch(g_zombie_type[id])
-	{
-		case ZOMBIE_HOST:
-		{
-			fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
-			ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-		}
-		case ZOMBIE_ORIGIN:
-		{
-			fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
-			ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-		}
-	}
 	
+	static PlayerModel[64]
+	g_zombie_class[id] = idclass
+
+	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id]))
+	ArrayGetString(g_zombie_type[id] ? zombie_model_origin : zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
 	set_model(id, PlayerModel)
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
 	
+	fm_set_rendering(id)
+	fm_reset_user_weapon(id)
+	set_weapon_anim(id, 3)
+
+	if(reset_hp)
+	{
+		fm_set_user_health(id, g_StartHealth[id])
+		set_pev(id, pev_max_health, float(g_StartHealth[id]))
+		fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
+	}
+
+	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
 	Event_CheckWeapon(id)
 }
 
@@ -2262,15 +2238,15 @@ public reset_player(id, new_player, zombie_respawn)
 		g_iEvolution[id] = 0.0
 		g_flinfect_multi[id] = 0.5
 		g_zombie_class[id] = 0
+		g_next_zombie_class[id] = -1
 		for(new i = 0; i < MAX_ZOMBIECLASS; i++)
 			g_unlocked_class[id][i] = 0
 	}
 
 	if(!zombie_respawn)
 	{
-		g_zombie[id] = g_hero[id] = 0
-		g_hero_locked[id] = g_HasNvg[id] = 0
-		g_can_choose_class[id] = 1
+		g_zombie[id] = false
+		g_hero_locked[id] = g_HasNvg[id] = g_hero[id] = 0
 		g_level[id] = 0		
 		g_iEvolution[id] = 0.0
 	} else {
@@ -2541,7 +2517,6 @@ stock fm_reset_user_weapon(id, bool:strip = true)
 			}
 		}
 		case false: rg_give_default_items(id)
-
 	}
 }
 
