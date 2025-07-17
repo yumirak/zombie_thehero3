@@ -58,8 +58,6 @@ public plugin_init()
 	
 	RegisterHam(Ham_Item_AddToPlayer, "weapon_hegrenade", "fw_Add_Hegrenade_Post", 1)
 	RegisterHam(Ham_TraceAttack, "player", "fw_TraceAttack")
-	
-	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
 
 	register_clcmd("sp", "do_fastrun")
 	register_clcmd("ds", "do_deadlyshot")
