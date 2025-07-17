@@ -178,6 +178,8 @@ native zb3_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Floa
 native zb3_set_zombie_class_data(const ModelHost[], const ModelOrigin[], const ClawsModel_Host[], const ClawsModel_Origin[], const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[], const HealSound[], const EvolSound[]);
 
 native zb3_register_item(const name[], const desc[], cost, team, permanent_buy);
+native zb3_get_own_item(id, item);
+native zb3_set_own_item(id, item, bool:own);
 native zb3_register_zbgre_model(const v_model_host[], const v_model_origin[]);
 
 native zb3_supplybox_random_getitem(id, hero);

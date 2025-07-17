@@ -43,6 +43,8 @@ public plugin_init()
 public plugin_natives()
 {
 	register_native("zb3_register_item", "native_register_item", 1)
+	register_native("zb3_get_own_item", "native_get_own_item", 1)
+	register_native("zb3_set_own_item", "native_set_own_item", 1)
 }
 
 public plugin_precache()
@@ -75,7 +77,7 @@ public client_disconnect(id)
 public reset_value_handle(id)
 {
 	for(new i = 0; i < MAX_ITEM; i++)
-		g_bought_item[id][i] = 0
+		g_bought_item[id][i] = is_user_bot(id) ? 1 : 0
 }
 
 public zb3_round_start_post() g_zombie_appear = 0
@@ -247,7 +249,14 @@ public native_register_item(const name[], const desc[], cost, team, permanent_bu
 	
 	return (g_item_count - 1)
 }
-
+public native_get_own_item(id, item)
+{
+	return g_bought_item[id][item]
+}
+public native_set_own_item(id, item, bool:own)
+{
+	g_bought_item[id][item] = own
+}
 stock client_printc(index, const text[], any:...)
 {
 	new szMsg[128];

@@ -20,14 +20,14 @@ new Float:g_hud_delay[33]
 new g_register, g_zombie_appear
 
 // Wing Boot
-new g_wing_boot, g_wing_boot_name[24], g_wing_boot_desc[24], g_had_wing_boot[33]
+new g_wing_boot, g_wing_boot_name[24], g_wing_boot_desc[24]
 new g_wb_cost, Float:g_wb_gravity
 // Double Grenade
-new g_double_grenade, g_double_grenade_name[24], g_double_grenade_desc[24], g_dg_cost, g_had_double_grenade[33], g_doubled_grenade[33]
+new g_double_grenade, g_double_grenade_name[24], g_double_grenade_desc[24], g_dg_cost, g_doubled_grenade[33]
 
 // Sprint
 new g_sprint, g_sprint_name[24], g_sprint_desc[24], g_sprint_cost, Float:fastrun_time, Float:fastrun_speed, Float:slowrun_speed, Float:slowrun_time
-new g_had_sprint[33], g_can_use_sprint[33], g_using_sprint[33], g_sprint_status[33]
+new g_can_use_sprint[33], g_using_sprint[33], g_sprint_status[33]
 new sound_fastrun_start[64], sound_fastrun_heartbeat[64], sound_breath_male[64], sound_breath_female[64]
 
 #define TASK_REMOVE_FASTRUN 59384543
@@ -35,16 +35,16 @@ new sound_fastrun_start[64], sound_fastrun_heartbeat[64], sound_breath_male[64],
 #define TASK_HUMAN_SOUND 53450834
 
 // +30% Damage
-new g_p30_damage, g_p30_damage_name[24], g_p30_damage_desc[24], g_p30_cost, g_had_p30_damage[33]
+new g_p30_damage, g_p30_damage_name[24], g_p30_damage_desc[24], g_p30_cost
 
 // Deadly Shot
-new g_deadlyshot, g_deadlyshot_name[24], g_deadlyshot_desc[24], g_had_deadlyshot[33], g_can_use_deadlyshot[33], g_using_deadlyshot[33]
+new g_deadlyshot, g_deadlyshot_name[24], g_deadlyshot_desc[24], g_can_use_deadlyshot[33], g_using_deadlyshot[33]
 new g_deadlyshot_cost, Float:g_deadlyshot_time, g_deadlyshot_icon[64], g_deadlyshot_sound[64]
 
 #define TASK_REMOVE_DEADLYSHOT 839483
 
 // Bloody Blade
-new g_bloodyblade, g_bloodyblade_name[24], g_bloodyblade_desc[24], g_had_bloodyblade[33], g_can_use_bloodyblade[33], g_using_bloodyblade[33]
+new g_bloodyblade, g_bloodyblade_name[24], g_bloodyblade_desc[24], g_can_use_bloodyblade[33], g_using_bloodyblade[33]
 new g_bloodyblade_cost, Float:g_bloodyblade_time, Float:g_bloodyblade_damage, g_bloodyblade_icon[64], g_bloodyblade_sound[64]
 
 #define TASK_REMOVE_BLOODYBLADE 839485
@@ -161,17 +161,14 @@ public plugin_precache()
 
 public client_connect(id)
 {
-	g_had_wing_boot[id] = 0
-	g_had_double_grenade[id] = 0
-	g_had_p30_damage[id] = 0
-	g_had_sprint[id] = 0
+
 	g_can_use_sprint[id] = 0
 	g_using_sprint[id] = 0
 	g_sprint_status[id] = 0
-	g_had_deadlyshot[id] = 0
+	
 	g_can_use_deadlyshot[id] = 0
 	g_using_deadlyshot[id] = 0
-	g_had_bloodyblade[id] = 0
+
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
 }
@@ -186,13 +183,6 @@ public client_putinserver(id)
 	}
 	#endif
 }
-public event_restart()
-{
-	for(new i = 0; i <= MAX_PLAYERS;i++)
-	{
-		remove_all_item(i)
-	}
-}
 
 #if 0
 public do_register(id)
@@ -203,24 +193,17 @@ public do_register(id)
 
 public zb3_item_selected_post(id, itemid)
 {
-	if(itemid == g_wing_boot)
-	{
-		g_had_wing_boot[id] = 1
+	if(itemid == g_wing_boot) {
 		set_wing_boot(id)
 	} else if(itemid == g_double_grenade) {
-		g_had_double_grenade[id] = 1
 		set_double_grenade(id)
 	} else if(itemid == g_p30_damage) {
-		g_had_p30_damage[id] = 1
 		set_p30_damage(id)
 	} else if(itemid == g_sprint) {
-		g_had_sprint[id] = 1
 		set_user_item_sprint(id)
 	} else if(itemid == g_deadlyshot) {
-		g_had_deadlyshot[id] = 1
 		set_user_deadlyshot(id)
 	} else if(itemid == g_bloodyblade) {
-		g_had_bloodyblade[id] = 1
 		set_user_bloodyblade(id)
 	}
 }
@@ -248,7 +231,7 @@ public client_PostThink(id)
 		g_hud_delay[id] = CurTime
 	}
 	
-	if(g_had_sprint[id] && g_using_sprint[id])
+	if(g_using_sprint[id])
 	{
 		if(g_sprint_status[id] == 1)
 		{
@@ -292,7 +275,7 @@ public sync_hud1_handle(id)
 public zb3_user_spawned(id)
 {
 	if(!is_user_connected(id))
-		return HAM_IGNORED
+		return
 		
 	reset_all_item(id)
 	set_wing_boot(id)
@@ -302,7 +285,7 @@ public zb3_user_spawned(id)
 	set_user_deadlyshot(id)
 	set_user_bloodyblade(id)
 	
-	return HAM_HANDLED
+	return
 }
 
 public zb3_user_infected(id)
@@ -317,24 +300,8 @@ public reset_all_item(id)
 	g_sprint_status[id] = 0
 	g_can_use_deadlyshot[id] = 0
 	g_using_deadlyshot[id] = 0	
-}
-
-public remove_all_item(id)
-{
-	g_had_wing_boot[id] = 0
-	g_had_double_grenade[id] = 0
-	g_had_p30_damage[id] = 0
-	g_had_sprint[id] = 0
-	g_can_use_sprint[id] = 0
-	g_using_sprint[id] = 0
-	g_sprint_status[id] = 0
-	g_had_deadlyshot[id] = 0
-	g_can_use_deadlyshot[id] = 0
-	g_using_deadlyshot[id] = 0
-	g_had_bloodyblade[id] = 0
 	g_can_use_bloodyblade[id] = 0
 	g_using_bloodyblade[id] = 0
-	zb3_reset_user_maxlevel(id)
 }
 // =========== Item: Wing Boot
 public set_wing_boot(id)
@@ -343,10 +310,13 @@ public set_wing_boot(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_wing_boot[id])
+	if(!zb3_get_own_item(id, g_wing_boot))
+	{
+		zb3_reset_user_gravity(id)
 		return
-		
-	set_pev(id, pev_gravity, g_wb_gravity)
+	}
+
+	zb3_set_user_gravity(id, g_wb_gravity);
 }
 
 // =========== Item: Double Grenade
@@ -371,7 +341,7 @@ public set_double_grenade(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_double_grenade[id])
+	if(!zb3_get_own_item(id, g_double_grenade))
 		return
 		
 	g_doubled_grenade[id] = 1
@@ -387,7 +357,7 @@ public set_user_item_sprint(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_sprint[id])
+	if(!zb3_get_own_item(id, g_sprint))
 		return	
 		
 	g_can_use_sprint[id] = 1
@@ -438,7 +408,7 @@ public task_human_sound(id)
 		remove_task(id+TASK_HUMAN_SOUND)
 		return			
 	}
-	if(!g_had_sprint[id])
+	if(!zb3_get_own_item(id, g_sprint))
 	{
 		remove_task(id+TASK_HUMAN_SOUND)
 		return		
@@ -473,7 +443,7 @@ public task_remove_fastrun(id)
 		remove_task(id+TASK_HUMAN_SOUND)
 		return		
 	}
-	if(!g_had_sprint[id])
+	if(!zb3_get_own_item(id, g_sprint))
 	{
 		remove_task(id+TASK_HUMAN_SOUND)
 		return		
@@ -504,7 +474,7 @@ public task_remove_slowrun(id)
 		remove_task(id+TASK_HUMAN_SOUND)
 		return		
 	}
-	if(!g_had_sprint[id])
+	if(!zb3_get_own_item(id, g_sprint))
 	{
 		remove_task(id+TASK_HUMAN_SOUND)
 		return		
@@ -528,8 +498,11 @@ public set_p30_damage(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_p30_damage[id])
+	if(!zb3_get_own_item(id, g_p30_damage))
+	{
+		zb3_reset_user_maxlevel(id)
 		return	
+	}
 		
 	zb3_set_user_maxlevel(id, 13)
 	zb3_set_user_level(id, zb3_get_user_level(id) + 3)
@@ -542,7 +515,7 @@ public set_user_deadlyshot(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_deadlyshot[id])
+	if(!zb3_get_own_item(id, g_deadlyshot))
 		return	
 		
 	g_can_use_deadlyshot[id] = 1
@@ -583,7 +556,7 @@ public task_remove_headshot(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_deadlyshot[id])
+	if(!zb3_get_own_item(id, g_deadlyshot))
 		return
 	if(g_can_use_deadlyshot[id])
 		return		
@@ -612,7 +585,7 @@ public set_user_bloodyblade(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_bloodyblade[id])
+	if(!zb3_get_own_item(id, g_bloodyblade))
 		return	
 		
 	g_can_use_bloodyblade[id] = 1
@@ -654,7 +627,7 @@ public task_remove_bloodyblade(id)
 		return
 	if(zb3_get_user_zombie(id))
 		return			
-	if(!g_had_bloodyblade[id])
+	if(!zb3_get_own_item(id, g_bloodyblade))
 		return	
 	if(g_can_use_bloodyblade[id])
 		return	

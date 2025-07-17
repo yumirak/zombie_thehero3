@@ -34,18 +34,18 @@ new const hit_sound[3][] =
 /// ==========================================
 
 // Item: x Health & Armor
-new g_x_health_armor, g_x_health_armor_cost, g_x_health_armor_name[24], g_x_health_armor_desc[24],  g_had_x_health_armor[33], g_x_health_armor_used[33],
+new g_x_health_armor, g_x_health_armor_cost, g_x_health_armor_name[24], g_x_health_armor_desc[24], g_x_health_armor_used[33],
 g_x_health_armor_hp, g_x_health_armor_ap
 
 // Item: Zombie Grenade
 new zombie_grenade, zombie_grenade_cost, zombie_grenade_name[24], zombie_grenade_desc[24],
-g_had_zombie_grenade[33], g_zombie_grenade_model[24], g_zombie_grenade_sound[64], g_zombie_grenade_sprite[64],
+g_zombie_grenade_model[24], g_zombie_grenade_sound[64], g_zombie_grenade_sprite[64],
 Float:g_zombie_grenade_radius, Float:g_zombie_grenade_power
 // Item: Immediate Respawn
-new g_im_respawn, g_im_respawn_cost, g_im_respawn_name[24], g_im_respawn_desc[24], g_had_im_respawn[33]
+new g_im_respawn, g_im_respawn_cost, g_im_respawn_name[24], g_im_respawn_desc[24]
 
 // Item: 70% Infect Health
-new g_70_infect, g_70_infect_cost, g_70_infect_name[24], g_70_infect_desc[24], g_had_70_infect[33]
+new g_70_infect, g_70_infect_cost, g_70_infect_name[24], g_70_infect_desc[24]
 
 public plugin_init() 
 {
@@ -175,15 +175,12 @@ public event_restart()
 public zb3_item_selected_post(id, itemid)
 {
 	if(itemid == g_x_health_armor)
-		g_had_x_health_armor[id] = 1
+		x_health_armor_handle(id)
 	else if(itemid == zombie_grenade) {
-		g_had_zombie_grenade[id] = 1
 		zombie_grenade_handle(id)
 	} else if(itemid == g_im_respawn) {
-		g_had_im_respawn[id] = 1
 		zb3_set_user_respawn_time(id, 0)
 	} else if(itemid == g_70_infect) {
-		g_had_70_infect[id] = 1
 		zb3_set_user_infect_mod(id, 0.7)
 	}
 }
@@ -192,8 +189,11 @@ public zb3_user_infected(id)
 {
 	x_health_armor_handle(id)
 	zombie_grenade_handle(id)
+	infect_mod_handle(id)
+	respawn_time_handle(id)
 }
-#if 0 // Needed ? 
+
+#if 0 // Needed ?
 public zb3_zombie_evolution(id, level)
 {
 	if(level > 1)
@@ -228,12 +228,7 @@ public client_putinserver(id)
 
 public reset_value(id)
 {
-	g_had_x_health_armor[id] = 0
 	g_x_health_armor_used[id] = 0
-	g_had_zombie_grenade[id] = 0
-	g_had_im_respawn[id] = 0
-	
-	g_had_70_infect[id] = 0
 
 	zb3_reset_user_respawn_time(id)
 	zb3_reset_user_infect_mod(id)
@@ -248,7 +243,7 @@ public x_health_armor_handle(id)
 		return
 	if(zb3_get_user_level(id) > 1)
 		return
-	if(!g_had_x_health_armor[id])
+	if(!zb3_get_own_item(id, g_x_health_armor))
 		return
 	if(g_x_health_armor_used[id])
 		return
@@ -282,13 +277,34 @@ public zombie_grenade_handle(id)
 		return
 	if(!zb3_get_user_zombie(id))
 		return
-	if(!g_had_zombie_grenade[id])
+	if(!zb3_get_own_item(id, zombie_grenade))
 		return	
 	
 	rg_give_item(id, "weapon_hegrenade")
 	rg_switch_best_weapon(id)
 }
+public infect_mod_handle(id)
+{
+	if(!zb3_get_own_item(id, g_70_infect))
+	{
+		zb3_reset_user_infect_mod(id)
+		return
+	}
 
+	zb3_set_user_infect_mod(id, 0.7)
+	return
+}
+public respawn_time_handle(id)
+{
+	if(!zb3_get_own_item(id, g_im_respawn))
+	{
+		zb3_reset_user_respawn_time(id)
+		return
+	}
+
+	zb3_set_user_respawn_time(id, 0)
+	return
+}
 public fw_SetModel(entity, const model[])
 {
 	// We don't care
@@ -482,7 +498,7 @@ public event_CurWeapon(id)
 	if (!is_user_alive(id)) return;
 	
 	new plrWeapId = get_user_weapon(id)
-	if (plrWeapId == CSW_HEGRENADE && g_had_zombie_grenade[id])
+	if (plrWeapId == CSW_HEGRENADE && zb3_get_own_item(id, zombie_grenade))
 	{
 		if(zb3_get_user_zombie(id))
 		{
