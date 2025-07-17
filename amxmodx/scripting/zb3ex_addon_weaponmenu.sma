@@ -31,14 +31,15 @@ new const MenuLang[WPN_MAX + 1][] =
 	"SHOP_GRENADE",
 	"SHOP_GET",
 }
-
+#define TASK_ROLL 28913
+#define TASK_GIVE 28914
 new g_Forwards[MAX_FORWARD], g_GotWeapon[33]
 new g_WeaponList[5][MAX_WEAPON], g_WeaponListCount[5]
 new g_PreWeapon[33][5], g_FirstWeapon[5], g_TotalWeaponCount, g_UnlockedWeapon[33][MAX_WEAPON]
 new Array:ArWeaponName, Array:ArWeaponType, Array:ArWeaponCost
 new g_RegWeaponCount
 new g_MaxPlayers, g_fwResult, g_MsgSayText
-
+new g_synchud1
 public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
@@ -52,7 +53,7 @@ public plugin_init()
 	
 	g_MsgSayText = get_user_msgid("SayText")
 	g_MaxPlayers = get_maxplayers()
-	
+	g_synchud1 = CreateHudSyncObj(SYNCHUD_NOTICE)
 	register_clcmd("buyammo1", "Native_OpenWeapon")
 }
 
@@ -273,6 +274,13 @@ public Reset_PlayerWeapon(id, NewPlayer)
 
 public Player_Equipment(id)
 {
+	if(zb3_get_randomizer())
+	{
+		remove_task(id+TASK_ROLL); remove_task(id+TASK_GIVE)
+		set_task(random_float(1.0, 2.0), "RandomWeapon", id+TASK_ROLL)
+		return
+	}
+
 	if(!is_user_bot(id)) Show_MainEquipMenu(id)
 	else set_task(random_float(0.25, 1.0), "Bot_RandomWeapon", id)
 }
@@ -458,11 +466,50 @@ public Bot_RandomWeapon(id)
 	static i 
 
 	for(i = 1; i < WPN_MAX; i++)
-		g_PreWeapon[id][i] = g_WeaponList[i][random_num(0, g_WeaponListCount[i])]
+		pick_random_weapon_type(id, i)
 
 	Equip_Weapon(id)
 }
 
+public RandomWeapon(id)
+{
+	id -= TASK_ROLL
+	static i, szWeaponName[32], szPrint[128];
+	szWeaponName[0] =  szPrint[0] = '^0'
+	for(i = 1; i < WPN_MAX; i++)
+	{
+		pick_random_weapon_type(id, i)
+		ArrayGetString(ArWeaponName, g_PreWeapon[id][i], szWeaponName, sizeof(szWeaponName))
+
+		if(i < WPN_MAX - 1)
+			strcat(szWeaponName, ", ", sizeof(szWeaponName))
+
+		strcat(szPrint, szWeaponName, sizeof(szPrint))
+	}
+	set_hudmessage(255, 255, 255, -1.0, 0.25, 2, 1.0, 5.0, 0.005, 0.1)
+	ShowSyncHudMsg(id, g_synchud1, "%L^n%s", LANG_SERVER, "RANDOM_WEAPON_NOTICE", szPrint)
+
+	set_task(random_float(1.1, 2.0), "RandomWeaponGive", id+TASK_GIVE)
+}
+public RandomWeaponGive(id)
+{
+	id -= TASK_GIVE
+	Equip_Weapon(id)
+}
+public pick_random_weapon_type(id, type)
+{
+	static FoundType;
+	for(new i = 0; i < g_TotalWeaponCount; i++)
+	{
+		FoundType = ArrayGetCell(ArWeaponType, i)
+		if(FoundType != type)
+			continue
+		if(random_num(0, 2) > 0)
+			continue
+		
+		g_PreWeapon[id][type] = i;
+	}
+}
 stock client_printc(index, const text[], any:...)
 {
 	static szMsg[128]; vformat(szMsg, sizeof(szMsg) - 1, text, 3)

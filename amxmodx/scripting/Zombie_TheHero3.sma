@@ -39,7 +39,7 @@ enum
 
 #define MAX_SYNCHUD 6
 
-new g_gamemode, g_evo_need_infect[2]
+new g_gamemode, g_randomizer, g_evo_need_infect[2]
 // Game Vars
 new iGameCurStatus:g_gamestatus, g_MaxPlayers,
 g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time,
@@ -444,6 +444,7 @@ public plugin_natives()
 {
 	// Native
 	register_native("zb3_get_mode", "native_get_mode", 1)
+	register_native("zb3_get_randomizer", "native_get_randomizer", 1)
 	register_native("zb3_load_setting_string", "native_load_setting_string", 1)
 
 	register_native("zb3_infect", "native_infect", 1)
@@ -468,6 +469,7 @@ public plugin_natives()
 	register_native("zb3_get_user_nvg", "native_get_nvg", 1)
 	
 	register_native("zb3_set_user_health", "native_set_user_health", 1)
+	register_native("zb3_set_user_armor", "native_set_user_armor", 1)
 	register_native("zb3_set_user_light", "native_set_light", 1)
 	register_native("zb3_set_user_rendering", "native_set_rendering", 1)
 	
@@ -537,6 +539,10 @@ public fw_BlockedObj_Spawn(ent)
 public native_get_mode()
 {
 	return g_gamemode
+}
+public native_get_randomizer()
+{
+	return g_randomizer
 }
 public native_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
 {
@@ -674,6 +680,14 @@ public native_set_user_health(id, Health)
 		return
 		
 	fm_set_user_health(id, Health)
+}
+
+public native_set_user_armor(id, Armor)
+{
+	if(!is_user_connected(id))
+		return
+		
+	fm_cs_set_user_armor(id, Armor, ARMOR_KEVLAR)
 }
 
 public native_set_light(id, const light[])
@@ -2063,7 +2077,7 @@ public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
 
 public set_menu_zombieclass(id)
 {
-	if(!is_user_bot(id))
+	if(!is_user_bot(id) && !g_randomizer)
 	{
 		show_menu_zombieclass(id, 0)
 		return
@@ -2714,6 +2728,8 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "GAMEMODE", buffer, sizeof(buffer), DummyArray);
 	if( str_to_num(buffer) >= MODE_ORIGINAL ) g_gamemode = clamp( str_to_num(buffer), MODE_ORIGINAL, MODE_HERO)
 	else g_gamemode = MODE_HERO
+
+	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "RANDOMIZER", buffer, sizeof(buffer), DummyArray); g_randomizer = str_to_num(buffer)
 
 	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "MUTANT_ORIGIN_EVO_REQ", buffer, sizeof(buffer), DummyArray); 
 	g_evo_need_infect[ZOMBIE_ORIGIN] = str_to_num(buffer)

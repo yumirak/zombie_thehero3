@@ -159,6 +159,7 @@ native zb3_set_user_nvg(id, on, auto_on, give, remove);
 native zb3_get_user_nvg(id);
 
 native zb3_set_user_health(id, Health);
+native zb3_set_user_armor(id, Armor);
 native zb3_set_user_light(id, const light[]);
 native zb3_set_user_rendering(id, fx = kRenderFxNone, r = 255, g = 255, b = 255, render = kRenderNormal, amount = 16)
 
@@ -184,6 +185,7 @@ native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
 native zb3_get_mode();
+native zb3_get_randomizer();
 native zb3_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
 
 native zb3_get_user_maxhealth(id);

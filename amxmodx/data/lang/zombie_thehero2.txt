@@ -47,6 +47,8 @@ SHOP_GRENADE = Grenade
 SHOP_GET = Buy Weapons
 SHOP_MISSCLICK = Press 'buyammo1' to reopen weapon selection.
 
+RANDOM_WEAPON_NOTICE = Weapon Selection
+
 ZOMBIE_REGULAR_CANTBERSERK = Your Health is too low... Need bigger than 500
 ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
 
