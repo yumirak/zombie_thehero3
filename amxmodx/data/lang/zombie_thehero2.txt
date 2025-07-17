@@ -1,4 +1,5 @@
 ﻿[en]
+GAME_BRANDING = multiZ
 GAME_LESS_PLAYER = Waiting for the opposing player to enter...
 GAME_COUNTDOWN = Remaining time for zombie selection: %i second(s)
 GAME_SCORE_HUD = Human - Zombie^n%i -------- %i
@@ -21,14 +22,17 @@ NOTICE_ITEM_BROADCAST = A supply box has arrived!!
 NOTICE_ITEM_PICKUP = Acquired (%s) Supply Item.
 NOTICE_ITEM_PICKUP_BROADCAST = %s has acquired (%s) Supply Item.
 
+SHOP_MENU = Item Menu
 SHOP_BUY_START = You can only buy before countdown end. 
 SHOP_PERMANENT_ITEM = Permanent
 SHOP_ITEM_ONCETIME_USE = One-Time Use
 SHOP_BOUGHT = Bought
-SHOP_BUY = You bought: !g%s!n with cost: !g$%i!n. Item Type: !g%s!n
+SHOP_BUY = You bought: !g%s!n with cost: !g$%i!n. Type: !g%s!n
+SHOP_BUY_LESS = You bought: !t%s!n @ !t$%i!n.
 SHOP_BUY_DESC = [!g%s!n] Description: !g%s!n
-SHOP_NOT_ENOUGH_MONEY = You don't have Enough money to buy: !g%s!n (Required: !g$%i!n)
-
+SHOP_NOT_ENOUGH_MONEY = You don't have enough money to buy: !g%s!n (Required: !g$%i!n)
+SHOP_NOT_ENOUGH_MONEY_LESS = #Cstrike_TitlesTXT_Not_Enough_Money
+SHOP_BUY_ONE_TIME = You already have !t%s!n
 WIN_HUMAN = Human Wins
 WIN_ZOMBIE = Zombie Wins
 

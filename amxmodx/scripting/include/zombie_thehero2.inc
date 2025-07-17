@@ -232,3 +232,35 @@ forward zb3_item_selected_post(id, itemid);
 forward zb3_weapon_selected_pre(id, weaponid);
 forward zb3_weapon_selected_post(id, weaponid);
 forward zb3_remove_weapon(id, weaponid);
+#if defined PRINT_CHAT_COLOR
+client_printc(index, const text[], any:...)
+{
+	new szMsg[128], szTemp[128];
+	formatex(szTemp, sizeof(szTemp), "!t[%L]!n ", LANG_PLAYER, "GAME_BRANDING")
+	strcat(szTemp, text, sizeof(szTemp))
+	vformat(szMsg, sizeof(szMsg) - 1, szTemp, 3);
+
+	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04");
+	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01");
+	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03");
+
+	if(index == 0)
+	{
+		for(new i = 0; i < get_maxplayers(); i++)
+		{
+			if(is_user_connected(i))
+			{
+				message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, i);
+				write_byte(i);
+				write_string(szMsg);
+				message_end();	
+			}
+		}		
+	} else {
+		message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, index);
+		write_byte(index);
+		write_string(szMsg);
+		message_end();
+	}
+} 
+#endif

@@ -1,5 +1,6 @@
 #include <amxmodx>
 #include <reapi>
+#define PRINT_CHAT_COLOR
 #include <zombie_thehero2>
 
 #define PLUGIN "[ZB3] Addon: Weapon"
@@ -223,7 +224,7 @@ public zb3_user_spawned(id)
 
 	static szTemp[128]
 
-	formatex(szTemp, sizeof(szTemp), "!g[%s]!n %L", GAMENAME, GAME_LANG, "SHOP_MISSCLICK")
+	formatex(szTemp, sizeof(szTemp), "%L", GAME_LANG, "SHOP_MISSCLICK")
 	client_printc(id, szTemp)
 }
 
@@ -291,7 +292,7 @@ public Show_MainEquipMenu(id)
 		return
 	
 	static i, Menu, WeaponName[64], LangText[64], SystemName[64]; 
-	formatex(SystemName, 39, "%L", GAME_LANG, "SHOP_WEAPON")
+	formatex(SystemName, sizeof(SystemName), "[%L] %L", GAME_LANG, "GAME_BRANDING", GAME_LANG, "SHOP_WEAPON")
 	Menu = menu_create(SystemName, "MenuHandle_MainEquip")
 	
 	for(i = 1; i <= WPN_MAX; i++)
@@ -352,8 +353,7 @@ public MenuHandle_MainEquip(id, Menu, Item)
 public Show_WpnSubMenu(id, WpnType, Page)
 {
 	static MenuName[64]
-	formatex(MenuName, sizeof(MenuName), "%L", GAME_LANG, MenuLang[WpnType])
-
+	formatex(MenuName, sizeof(MenuName), "[%L] %L", GAME_LANG, "GAME_BRANDING", GAME_LANG, MenuLang[WpnType])
 
 	new Menu = menu_create(MenuName, "MenuHandle_WpnSubMenu")
 
@@ -433,7 +433,7 @@ public MenuHandle_WpnSubMenu(id, Menu, Item)
 			rg_add_account(id, Money - WeaponPrice, AS_SET, true)
 			Show_MainEquipMenu(id)
 		} else {
-			formatex(OutputInfo, sizeof(OutputInfo), "!g[%s]!n %L", GAMENAME, GAME_LANG, "SHOP_NOT_ENOUGH_MONEY", WeaponName ,WeaponPrice)
+			formatex(OutputInfo, sizeof(OutputInfo), "%L", GAME_LANG, "SHOP_NOT_ENOUGH_MONEY", WeaponName ,WeaponPrice)
 			client_printc(id, OutputInfo)
 			Show_MainEquipMenu(id)	
 		}
@@ -510,20 +510,4 @@ public pick_random_weapon_type(id, type)
 		g_PreWeapon[id][type] = i;
 	}
 }
-stock client_printc(index, const text[], any:...)
-{
-	static szMsg[128]; vformat(szMsg, sizeof(szMsg) - 1, text, 3)
-
-	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04")
-	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01")
-	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03")
-
-	if(index)
-	{
-		message_begin(MSG_ONE_UNRELIABLE, g_MsgSayText, _, index);
-		write_byte(index);
-		write_string(szMsg);
-		message_end();
-	}
-} 
 

@@ -2,6 +2,7 @@
 #include <amxmisc>
 #include <fakemeta_util>
 #include <reapi>
+#define PRINT_CHAT_COLOR
 #include <zombie_thehero2>
 
 #define PLUGIN "Zombie: The Hero"
@@ -2114,7 +2115,7 @@ public show_menu_zombieclass(id, page)
 	if(g_can_choose_class[id])
 	{ 
 		set_task(float(g_classchoose_time), "Remove_ChooseClass", id+TASK_CHOOSECLASS)
-		client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
+		client_printc(id, "%L", LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
 	}
 }
 
@@ -2171,12 +2172,12 @@ public menu_selectclass_handle(id, menu, item)
 		{
 			g_unlocked_class[id][classid] = 1
 			fm_cs_set_user_money(id, fm_cs_get_user_money(id) - lock_cost)
-			client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_UNLOCKED_CLASS")
+			client_printc(id, "%L", LANG_PLAYER, "MENU_UNLOCKED_CLASS")
 			menu_selectclass_handle(id, menu, item)
 		} 
 		else 
 		{
-			client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
+			client_printc(id, "%L", LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
 			menu_destroy( menu )
 			show_menu_zombieclass(id, 0)
 		}
@@ -2375,35 +2376,6 @@ stock get_color_level(id, num)
 	
 	return color[num];
 }
-
-stock client_printc(index, const text[], any:...)
-{
-	new szMsg[128];
-	vformat(szMsg, sizeof(szMsg) - 1, text, 3);
-
-	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03");
-
-	if(index == 0)
-	{
-		for(new i = 1; i <= g_MaxPlayers; i++)
-		{
-			if(is_user_connected(i))
-			{
-				message_begin(MSG_ONE_UNRELIABLE, g_Msg_SayText, _, i);
-				write_byte(i);
-				write_string(szMsg);
-				message_end();	
-			}
-		}		
-	} else {
-		message_begin(MSG_ONE_UNRELIABLE, g_Msg_SayText, _, index);
-		write_byte(index);
-		write_string(szMsg);
-		message_end();
-	}
-} 
 
 stock check_user_admin(id)
 {
