@@ -4,34 +4,32 @@
 #include <fakemeta>
 #include <zombie_thehero2>
 #include <xs>
-
+#include <reapi>
 #define PLUGIN "[Zombie: The Hero] Addon: SupplyBox"
 #define VERSION "2.0"
 #define AUTHOR "Dias"
 
-#define supplybox_model  "models/zombie_thehero/supplybox.mdl"
-#define supplybox_drop_sound "zombie_thehero/supply_drop.wav"
-#define supplybox_pickup_sound "zombie_thehero/supply_pickup.wav"
+new const SETTING_FILE[] = "zombie_thehero2/config.ini"
+new const SETTING_CONFIG[] = "Supply Box"
 
+#define SUPPLYBOX_IMPULSE 9124678
 #define SUPPLYBOX_CLASSNAME "supplybox"
-#define SUPPLYBOX_MAX 32 // supply in 1 round
-#define SUPPLYBOX_NUM 6 // supply deployed at a time
-#define SUPPLYBOX_TOTAL_IN_TIME 6 // supply total in map at a time
-#define SUPPLYBOX_DROPTIME 30 // supply delay next drop
 
 #define TASK_SUPPLYBOX 128256
 #define TASK_SUPPLYBOX2 138266
-#define TASK_SUPPLYBOX_HELP 129257
-#define TASK_SUPPLYBOX_WAIT 130259
+
+new g_cfg_supplybox_drop_max, g_cfg_supplybox_drop_num, g_cfg_supplybox_cur_max, Float:g_cfg_supplybox_drop_time, Float:g_cfg_supplybox_drop_range
+new Array:g_cfg_supplybox_model, supplybox_drop_sound[128], supplybox_pickup_sound[128]
 
 // Hard Code
-new g_supplybox_num, supplybox_count, supplybox_ent[SUPPLYBOX_MAX],
-bool:made_supplybox, g_newround, g_endround
+new g_supplybox_num, g_supplybox_cur, g_supplybox_cycle, g_can_spawn
 new g_maxplayers, g_msgHostagePos , g_msgHostageK
 
 // Spawn Point Research
 #define MAX_RETRY 40
-new g_Forwards, g_dummy_forward
+new g_forward[FWD_SUPPLY_MAX], g_dummy_forward
+new g_item_i
+new Array:Supply_Item_Name
 
 public plugin_init()
 {
@@ -47,57 +45,134 @@ public plugin_init()
 	g_msgHostageK = get_user_msgid("HostageK")
 	register_message(g_msgHostagePos, "message_hostagepos")
 
-	//register_event("HLTV", "Event_Newround", "a", "1=0", "2=0")
-	g_Forwards = CreateMultiForward("zb3_touch_supply", ET_IGNORE, FP_CELL)
+	g_forward[FWD_SUPPLY_ITEM_GIVE] = CreateMultiForward("zb3_supply_item_give", ET_IGNORE, FP_CELL, FP_CELL)
+	g_forward[FWD_SUPPLY_AMMO_GIVE] = CreateMultiForward("zb3_supply_refill_ammo", ET_IGNORE, FP_CELL)
 	register_touch(SUPPLYBOX_CLASSNAME, "player", "fw_Touch_SupplyBox")
 }
 
 public plugin_precache()
 {
-	engfunc(EngFunc_PrecacheModel, supplybox_model)
-	
+	static i, buffer[128], buffer2[128];
+	g_cfg_supplybox_model = ArrayCreate(64, 1)
+	Supply_Item_Name = ArrayCreate(64, 1)
+
+	load_cfg()
+
+	for (i = 0; i < ArraySize(g_cfg_supplybox_model); i++)
+	{
+		ArrayGetString(g_cfg_supplybox_model, i, buffer, charsmax(buffer))
+		format(buffer2, sizeof(buffer2), "%s", buffer, buffer)
+		
+		engfunc(EngFunc_PrecacheModel, buffer2)
+	}
+
 	engfunc(EngFunc_PrecacheSound, supplybox_drop_sound)
 	engfunc(EngFunc_PrecacheSound, supplybox_pickup_sound)
 	
 }
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
 
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_MAX", buffer, sizeof(buffer), DummyArray); g_cfg_supplybox_drop_max = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_NUM", buffer, sizeof(buffer), DummyArray); g_cfg_supplybox_drop_num = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_TIME", buffer, sizeof(buffer), DummyArray); g_cfg_supplybox_drop_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_RANGE", buffer, sizeof(buffer), DummyArray); g_cfg_supplybox_drop_range = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_TOTAL_IN_TIME", buffer, sizeof(buffer), DummyArray); g_cfg_supplybox_cur_max = str_to_num(buffer)
+
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_MODEL", buffer, 0, g_cfg_supplybox_model);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_SOUND_DROP", supplybox_drop_sound, sizeof(supplybox_drop_sound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SUPPLYBOX_SOUND_PICKUP", supplybox_pickup_sound, sizeof(supplybox_pickup_sound), DummyArray);
+}
+
+public plugin_natives()
+{
+	register_native("zb3_register_supply_item", "native_register_supply_item", 1)
+}
+
+public native_register_supply_item(const Name[])
+{
+	param_convert(1)
+	
+	ArrayPushString(Supply_Item_Name, Name)
+	
+	g_item_i++
+	return g_item_i - 1
+}
+
+public get_registered_random_weapon(id)
+{
+	if(!is_user_alive(id))
+		return
+	
+	static item_id
+	
+	item_id = random_num(0, g_item_i - 1)
+
+	ExecuteForward(g_forward[FWD_SUPPLY_ITEM_GIVE], g_dummy_forward, id, item_id)
+	ExecuteForward(g_forward[FWD_SUPPLY_AMMO_GIVE], g_dummy_forward, id)
+	zb3_give_user_ammo(id)
+	notice_supply(id, item_id)
+}
+
+stock notice_supply(id, itemid)
+{
+	new buffer[256], name[64], Temp_String[64]
+
+	get_user_name(id, name, sizeof(name))
+	ArrayGetString(Supply_Item_Name, itemid, Temp_String, sizeof(Temp_String))
+	
+	format(buffer, charsmax(buffer), "%L", LANG_PLAYER, "NOTICE_ITEM_PICKUP_BROADCAST", name, Temp_String)
+	
+	for (new i = 1; i <= get_maxplayers(); i++)
+	{
+		 if (!is_user_connected(i) || i == id) continue;
+		 client_print(i, print_center, buffer)
+	}
+	
+	format(buffer, charsmax(buffer), "%L", LANG_PLAYER, "NOTICE_ITEM_PICKUP", Temp_String)
+	client_print(id, print_center, buffer)
+}
+///////////// CREATE SUPPLY
 public radar_scan()
 {	
+	if (!g_supplybox_cur)
+		return
+
 	for (new id = 1; id < g_maxplayers; id++)
 	{
 		if (!is_user_alive(id) || is_user_bot(id) || zb3_get_user_zombie(id)) continue;
 		
-		// scan supply box
-		if (!supplybox_count) continue;
-		
-		new i = 1, next_ent 
-		static Float:origin[3]//, Buffer[32], ent_classname[32]
-		//formatex(Buffer, sizeof(Buffer), SUPPLYBOX_CLASSNAME, ent_classname)
-		while(i < SUPPLYBOX_MAX)
+		static i, count;
+		i = count = 0
+		static Float:supply_origin[3], Float:origin[3]
+
+		pev(id, pev_origin, origin)
+		while((i = find_ent_in_sphere(i, origin, 8192.0)) != 0)
 		{
-			next_ent = supplybox_ent[i]
-			if (next_ent && entity_get_string(next_ent, EV_SZ_classname, SUPPLYBOX_CLASSNAME, 32)) //, ,SUPPLYBOX_CLASSNAME
-			{
-				pev(next_ent, pev_origin, origin)
-				
-				message_begin_f(MSG_ONE_UNRELIABLE, g_msgHostagePos, _, id)
-				write_byte(id)
-				write_byte(i)		
-				write_coord_f(origin[0])
-				write_coord_f(origin[1])
-				write_coord_f(origin[2])
-				message_end()
+			if(pev(i, pev_impulse) != SUPPLYBOX_IMPULSE)
+				continue
+
+			pev(i, pev_origin, supply_origin)
+#if defined _DEBUG
+			client_print(id, print_chat, "[%i] [%f] [%f] [%f]", i, supply_origin[0], supply_origin[1], supply_origin[2])
+#endif
+			message_begin_f(MSG_ONE_UNRELIABLE, g_msgHostagePos, _, id)
+			write_byte(id)
+			write_byte(count)		
+			write_coord_f(supply_origin[0])
+			write_coord_f(supply_origin[1])
+			write_coord_f(supply_origin[2])
+			message_end()
 			
-				message_begin(MSG_ONE_UNRELIABLE, g_msgHostageK, {0,0,0}, id)
-				write_byte(i)
-				message_end()
-				//client_print(id, print_chat, "[%i] [%i] [%i] [%i]", next_ent, origin[0], origin[1], origin[2])
-			}
-			i++
+			message_begin(MSG_ONE_UNRELIABLE, g_msgHostageK, {0,0,0}, id)
+			write_byte(count)
+			message_end()
+			count++
 		}
-		//client_print(id, print_chat, "[%i][%i]", supplybox_count, i)
 	}
 }
+
 public zb3_time_change()
 {
 	radar_scan()
@@ -108,52 +183,41 @@ public zb3_game_start(start_type)
 	{
 	case GAMESTART_NEWROUND:
 	{
-		made_supplybox = false
-		g_newround = 1
-		g_endround = 0
+		g_can_spawn = 0
 		
 		remove_supplybox()
-		supplybox_count = 0
+		g_supplybox_cur = 0
+		g_supplybox_num = 0
 		
 		if(task_exists(TASK_SUPPLYBOX)) remove_task(TASK_SUPPLYBOX)
 		if(task_exists(TASK_SUPPLYBOX2)) remove_task(TASK_SUPPLYBOX2)
-		if(task_exists(TASK_SUPPLYBOX_HELP)) remove_task(TASK_SUPPLYBOX_HELP)	
 	}
 	case GAMESTART_ZOMBIEAPPEAR:
 	{
-		if(!made_supplybox)
-		{
-			g_newround = 0
-			made_supplybox = true
-			
-			if(task_exists(TASK_SUPPLYBOX)) remove_task(TASK_SUPPLYBOX)
-			set_task(float(SUPPLYBOX_DROPTIME), "create_supplybox", TASK_SUPPLYBOX)
-		}
+		g_can_spawn = 1
+
+		if(task_exists(TASK_SUPPLYBOX)) remove_task(TASK_SUPPLYBOX)
+		set_task(g_cfg_supplybox_drop_time, "create_supplybox", TASK_SUPPLYBOX, _, _, "b")
 	}
 	}
 }
-public zb3_game_end() g_endround = 1
+public zb3_game_end() g_can_spawn = 0
 
 public remove_supplybox()
 {
 	remove_entity_name(SUPPLYBOX_CLASSNAME)
-	
-	for (new i = 0; i < SUPPLYBOX_MAX; i++)
-		supplybox_ent[i] = 0
-	for (new i = 1; i < zb3_get_player_spawn_count(); i++)
-		zb3_set_player_spawn_used(i, false)
 }
 
 public create_supplybox()
 {
-	if (supplybox_count >= SUPPLYBOX_MAX ||  g_newround || g_endround) 
+	if(g_supplybox_num >= g_cfg_supplybox_drop_max || !g_can_spawn)
+	{
+		remove_task(TASK_SUPPLYBOX)
 		return
+	}
 
-	if (task_exists(TASK_SUPPLYBOX)) remove_task(TASK_SUPPLYBOX)
-	set_task(float(SUPPLYBOX_DROPTIME), "create_supplybox", TASK_SUPPLYBOX)
-	
-	if(supplybox_count >= SUPPLYBOX_TOTAL_IN_TIME)
-		return;
+	if(g_supplybox_cur >= g_cfg_supplybox_cur_max)
+		return
 	
 	for(new i = 1; i < g_maxplayers; i++)
 	{
@@ -164,8 +228,7 @@ public create_supplybox()
 		client_print(i, print_center, "%L", LANG_PLAYER, "NOTICE_ITEM_BROADCAST")	
 	}
 
-	g_supplybox_num = 0
-	create_supplybox2()
+	g_supplybox_cycle = 0
 
 	if (task_exists(TASK_SUPPLYBOX2)) remove_task(TASK_SUPPLYBOX2)
 	set_task(0.5, "create_supplybox2", TASK_SUPPLYBOX2, _, _, "b")	
@@ -173,31 +236,32 @@ public create_supplybox()
 
 public create_supplybox2()
 {
-	if (supplybox_count >= SUPPLYBOX_MAX || supplybox_count >= SUPPLYBOX_TOTAL_IN_TIME || g_newround || g_endround)
+	if (g_supplybox_num >= g_cfg_supplybox_drop_max 
+	||  g_supplybox_cur >= g_cfg_supplybox_cur_max 
+	||  g_supplybox_cycle >= g_cfg_supplybox_drop_num || !g_can_spawn)
 	{
 		remove_task(TASK_SUPPLYBOX2)
 		return
 	}
 	
-	supplybox_count++
+	g_supplybox_cur++
 	g_supplybox_num++
+	g_supplybox_cycle++ 
+
+	static szModel[128];
+	ArrayGetString(g_cfg_supplybox_model, get_random_array(g_cfg_supplybox_model), szModel, sizeof(szModel))
 
 	new ent = create_entity("info_target")
-	
+
 	entity_set_string(ent, EV_SZ_classname, SUPPLYBOX_CLASSNAME)
-	entity_set_model(ent, supplybox_model)	
+	entity_set_model(ent, szModel)	
 	entity_set_size(ent,Float:{-2.0,-2.0,-2.0},Float:{5.0,5.0,5.0})
 	entity_set_int(ent,EV_INT_solid, SOLID_TRIGGER)
 	entity_set_int(ent,EV_INT_movetype,MOVETYPE_TOSS)
-	entity_set_int(ent, EV_INT_iuser1, 0)
-	entity_set_int(ent, EV_INT_iuser2, supplybox_count)
+	entity_set_int(ent, EV_INT_impulse, SUPPLYBOX_IMPULSE)
 	
 	do_random_spawn(ent, MAX_RETRY)
-	
-	supplybox_ent[supplybox_count] = ent
 
-	if ((g_supplybox_num >= SUPPLYBOX_NUM) && task_exists(TASK_SUPPLYBOX2)) 
-		remove_task(TASK_SUPPLYBOX2)
 }
 
 public fw_Touch_SupplyBox(ent, id)
@@ -208,17 +272,11 @@ public fw_Touch_SupplyBox(ent, id)
 		return
 	if(zb3_get_user_zombie(id))
 		return
-	
-	//zb3_supplybox_random_getitem(id, zb3_get_user_hero(id) ? 1 : 0)
-	ExecuteForward(g_Forwards, g_dummy_forward, id)
+
+	get_registered_random_weapon(id)
 	emit_sound(id, CHAN_VOICE, supplybox_pickup_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 
-	new num_box = entity_get_int(ent, EV_INT_iuser2)
-	new spawn_num_used = entity_get_int(ent, EV_INT_iuser1)
-
-	zb3_set_player_spawn_used(spawn_num_used, false) // reset used origin
-	supplybox_ent[num_box] = 0 
-	supplybox_count--
+	g_supplybox_cur--
 
 	remove_entity(ent)
 	return
@@ -237,10 +295,9 @@ public do_random_spawn(id, retry_count)
 	Origin[1] = zb3_get_player_spawn_cord(random_mem, 1)
 	Origin[2] = zb3_get_player_spawn_cord(random_mem, 2)
 	
-	if(is_hull_vacant(Origin, hull) && !zb3_get_player_spawn_used(random_mem) )
+	if(is_hull_vacant(Origin, hull) && !check_nearby_supply(Origin))
 	{
 		engfunc(EngFunc_SetOrigin, id, Origin)
-		zb3_set_player_spawn_used(random_mem, true)
 		entity_set_int(id, EV_INT_iuser1, random_mem)
 	}
 	else
@@ -252,10 +309,25 @@ public do_random_spawn(id, retry_count)
 		}
 	}
 }
+public check_nearby_supply(Float:Orig[3])
+{
+	static i, supply; i = supply = 0
+	while((i = find_ent_in_sphere(i, Orig, g_cfg_supplybox_drop_range)) != 0)
+	{
+		if(pev(i, pev_impulse) != SUPPLYBOX_IMPULSE)
+			continue
+
+		supply = i
+	}
+
+	return supply
+}
+
 public message_hostagepos()
 {
 	return PLUGIN_HANDLED;
 }
+
 stock is_hull_vacant(Float:origin[3], hull)
 {
 	engfunc(EngFunc_TraceHull, origin, origin, 0, hull, 0, 0)
@@ -266,12 +338,7 @@ stock is_hull_vacant(Float:origin[3], hull)
 	return false;
 }
 
-stock normalize(Float:fIn[3], Float:fOut[3], Float:fMul) // By sontung0
+stock get_random_array(Array:array_name)
 {
-	new Float:fLen = xs_vec_len(fIn)
-	xs_vec_copy(fIn, fOut)
-	
-	fOut[0] /= fLen, fOut[1] /= fLen, fOut[2] /= fLen
-	fOut[0] *= fMul, fOut[1] *= fMul, fOut[2] *= fMul
+	return random_num(0, ArraySize(array_name) - 1)
 }
-

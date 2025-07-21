@@ -113,7 +113,8 @@ enum
 enum
 {
 	FWD_SUPPLY_ITEM_GIVE = 0,
-	FWD_SUPPLY_AMMO_GIVE
+	FWD_SUPPLY_AMMO_GIVE,
+	FWD_SUPPLY_MAX
 }
 
 enum
@@ -212,6 +213,7 @@ native Float:zb3_get_player_spawn_cord( num, type );
 native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
+native zb3_give_user_ammo(id);
 // END NEW NATIVES
 
 // Forwards

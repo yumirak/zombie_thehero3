@@ -502,6 +502,8 @@ public plugin_natives()
 
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
+
+	register_native("zb3_give_user_ammo", "native_give_user_ammo", 1)
 }
 
 public plugin_cfg()
@@ -855,6 +857,14 @@ public native_reset_maxlevel(id)
 		return 
 		
 	g_iMaxLevel[id] = 10;
+}
+
+public native_give_user_ammo(id)
+{
+	if(!is_user_connected(id))
+		return 
+		
+	get_ammo_supply(id)
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
@@ -2345,7 +2355,32 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 		}
 	}
 }
+public get_ammo_supply(id)
+{
+	new ammo_name[32], weapon_name[32]
+	new ammo_count, ammo_max_rounds
+	new weapon_slot
 
+	for(new i = 1; i < MAX_WEAPONS - 1; i++)
+	{
+		weapon_slot = rg_get_weapon_info( i, WI_SLOT )
+		if ( weapon_slot == 0 || weapon_slot == CS_WEAPONSLOT_C4 || weapon_slot == CS_WEAPONSLOT_KNIFE )
+			continue
+
+		ammo_max_rounds = rg_get_weapon_info(i, WI_MAX_ROUNDS)
+		rg_get_weapon_info(i, WI_AMMO_NAME, ammo_name, sizeof(ammo_name))
+		rg_get_weapon_info(i, WI_NAME, weapon_name, sizeof(weapon_name))
+
+		if( rg_get_weapon_info(i, WI_SLOT) == CS_WEAPONSLOT_GRENADE)
+			rg_give_item(id, weapon_name)
+
+		for(new i = 0; i < 6; i++)
+			rg_give_item(id, ammo_name)
+
+		ammo_count = clamp( ammo_max_rounds * ( weapon_slot == CS_WEAPONSLOT_GRENADE ? 1 : 2 ), 0, 240)
+		rg_set_user_bpammo(id, WeaponIdType:i, ammo_count)
+	}
+}
 // ======================== SET MODELS ============================
 // ================================================================
 
