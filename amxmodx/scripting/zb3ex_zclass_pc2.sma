@@ -65,9 +65,9 @@ new g_zombie_classid, g_can_smoke[33],  Float:g_current_time[33]
 new id_smoke1
 new g_smoke[33], Float:g_smoke_origin[33][3]
 // Task offsets
-enum (+= 100)
+enum (+= 50)
 {
-	TASK_SMOKE = 2000,
+	TASK_SMOKE = 22000,
 	TASK_SMOKE_EXP,
 	TASK_BOT_USE_SKILL
 }

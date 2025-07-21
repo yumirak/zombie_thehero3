@@ -32,8 +32,12 @@ new const MenuLang[WPN_MAX + 1][] =
 	"SHOP_GRENADE",
 	"SHOP_GET",
 }
-#define TASK_ROLL 28913
-#define TASK_GIVE 28914
+enum (+= 50)
+{
+	TASK_ROLL = 11000,
+	TASK_GIVE
+}
+
 new g_Forwards[MAX_FORWARD], g_GotWeapon[33]
 new g_WeaponList[5][MAX_WEAPON], g_WeaponListCount[5]
 new g_PreWeapon[33][5], g_FirstWeapon[5], g_TotalWeaponCount, g_UnlockedWeapon[33][MAX_WEAPON]

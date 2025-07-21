@@ -35,7 +35,7 @@ new g_zombie_classid, g_can_skill[33], Float:g_current_time[33]
 #define SHOCK_ANIM 8
 #define SHOCK_PLAYERANIM 10
 
-#define TASK_SKILLING 120022
+#define TASK_SKILLING 31000
 
 new g_synchud1, g_Msg_Shake
 

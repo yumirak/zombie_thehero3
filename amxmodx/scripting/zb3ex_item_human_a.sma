@@ -30,9 +30,14 @@ new g_sprint, g_sprint_name[24], g_sprint_desc[24], g_sprint_cost, Float:fastrun
 new g_can_use_sprint[33], g_using_sprint[33], g_sprint_status[33]
 new sound_fastrun_start[64], sound_fastrun_heartbeat[64], sound_breath_male[64], sound_breath_female[64]
 
-#define TASK_REMOVE_FASTRUN 59384543
-#define TASK_REMOVE_SLOWRUN 5893485
-#define TASK_HUMAN_SOUND 53450834
+enum (+= 50)
+{
+	TASK_REMOVE_DEADLYSHOT = 12000,
+	TASK_REMOVE_BLOODYBLADE, 
+	TASK_REMOVE_FASTRUN,
+	TASK_REMOVE_SLOWRUN,
+	TASK_HUMAN_SOUND,
+}
 
 // +30% Damage
 new g_p30_damage, g_p30_damage_name[24], g_p30_damage_desc[24], g_p30_cost
@@ -41,13 +46,10 @@ new g_p30_damage, g_p30_damage_name[24], g_p30_damage_desc[24], g_p30_cost
 new g_deadlyshot, g_deadlyshot_name[24], g_deadlyshot_desc[24], g_can_use_deadlyshot[33], g_using_deadlyshot[33]
 new g_deadlyshot_cost, Float:g_deadlyshot_time, g_deadlyshot_icon[64], g_deadlyshot_sound[64]
 
-#define TASK_REMOVE_DEADLYSHOT 839483
-
 // Bloody Blade
 new g_bloodyblade, g_bloodyblade_name[24], g_bloodyblade_desc[24], g_can_use_bloodyblade[33], g_using_bloodyblade[33]
 new g_bloodyblade_cost, Float:g_bloodyblade_time, Float:g_bloodyblade_damage, g_bloodyblade_icon[64], g_bloodyblade_sound[64]
 
-#define TASK_REMOVE_BLOODYBLADE 839485
 
 public plugin_init()
 {
@@ -143,17 +145,17 @@ public plugin_precache()
 	
 	if(zb3_get_mode() >= MODE_ORIGINAL)
 		g_wing_boot = zb3_register_item(g_wing_boot_name, g_wing_boot_desc, g_wb_cost, TEAM2_HUMAN, 1)
+
 	if(zb3_get_mode() >= MODE_MUTATION) 
 	{
 		g_double_grenade = zb3_register_item(g_double_grenade_name, g_double_grenade_desc, g_dg_cost, TEAM2_HUMAN, 1)
 		g_sprint = zb3_register_item(g_sprint_name, g_sprint_desc, g_sprint_cost, TEAM2_HUMAN, 1)
-	}
-	if(zb3_get_mode() >= MODE_HERO)
-	{
 		g_deadlyshot = zb3_register_item(g_deadlyshot_name, g_deadlyshot_desc, g_deadlyshot_cost, TEAM2_HUMAN, 1)
 		g_bloodyblade = zb3_register_item(g_bloodyblade_name, g_bloodyblade_desc, g_bloodyblade_cost, TEAM2_HUMAN, 1)
-		g_p30_damage = zb3_register_item(g_p30_damage_name, g_p30_damage_desc, g_p30_cost, TEAM2_HUMAN, 1)
 	}
+	
+	if(zb3_get_mode() >= MODE_HERO)
+		g_p30_damage = zb3_register_item(g_p30_damage_name, g_p30_damage_desc, g_p30_cost, TEAM2_HUMAN, 1)
 	
 }
 

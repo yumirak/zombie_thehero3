@@ -41,9 +41,12 @@ const pev_livetime = pev_fuser2
 #define BAT_PLAYERANIM 151
 #define BAT_PLAYERANIM_HOLD 152
 
-#define TASK_SKILLING 312312
-#define TASK_CATCHING 423423
-#define TASK_BATFLYING 23423
+enum (+= 50)
+{
+	TASK_SKILLING = 25000,
+	TASK_CATCHING, 
+	TASK_BATFLYING
+}
 
 public plugin_init() 
 {

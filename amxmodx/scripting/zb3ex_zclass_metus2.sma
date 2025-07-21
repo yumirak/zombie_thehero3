@@ -35,7 +35,7 @@ new g_zombie_classid, g_can_berserk[33], g_berserking[33], Float:g_current_time[
 
 #define FASTRUN_FOV 110
 
-#define TASK_BERSERKING 12000
+#define TASK_BERSERKING 29000
 
 new g_Msg_Fov, g_synchud1
 

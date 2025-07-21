@@ -33,7 +33,7 @@ new Float:g_PlayerMaxSpeed[33]
 // TASK
 enum (+= 50)
 {
-	TASK_CHOOSECLASS = 52000,
+	TASK_CHOOSECLASS = 10000,
 	TASK_NVGCHANGE,
 	TASK_COUNTDOWN
 }
