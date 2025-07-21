@@ -31,9 +31,9 @@ new g_UsingCustomSpeed[33]
 new Float:g_PlayerMaxSpeed[33]
 
 // TASK
-enum 
+enum (+= 50)
 {
-	TASK_CHOOSECLASS = 52001,
+	TASK_CHOOSECLASS = 52000,
 	TASK_NVGCHANGE,
 	TASK_COUNTDOWN
 }
@@ -1754,6 +1754,8 @@ public set_player_light(id, const LightStyle[])
 
 public remove_game_task()
 {	
+	remove_task(TASK_COUNTDOWN)
+	
 	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
@@ -2547,16 +2549,17 @@ stock GetTotalPlayer({PlayerTeams,_}:team, alive)
 
 stock GetRespawningCount()
 {
+	static respawning; respawning = 0
 	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i) || !g_zombie[i])
 			continue
 
-		if(get_member(i, m_flRespawnPending))
-			return true;
+		if(get_member(i, m_flRespawnPending) > 0.0) 
+			respawning++
 	}
 	
-	return false;
+	return respawning;
 }
 
 stock PlaySound(id, const sound[])
