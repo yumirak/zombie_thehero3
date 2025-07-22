@@ -20,6 +20,7 @@
 
 #define RELOAD_TIME 3.0
 
+
 new const WeaponModel[][] = 
 {
 	"models/zombie_thehero/hero_wpn/v_qbarrel.mdl",
