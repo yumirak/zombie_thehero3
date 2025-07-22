@@ -104,9 +104,15 @@ public get_registered_random_weapon(id)
 {
 	if(!is_user_alive(id))
 		return
-	
+
+	if(zb3_get_user_hero(id))
+	{
+		zb3_give_user_ammo(id)
+		ExecuteForward(g_forward[FWD_SUPPLY_AMMO_GIVE], g_dummy_forward, id)
+		return
+	}
+
 	static item_id
-	
 	item_id = random_num(0, g_item_i - 1)
 
 	ExecuteForward(g_forward[FWD_SUPPLY_ITEM_GIVE], g_dummy_forward, id, item_id)

@@ -81,26 +81,6 @@ public zb3_weapon_selected_post(id, wpnid)
 
 public get_weapon(id, wpnid)
 {
-	static ammo_name[32]
-	static ammo_count, ammo_multi
-
 	rg_give_item(id, g_szWeaponName[wpnid] )
-	rg_get_weapon_info( wpnid, WI_AMMO_NAME, ammo_name, sizeof(ammo_name) )
-
-	for( new i = 0; i < 6; i++)
-	{
-		rg_give_item(id, ammo_name )
-	}
-
-	switch(g_iWeaponSlot[wpnid])
-	{
-		case CS_WEAPONSLOT_PRIMARY..CS_WEAPONSLOT_SECONDARY: ammo_multi = 2
-		case GRENADE_SLOT: ammo_multi = 1
-	}
-
-	if( ammo_multi > 0 )
-	{
-		ammo_count = clamp( rg_get_weapon_info( wpnid, WI_MAX_ROUNDS ) * ammo_multi , 0, 240 )
-		rg_set_user_bpammo(id, WeaponIdType:wpnid, ammo_count )
-	}
+	zb3_give_user_ammo(id, rg_get_weapon_info(g_szWeaponName[wpnid], WI_ID))
 }

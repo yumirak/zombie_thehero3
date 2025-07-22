@@ -859,12 +859,12 @@ public native_reset_maxlevel(id)
 	g_iMaxLevel[id] = 10;
 }
 
-public native_give_user_ammo(id)
+public native_give_user_ammo(id, weaponid)
 {
 	if(!is_user_connected(id))
 		return 
 		
-	get_ammo_supply(id)
+	get_ammo_supply(id, weaponid)
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
@@ -2355,29 +2355,47 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 		}
 	}
 }
-public get_ammo_supply(id)
+public get_ammo_supply(id, weaponid)
 {
-	new ammo_name[32], weapon_name[32]
-	new ammo_count, ammo_max_rounds
-	new weapon_slot
+	static weapon_name[32], ammo_count, ammo_max_rounds
+	static weapon_slot
+	static i, k
 
-	for(new i = 1; i < MAX_WEAPONS - 1; i++)
+	weapon_name[0] = '^0'
+	ammo_count = ammo_max_rounds = weapon_slot = i = k = 0;
+
+	if(weaponid > MAX_WEAPONS && is_entity(weaponid))
 	{
-		weapon_slot = rg_get_weapon_info( i, WI_SLOT )
-		if ( weapon_slot == 0 || weapon_slot == CS_WEAPONSLOT_C4 || weapon_slot == CS_WEAPONSLOT_KNIFE )
+		i = fm_cs_get_weapon_id(weaponid)
+		ammo_count = rg_get_iteminfo(weaponid, ItemInfo_iMaxClip)
+		ammo_max_rounds = rg_get_iteminfo(weaponid, ItemInfo_iMaxAmmo1)
+
+		rg_set_user_bpammo(id, WeaponIdType:i, ammo_max_rounds)
+		return
+	}
+
+	for(i = 1; i < MAX_WEAPONS - 1; i++)
+	{
+		if(weaponid > 0 && k) continue
+		if(weaponid > 0) i = weaponid; k = 1;
+
+		weapon_slot = rg_get_weapon_info(i, WI_SLOT)
+
+		if(weapon_slot == 0 || weapon_slot == CS_WEAPONSLOT_C4 || weapon_slot == CS_WEAPONSLOT_KNIFE)
 			continue
 
-		ammo_max_rounds = rg_get_weapon_info(i, WI_MAX_ROUNDS)
-		rg_get_weapon_info(i, WI_AMMO_NAME, ammo_name, sizeof(ammo_name))
-		rg_get_weapon_info(i, WI_NAME, weapon_name, sizeof(weapon_name))
-
-		if( rg_get_weapon_info(i, WI_SLOT) == CS_WEAPONSLOT_GRENADE)
+		if(weapon_slot == CS_WEAPONSLOT_GRENADE)
+		{
+			rg_get_weapon_info(i, WI_NAME, weapon_name, sizeof(weapon_name))
 			rg_give_item(id, weapon_name)
+		}
 
-		for(new i = 0; i < 6; i++)
-			rg_give_item(id, ammo_name)
+		ammo_max_rounds = rg_get_weapon_info(i, WI_MAX_ROUNDS)
+		ammo_count = clamp(ammo_max_rounds * (weapon_slot == CS_WEAPONSLOT_GRENADE ? 1 : 3), 0, 240)
 
-		ammo_count = clamp( ammo_max_rounds * ( weapon_slot == CS_WEAPONSLOT_GRENADE ? 1 : 2 ), 0, 240)
+		if(rg_get_user_bpammo(id, WeaponIdType:i) == ammo_count)
+			continue
+
 		rg_set_user_bpammo(id, WeaponIdType:i, ammo_count)
 	}
 }

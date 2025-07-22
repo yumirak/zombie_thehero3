@@ -213,7 +213,7 @@ native Float:zb3_get_player_spawn_cord( num, type );
 native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
-native zb3_give_user_ammo(id);
+native zb3_give_user_ammo(id, weaponid = -1);
 // END NEW NATIVES
 
 // Forwards
