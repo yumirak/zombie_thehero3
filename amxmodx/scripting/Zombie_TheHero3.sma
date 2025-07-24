@@ -1212,7 +1212,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 	{
 		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
-		
+		EmitSound(id, CHAN_AUTO, "items/suitchargeok1.wav")
 		ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
 
 		return
@@ -1305,8 +1305,7 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 		}
 	}
 
-	if(inflictor != attacker)
-		do_knockback(victim, attacker)
+	do_knockback(victim, attacker)
 
 	SetHookChainReturn(ATYPE_INTEGER, true)
 	return HC_CONTINUE;

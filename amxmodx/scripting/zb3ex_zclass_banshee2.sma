@@ -24,7 +24,7 @@ new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:C
 new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new BatModel[64], BatFireSound[64], BatFlySound[64], BatFailSound[64], Catch_Player_Male[64], Catch_Player_Female[64], BatExpSpr[64]
-new Float:g_bat_cooldown[2], Float:g_bat_grouprange[2], Float:g_bat_starttime, g_bat_velocity[2], g_bat_catch_velocity[2], Float:g_bat_timelive[2]
+new Float:g_bat_cooldown[2], Float:g_bat_grouprange[2], Float:g_bat_starttime, Float:g_bat_gravity, g_bat_velocity[2], g_bat_catch_velocity[2], Float:g_bat_timelive[2]
 
 new g_zombie_classid
 new g_synchud1, g_Msg_Shake, g_BatExpSpr_Id, Float:g_current_time[33]
@@ -132,6 +132,7 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_START_TIME", buffer, sizeof(buffer), DummyArray); g_bat_starttime = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_GRAVITY", buffer, sizeof(buffer), DummyArray); g_bat_gravity = str_to_float(buffer)
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_TIMELIVE_ORIGIN", buffer, sizeof(buffer), DummyArray); g_bat_timelive[ZOMBIE_ORIGIN] = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_TIMELIVE_HOST", buffer, sizeof(buffer), DummyArray); g_bat_timelive[ZOMBIE_HOST] = str_to_float(buffer)
@@ -303,8 +304,9 @@ public CreateBat(id)
 	
 	set_pev(bat, pev_classname, BAT_CLASSNAME)
 	set_pev(bat, pev_solid, SOLID_TRIGGER)
-	set_pev(bat, pev_movetype, MOVETYPE_FLY)
+	set_pev(bat, pev_movetype, MOVETYPE_TOSS)
 	set_pev(bat, pev_owner, id)
+	set_pev(bat, pev_gravity, g_bat_gravity)
 	
 	velocity_by_aim(id, g_bat_velocity[zb3_get_user_zombie_type(id)], Velocity)
 	set_pev(bat, pev_velocity, Velocity)
