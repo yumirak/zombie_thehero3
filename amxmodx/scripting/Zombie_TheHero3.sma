@@ -26,10 +26,6 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 #define MAIN_HUD_Y 0.30
 #define MAIN_HUD_Y_BOTTOM 0.70
 
-// Speed Problem
-new g_UsingCustomSpeed[33]
-new Float:g_PlayerMaxSpeed[33]
-
 // TASK
 enum (+= 50)
 {
@@ -102,8 +98,6 @@ new g_BlockedObj[12][] =
 new Restore_Health_Time, Restore_Amount_Host, Restore_Amount_Origin
 new g_MsgScreenFade
 
-new g_Msg_SayText
-
 #define MAX_RETRY 33
 
 // ======================== PLUGINS FORWARDS ======================
@@ -155,7 +149,6 @@ public plugin_init()
 
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
-	g_Msg_SayText = get_user_msgid("SayText")
 	
 	formatex(g_WinText[TEAM_HUMAN], 63, "%L", LANG_OFFICIAL, "WIN_HUMAN")
 	formatex(g_WinText[TEAM_ZOMBIE], 63, "%L", LANG_OFFICIAL, "WIN_ZOMBIE")
@@ -655,8 +648,8 @@ public native_reset_user_speed(id)
 {
 	if(!is_user_alive(id))
 		return	
-		
-	fm_reset_user_speed(id)
+	
+	rg_reset_maxspeed(id)
 }
 
 public native_set_nvg(id, on, auto_on, give, remove)
@@ -1235,7 +1228,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 	fm_set_user_health(id, human_health)
 	fm_cs_set_user_armor(id, human_armor, ARMOR_KEVLAR)
 	
-	fm_reset_user_speed(id)
+	rg_reset_maxspeed(id)
 	set_user_nightvision(id, 0, 1, 1)
 	
 	fm_reset_user_weapon(id)
@@ -1339,10 +1332,14 @@ public do_knockback(victim, attacker)
 
 public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
 {
-	if( g_zombie[id] || g_hero[id] )
-		return HC_SUPERCEDE;
-	
-	return HC_CONTINUE;
+	if(!g_zombie[id])
+		return HC_CONTINUE;
+
+	static Float:speed
+	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
+
+	set_entvar(id, var_maxspeed, speed)
+	return HC_SUPERCEDE;
 }
 
 public Fw_RG_CBasePlayer_AddPlayerItem(const this, const pItem)
@@ -1456,8 +1453,6 @@ public Fw_RG_CBasePlayer_DeathSound(id, lastHitGroup, bool:hasArmour)
 
 public Fw_RG_CBasePlayer_PreThink(id)
 {
-	if(g_UsingCustomSpeed[id] && pev(id, pev_maxspeed) != g_PlayerMaxSpeed[id])
-		set_pev(id, pev_maxspeed, g_PlayerMaxSpeed[id])
 	if(g_zombie[id]) zombie_restore_health(id)
 }
 
@@ -2511,29 +2506,9 @@ stock set_weapon_anim(id, anim)
 stock fm_set_user_speed(id, Float:speed)
 {
 	if(!is_user_alive(id))
-		return
-		
-	g_UsingCustomSpeed[id] = 1
-	g_PlayerMaxSpeed[id] = speed		
-		
-	/*
-	set_pev(id, pev_maxspeed, speed)
-	ExecuteHamB(Ham_Player_ResetMaxSpeed, id)
-	
-	client_print(id, print_chat, "Speed %f", speed)*/
-}
+		return	
 
-stock fm_reset_user_speed(id)
-{
-	if(!is_user_alive(id))
-		return
-	static Float:speed
-	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
-
-	g_UsingCustomSpeed[id] = g_zombie[id] ? 1 : 0
-
-	if(g_zombie[id]) g_PlayerMaxSpeed[id] = speed
-	else rg_reset_maxspeed(id)
+	set_entvar(id, var_maxspeed, speed)
 }
 
 stock fm_reset_user_weapon(id, bool:strip = true)
