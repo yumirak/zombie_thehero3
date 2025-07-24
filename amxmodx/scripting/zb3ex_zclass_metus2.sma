@@ -236,7 +236,7 @@ public Do_Berserk(id)
 		
 	// Set MaxSpeed & Gravity
 	zb3_set_user_speed(id, g_beserk_speed)
-	set_pev(id, pev_maxspeed, g_beserk_gravity)
+	zb3_set_user_gravity(id, g_beserk_gravity)
 		
 	// Play Berserk Sound
 	EmitSound(id, CHAN_VOICE, berserk_startsound)
