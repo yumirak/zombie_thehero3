@@ -148,7 +148,6 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage_Post", 1);
 	RegisterHookChain(RG_CBasePlayer_ResetMaxSpeed, "Fw_RG_CBasePlayer_ResetMaxSpeed");
 	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem");
-	RegisterHookChain(RG_CBasePlayer_TakeDamageImpulse, "Fw_RG_CBasePlayer_TakeDamageImpulse");
 	RegisterHookChain(RG_CBasePlayer_Pain, "Fw_RG_CBasePlayer_Pain");
 	RegisterHookChain(RG_CBasePlayer_DeathSound, "Fw_RG_CBasePlayer_DeathSound");
 	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
@@ -504,6 +503,7 @@ public plugin_natives()
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
 
 	register_native("zb3_give_user_ammo", "native_give_user_ammo", 1)
+	register_native("zb3_do_knockback", "native_do_knockback", 1)
 }
 
 public plugin_cfg()
@@ -867,6 +867,11 @@ public native_give_user_ammo(id, weaponid)
 	get_ammo_supply(id, weaponid)
 }
 
+public native_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull)
+{
+	fake_knockback(victim, attacker, Float:flKnockbackForce, bPull)
+}
+
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
 Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2)
 {
@@ -1051,7 +1056,7 @@ public Event_CheckWeapon(id)
 public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const assister, const inflictor, const killerWeaponName[], const DeathMessageFlags:iDeathMessageFlags, const KillRarity:iRarityOfKill)
 {
 	static headshot;
-	headshot = iRarityOfKill == KILLRARITY_HEADSHOT
+	headshot = (iRarityOfKill == KILLRARITY_HEADSHOT)
 	set_user_nightvision(victim, 0, 1, 1)
 
 	if(!is_user_alive(victim) && g_gamemode == MODE_HERO)
@@ -1191,7 +1196,7 @@ public Time_Change()
 		if(alive && g_gamemode == MODE_HERO )
 			show_evolution_hud(i, zombie)
 
-		if(!alive && respawntime)
+		if(!alive && respawntime > 0.1)
 			handle_respawn_countdown(i, gametime, respawntime)
 	}
 
@@ -1300,17 +1305,37 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 		}
 	}
 
+	if(inflictor != attacker)
+		do_knockback(victim, attacker)
+
 	SetHookChainReturn(ATYPE_INTEGER, true)
 	return HC_CONTINUE;
 }
 
-public Fw_RG_CBasePlayer_TakeDamageImpulse(const this, attacker, Float:flKnockbackForce, Float:flVelModifier)
+// 0 - Knockback
+// 1 - Painshock
+public do_knockback(victim, attacker)
 {
-	static Float:classzb_knockback; classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[this])
-	static Float:zb_class_painshock; zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[this])
+	static wpn_ent, Float:wpn_attribute[3], Float:temp_attribute[3], Float:zb_class_attribute[2] 
+	
+	wpn_attribute[0] = 170.0; wpn_attribute[1] = 0.5;
+	wpn_ent = get_member(attacker, m_pActiveItem)
 
-	SetHookChainArg(3, ATYPE_FLOAT, flKnockbackForce * classzb_knockback);
-	SetHookChainArg(4, ATYPE_FLOAT, flVelModifier * zb_class_painshock);
+	zb_class_attribute[0] = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
+	zb_class_attribute[1] = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+
+	if(is_entity(wpn_ent))
+	{
+		get_entvar(wpn_ent, var_vuser4, temp_attribute)
+		if(temp_attribute[0] > 0.0) wpn_attribute[0] = temp_attribute[0]
+		if(temp_attribute[1] > 0.0) wpn_attribute[1] = temp_attribute[1]
+	}
+
+	wpn_attribute[0] *= zb_class_attribute[0]
+	wpn_attribute[1] *= zb_class_attribute[1]
+
+	fake_knockback(victim, attacker, wpn_attribute[0])
+	set_member(victim, m_flVelocityModifier, wpn_attribute[1]);
 }
 
 public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
@@ -2695,6 +2720,30 @@ public SendScenarioMsg(id, num)
 	write_string(hostage) // sprite
 	write_byte(255)
 	message_end()
+}
+
+// pev->velocity += (pev->origin - pAttacker->pev->origin).Normalize() * flKnockbackForce;
+stock fake_knockback(victim, attacker, Float:flKnockbackForce, bool:bPull = false)
+{
+	if(!is_user_alive(victim) || !is_user_alive(attacker) || flKnockbackForce == 0.0)
+		return
+
+	static Float:Velocity[3], Float:EntOrigin[3], Float:VicOrigin[3]
+
+	pev(victim, pev_velocity, Velocity)
+
+	if(xs_vec_len(Velocity) > 300.0)
+		return
+
+	pev(victim, pev_origin, bPull ? EntOrigin : VicOrigin)
+	pev(attacker, pev_origin, bPull ? VicOrigin : EntOrigin)
+
+	xs_vec_sub(VicOrigin, EntOrigin, VicOrigin)
+	xs_vec_normalize(VicOrigin, VicOrigin)
+	xs_vec_mul_scalar(VicOrigin, flKnockbackForce, VicOrigin)
+	xs_vec_add(Velocity, VicOrigin, Velocity)
+
+	set_pev(victim, pev_velocity, Velocity)
 }
 
 // ======================== Round Terminator ======================

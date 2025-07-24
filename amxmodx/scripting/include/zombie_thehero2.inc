@@ -214,6 +214,7 @@ native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
 native zb3_give_user_ammo(id, weaponid = -1);
+native zb3_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull = false)
 // END NEW NATIVES
 
 // Forwards
