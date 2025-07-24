@@ -83,9 +83,12 @@ const pev_checktime = pev_fuser4
 #define LANG_OFFICIAL LANG_PLAYER
 #define HEALTH_OFFSET 1000
 
-#define TASK_STAMPING 43534
-#define TASK_COOLDOWN 43535
-#define TASK_FREEZING 43536
+enum (+= 50)
+{
+	TASK_STAMPING = 26000,
+	TASK_COOLDOWN,
+	TASK_FREEZING
+}
 
 #define COFFIN_CLASSNAME "coffin"
 #if 0

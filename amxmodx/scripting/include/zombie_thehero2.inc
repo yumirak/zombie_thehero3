@@ -14,6 +14,29 @@
 #define GAMESYSTEMNAME "zombie_thehero2"
 
 // Enum
+enum iGameCurStatus
+{
+	STATUS_WAITING,
+	STATUS_FREEZE,
+	STATUS_COUNTDOWN,
+	STATUS_PLAY,
+	STATUS_ENDROUND
+}
+
+enum
+{
+	WinStatus_Human = 1,
+	WinStatus_Zombie,
+	WinStatus_RoundDraw
+}
+
+enum
+{
+	Event_HumanWin = 8,
+	Event_ZombieWin,
+	Event_RoundDraw
+}
+
 enum
 {
 	MODE_NONE = 0,
@@ -40,7 +63,9 @@ enum
 {
 	WPN_PRIMARY = 1,
 	WPN_SECONDARY,
-	WPN_MELEE
+	WPN_MELEE,
+	WPN_GRENADE,
+	WPN_MAX
 }
 
 enum
@@ -88,7 +113,30 @@ enum
 enum
 {
 	FWD_SUPPLY_ITEM_GIVE = 0,
-	FWD_SUPPLY_AMMO_GIVE
+	FWD_SUPPLY_AMMO_GIVE,
+	FWD_SUPPLY_MAX
+}
+
+enum
+{
+	FWD_USER_INFECT = 0,
+	FWD_USER_CHANGE_CLASS,
+	FWD_USER_SPAWN,
+	FWD_USER_DEAD,
+	FWD_GAME_START,
+	FWD_GAME_END,
+	FWD_USER_EVOLUTION,
+	FWD_USER_HERO,
+	FWD_TIME_CHANGE,
+	FWD_SKILL_HUD,
+	FWD_MAX
+}
+enum 
+{
+	WPN_PRE_BOUGHT,
+	WPN_BOUGHT,
+	WPN_REMOVE,
+	WPN_ADDAMMO
 }
 // Natives
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player
@@ -112,6 +160,7 @@ native zb3_set_user_nvg(id, on, auto_on, give, remove);
 native zb3_get_user_nvg(id);
 
 native zb3_set_user_health(id, Health);
+native zb3_set_user_armor(id, Armor);
 native zb3_set_user_light(id, const light[]);
 native zb3_set_user_rendering(id, fx = kRenderFxNone, r = 255, g = 255, b = 255, render = kRenderNormal, amount = 16)
 
@@ -130,6 +179,8 @@ native zb3_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Floa
 native zb3_set_zombie_class_data(const ModelHost[], const ModelOrigin[], const ClawsModel_Host[], const ClawsModel_Origin[], const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[], const HealSound[], const EvolSound[]);
 
 native zb3_register_item(const name[], const desc[], cost, team, permanent_buy);
+native zb3_get_own_item(id, item);
+native zb3_set_own_item(id, item, bool:own);
 native zb3_register_zbgre_model(const v_model_host[], const v_model_origin[]);
 
 native zb3_supplybox_random_getitem(id, hero);
@@ -137,6 +188,7 @@ native zb3_register_weapon(const Name[], weapon_type, unlock_cost)
 
 // NEW NATIVES
 native zb3_get_mode();
+native zb3_get_randomizer();
 native zb3_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
 
 native zb3_get_user_maxhealth(id);
@@ -161,6 +213,8 @@ native Float:zb3_get_player_spawn_cord( num, type );
 native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
+native zb3_give_user_ammo(id, weaponid = -1);
+native zb3_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull = false)
 // END NEW NATIVES
 
 // Forwards
@@ -181,3 +235,35 @@ forward zb3_item_selected_post(id, itemid);
 forward zb3_weapon_selected_pre(id, weaponid);
 forward zb3_weapon_selected_post(id, weaponid);
 forward zb3_remove_weapon(id, weaponid);
+#if defined PRINT_CHAT_COLOR
+client_printc(index, const text[], any:...)
+{
+	new szMsg[128], szTemp[128];
+	formatex(szTemp, sizeof(szTemp), "!t[%L]!n ", LANG_PLAYER, "GAME_BRANDING")
+	strcat(szTemp, text, sizeof(szTemp))
+	vformat(szMsg, sizeof(szMsg) - 1, szTemp, 3);
+
+	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04");
+	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01");
+	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03");
+
+	if(index == 0)
+	{
+		for(new i = 0; i < get_maxplayers(); i++)
+		{
+			if(is_user_connected(i))
+			{
+				message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, i);
+				write_byte(i);
+				write_string(szMsg);
+				message_end();	
+			}
+		}		
+	} else {
+		message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, index);
+		write_byte(index);
+		write_string(szMsg);
+		message_end();
+	}
+} 
+#endif

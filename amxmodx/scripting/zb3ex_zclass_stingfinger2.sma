@@ -32,8 +32,11 @@ new g_can_tentacle[33], g_can_hj[33], g_hj_ing[33], g_temp_attack[33], m_iBlood[
 
 #define LANG_OFFICIAL LANG_PLAYER
 
-#define TASK_HEAVYJUMP 312543
-#define TASK_HEAVYJUMP_START 423423
+enum (+= 50)
+{
+	TASK_HEAVYJUMP = 27000,
+	TASK_HEAVYJUMP_START
+}
 
 // Tentacle
 #define TENTACLE_ANIM 8

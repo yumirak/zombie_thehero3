@@ -37,8 +37,11 @@ new g_zombie_classid, g_can_invisible[33], g_invis[33], Float:g_current_time[33]
 #define LANG_OFFICIAL LANG_PLAYER
 
 // Task
-#define TASK_INVISIBLE 13000
-#define TASK_COOLDOWN 13001
+enum (+= 50)
+{
+	TASK_INVISIBLE = 23000,
+	TASK_COOLDOWN
+}
 
 new g_synchud1
 

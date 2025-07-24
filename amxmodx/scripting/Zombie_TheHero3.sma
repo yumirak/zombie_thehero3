@@ -1,14 +1,8 @@
-// Default
 #include <amxmodx>
 #include <amxmisc>
-#include <engine>
-#include <fakemeta>
 #include <fakemeta_util>
-#include <hamsandwich>
-#include <xs>
-
-// New
 #include <reapi>
+#define PRINT_CHAT_COLOR
 #include <zombie_thehero2>
 
 #define PLUGIN "Zombie: The Hero"
@@ -24,6 +18,7 @@ new const MAP_FILE[] = "zombie_thehero2/maplist.ini"
 new const CVAR_FILE[] = "zombie_thehero2/zth_server.cfg"
 new const LANG_FILE[] = "zombie_thehero2.txt"
 
+#define KNIFE_IMPULSE 25622
 #define DEF_COUNTDOWN 20
 #define MAX_ZOMBIECLASS 20
 
@@ -31,69 +26,32 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 #define MAIN_HUD_Y 0.30
 #define MAIN_HUD_Y_BOTTOM 0.70
 
-// Speed Problem
-new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame
-new g_UsingCustomSpeed[33]
-new Float:g_PlayerMaxSpeed[33]
-
 // TASK
-#define TASK_COUNTDOWN 52000
-#define TASK_ROUND 52001
-#define TASK_REVIVE 52002
-#define TASK_CHOOSECLASS 52003
-#define TASK_NVGCHANGE 52004
-
-// Enum
-enum
+enum (+= 50)
 {
-	WinStatus_Human = 1,
-	WinStatus_Zombie,
-	WinStatus_RoundDraw
-}
-
-enum
-{
-	Event_HumanWin = 8,
-	Event_ZombieWin,
-	Event_RoundDraw
-}
-
-#define MAX_FORWARD 10
-enum
-{
-	FWD_USER_INFECT = 0,
-	FWD_USER_CHANGE_CLASS,
-	FWD_USER_SPAWN,
-	FWD_USER_DEAD,
-	FWD_GAME_START,
-	FWD_GAME_END,
-	FWD_USER_EVOLUTION,
-	FWD_USER_HERO,
-	FWD_TIME_CHANGE,
-	FWD_SKILL_HUD
+	TASK_CHOOSECLASS = 10000,
+	TASK_NVGCHANGE,
+	TASK_COUNTDOWN
 }
 
 #define MAX_SYNCHUD 6
 
-const PRIMARY_WEAPONS_BIT_SUM = (1<<CSW_SCOUT)|(1<<CSW_XM1014)|(1<<CSW_MAC10)|(1<<CSW_AUG)|(1<<CSW_UMP45)|(1<<CSW_SG550)|(1<<CSW_GALIL)|(1<<CSW_FAMAS)|(1<<CSW_AWP)|(1<<CSW_MP5NAVY)|(1<<CSW_M249)|(1<<CSW_M3)|(1<<CSW_M4A1)|(1<<CSW_TMP)|(1<<CSW_G3SG1)|(1<<CSW_SG552)|(1<<CSW_AK47)|(1<<CSW_P90)
-const SECONDARY_WEAPONS_BIT_SUM = (1<<CSW_P228)|(1<<CSW_ELITE)|(1<<CSW_FIVESEVEN)|(1<<CSW_USP)|(1<<CSW_GLOCK18)|(1<<CSW_DEAGLE)
-const NADE_WEAPONS_BIT_SUM = ((1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_FLASHBANG))
-
-new g_gamemode, g_evo_need_infect[2]
+new g_gamemode, g_randomizer, g_evo_need_infect[2]
 // Game Vars
-new g_game_playable, g_MaxPlayers, g_TeamScore[PlayerTeams], m_iBlood[2], g_msgDeathMsg,
-g_Forwards[MAX_FORWARD], g_gamestart, g_endround, g_WinText[PlayerTeams][64], g_countdown_count,
+new iGameCurStatus:g_gamestatus, g_MaxPlayers,
+g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
-new g_zombie[33], g_hero[33], g_hero_locked[33], g_iRespawning[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
-g_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
-g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], g_zombie_respawn_time[33], g_free_gun
+new bool:g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
+g_zombie_class[33], g_next_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
+g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33]
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
-g_zombieorigin_defaultlevel, start_money, grenade_default_power, human_health, human_armor,
+grenade_default_power, human_health, human_armor,
 g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent, Float:g_flinfect_multi[33]
 
+new Float:g_roundstart_time;
 // Array
 new Array:human_model_male, Array:human_model_female, Array:hero_model_male, Array:hero_model_female,
 Array:sound_infect_male, Array:sound_infect_female
@@ -136,40 +94,11 @@ new g_BlockedObj[12][] =
         "func_buyzone"
 }
 
-// Damage Multi
-new Float:g_fDamageMulti[] = 
-{
-	1.0,
-	1.1,
-	1.2,
-	1.3,
-	1.4,
-	1.5,
-	1.6,
-	1.7,
-	1.8,
-	1.9,
-	2.0,
-	2.1,
-	2.2,
-	2.3
-}
-
 // Restore Health Problem
 new Restore_Health_Time, Restore_Amount_Host, Restore_Amount_Origin
 new g_MsgScreenFade
 
-new g_Msg_SayText
-
 #define MAX_RETRY 33
-
-#define TASK_TEAMMSG 200
-#define ID_TEAMMSG (taskid - TASK_TEAMMSG)
-
-new const CS_TEAM_NAMES[][] = { "UNASSIGNED", "TERRORIST", "CT", "SPECTATOR" }
-
-new g_MsgTeamInfo, g_MsgScoreInfo
-
 
 // ======================== PLUGINS FORWARDS ======================
 // ================================================================
@@ -189,13 +118,9 @@ public plugin_init()
 	// Game Events
 	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
 	register_event("CurWeapon", "Event_CheckWeapon", "be", "1=1")
-	register_event("DeathMsg", "Event_Death", "a")
-	register_logevent("Event_RoundStart", 2, "1=Round_Start")
-	register_logevent("Event_RoundEnd", 2, "1=Round_End")
 	register_event("TextMsg", "Event_GameRestart", "a", "2=#Game_will_restart_in")
 	
 	// Messages
-	register_message(get_user_msgid("TeamScore"), "Message_TeamScore")
 	register_message(get_user_msgid("StatusIcon"), "Message_StatusIcon")
 	register_message(get_user_msgid("ClCorpse"), "Message_ClCorpse")
 	register_message(get_user_msgid("Health"), "Message_Health")
@@ -205,29 +130,25 @@ public plugin_init()
 	unregister_forward(FM_Spawn, g_BlockedObj_Forward)
 	register_forward(FM_Touch, "fw_Touch")
 	register_forward(FM_EmitSound, "fw_EmitSound")
-	register_forward(FM_PlayerPreThink, "fw_PlayerPreThink")
-	register_forward(FM_TraceLine, "fw_TraceLine")
-	register_forward(FM_TraceHull, "fw_TraceHull")	
-	register_forward(FM_GetGameDescription, "fw_GetGameDesc")
 	register_forward(FM_ClientKill, "fw_Block" );
+	register_forward(FM_ClientDisconnect, "fw_disconnect" );
 
-	// Ham Forwards
-	RegisterHam(Ham_Spawn, "player", "fw_PlayerSpawn_Post", 1)
-	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage")
-	RegisterHam(Ham_TakeDamage, "player", "fw_PlayerTakeDamage_Post", 1)
-	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack")
-	RegisterHam(Ham_TraceAttack, "player", "fw_PlayerTraceAttack_Post", 1)
-	// RegisterHam(Ham_TraceAttack, "worldspawn", "fw_PlayerTraceAttack")
-	RegisterHam(Ham_Player_ResetMaxSpeed, "player", "fw_PlayerResetMaxSpeed")
-	RegisterHam(Ham_AddPlayerItem, "player", "fw_AddPlayerItem")
-	
+	// ReAPI Hooks
+	RegisterHookChain(RG_RoundEnd, "Fw_RG_RoundEnd");
+	RegisterHookChain(RG_CSGameRules_OnRoundFreezeEnd, "Fw_RG_CSGameRules_OnRoundFreezeEnd");
+	RegisterHookChain(RG_CSGameRules_SendDeathMessage, "Fw_RG_CSGameRules_SendDeathMessage");
+	RegisterHookChain(RG_CSGameRules_PlayerSpawn, "Fw_RG_CSGameRules_PlayerSpawn_Post", 1);
+	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage");
+	RegisterHookChain(RG_CBasePlayer_TakeDamage, "Fw_RG_CBasePlayer_TakeDamage_Post", 1);
+	RegisterHookChain(RG_CBasePlayer_ResetMaxSpeed, "Fw_RG_CBasePlayer_ResetMaxSpeed");
+	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem");
+	RegisterHookChain(RG_CBasePlayer_Pain, "Fw_RG_CBasePlayer_Pain");
+	RegisterHookChain(RG_CBasePlayer_DeathSound, "Fw_RG_CBasePlayer_DeathSound");
+	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
+	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
+
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
-	g_Msg_SayText = get_user_msgid("SayText")
-	
-	g_MsgTeamInfo = get_user_msgid("TeamInfo")
-	g_MsgScoreInfo = get_user_msgid("ScoreInfo")
-	g_msgDeathMsg = get_user_msgid("DeathMsg")
 	
 	formatex(g_WinText[TEAM_HUMAN], 63, "%L", LANG_OFFICIAL, "WIN_HUMAN")
 	formatex(g_WinText[TEAM_ZOMBIE], 63, "%L", LANG_OFFICIAL, "WIN_ZOMBIE")
@@ -256,9 +177,6 @@ public plugin_init()
 	if(g_sky[0])
 		set_cvar_string("sv_skyname", g_sky)
 
-	// Block Round End
-	set_cvar_num("mp_round_infinite", 1)
-
 	set_cvar_num("sv_skycolor_r", 0)
 	set_cvar_num("sv_skycolor_g", 0)
 	set_cvar_num("sv_skycolor_b", 0)
@@ -271,7 +189,10 @@ public plugin_init()
 
 	register_clcmd("nightvision", "cmd_nightvision")
 	register_clcmd("drop", "cmd_drop")
+	register_clcmd("buyammo2", "cmd_sel_zombie")
 	
+	set_member_game(m_GameDesc, GAMENAME);
+
 	set_task(1.0, "Time_Change", _, _, _, "b")
 }
 
@@ -293,7 +214,7 @@ public cmd_infect(id)
 	
 	if(is_user_alive(target))
 	{
-		set_user_zombie(target, -1, zombie_type, 0)
+		set_user_zombie(target, -1, 0, zombie_type, 0)
 	} else {
 		client_print(id, print_console, "[ZB3] Player %i not valid !!!", target)
 	}
@@ -482,10 +403,10 @@ public plugin_precache()
 	if(g_fog)
 	{
 		new ent;
-		if(!find_ent_by_class(-1, "env_fog"))
-			ent = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_fog"))
+		if(!rg_find_ent_by_class(-1, "env_fog", true))
+			ent = rg_create_entity("env_fog", true);
 		else
-			ent = find_ent_by_class(-1, "env_fog")
+			ent = rg_find_ent_by_class(-1, "env_fog", true)
 
 		if (pev_valid(ent))
 		{
@@ -496,18 +417,15 @@ public plugin_precache()
 
 	if(g_rain)
 	{
-		if(!find_ent_by_class(-1, "env_rain"))
-			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_rain"))
+		if(!rg_find_ent_by_class(-1, "env_rain", true))
+			rg_create_entity("env_rain", true);
 	}
 
 	if(g_snow)
 	{
-		if(!find_ent_by_class(-1, "env_snow"))
-			engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "env_snow"))
+		if(!rg_find_ent_by_class(-1, "env_snow", true))
+			rg_create_entity("env_snow", true);
 	}
-	
-	m_iBlood[0] = precache_model("sprites/blood.spr")
-	m_iBlood[1] = precache_model("sprites/bloodspray.spr")
 	
 	g_respawn_iconid = precache_model(g_respawn_icon)
 	precache_model(HealerSpr)
@@ -520,6 +438,7 @@ public plugin_natives()
 {
 	// Native
 	register_native("zb3_get_mode", "native_get_mode", 1)
+	register_native("zb3_get_randomizer", "native_get_randomizer", 1)
 	register_native("zb3_load_setting_string", "native_load_setting_string", 1)
 
 	register_native("zb3_infect", "native_infect", 1)
@@ -544,6 +463,7 @@ public plugin_natives()
 	register_native("zb3_get_user_nvg", "native_get_nvg", 1)
 	
 	register_native("zb3_set_user_health", "native_set_user_health", 1)
+	register_native("zb3_set_user_armor", "native_set_user_armor", 1)
 	register_native("zb3_set_user_light", "native_set_light", 1)
 	register_native("zb3_set_user_rendering", "native_set_rendering", 1)
 	
@@ -574,6 +494,9 @@ public plugin_natives()
 
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
+
+	register_native("zb3_give_user_ammo", "native_give_user_ammo", 1)
+	register_native("zb3_do_knockback", "native_do_knockback", 1)
 }
 
 public plugin_cfg()
@@ -614,6 +537,10 @@ public native_get_mode()
 {
 	return g_gamemode
 }
+public native_get_randomizer()
+{
+	return g_randomizer
+}
 public native_load_setting_string( bool:IsArray, const filename[], const setting_section[], setting_key[], return_string[], string_size, Array:array_handle)
 {
 	param_convert(2)
@@ -630,8 +557,13 @@ public native_infect(id, attacker, origin_zombie, respawn)
 		return
 	if(!is_user_connected(attacker))
 		attacker = -1
+
+	static weapon; weapon = 0;
+
+	if(is_user_alive(id))
+		weapon = get_user_weapon(attacker)
 		
-	set_user_zombie(id, attacker, origin_zombie, respawn)
+	set_user_zombie(id, attacker, weapon, origin_zombie, respawn)
 }
 
 public native_get_user_zombie(id)
@@ -716,8 +648,8 @@ public native_reset_user_speed(id)
 {
 	if(!is_user_alive(id))
 		return	
-		
-	fm_reset_user_speed(id)
+	
+	rg_reset_maxspeed(id)
 }
 
 public native_set_nvg(id, on, auto_on, give, remove)
@@ -745,6 +677,14 @@ public native_set_user_health(id, Health)
 		return
 		
 	fm_set_user_health(id, Health)
+}
+
+public native_set_user_armor(id, Armor)
+{
+	if(!is_user_connected(id))
+		return
+		
+	fm_cs_set_user_armor(id, Armor, ARMOR_KEVLAR)
 }
 
 public native_set_light(id, const light[])
@@ -912,6 +852,19 @@ public native_reset_maxlevel(id)
 	g_iMaxLevel[id] = 10;
 }
 
+public native_give_user_ammo(id, weaponid)
+{
+	if(!is_user_connected(id))
+		return 
+		
+	get_ammo_supply(id, weaponid)
+}
+
+public native_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull)
+{
+	fake_knockback(victim, attacker, Float:flKnockbackForce, bPull)
+}
+
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
 Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2)
 {
@@ -990,7 +943,7 @@ const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[]
 
 // ========================= AMXX FORWARDS ========================
 // ================================================================
-public client_putinserver(id)
+public Fw_RG_CBasePlayer_GetIntoGame(id)
 {
 	if(!is_user_connected(id))
 		return
@@ -999,10 +952,9 @@ public client_putinserver(id)
 	gameplay_check()
 }
 
-public client_disconnect(id)
+public fw_disconnect(id)
 {
-	remove_task(id+TASK_TEAMMSG)
-	
+	remove_game_task_player(id)
 	gameplay_check()
 }
 
@@ -1012,46 +964,49 @@ public Event_NewRound()
 {
 	if(GetTotalPlayer(TEAM_ALL, 0) < 2)
 	{
-		g_game_playable = 0
-		g_gamestart = 0
-		g_endround = 0
-		
+		g_gamestatus = STATUS_WAITING
 		return
 	}	
 
 	g_firstzombie = g_firsthuman = 0
-	g_gamestart = 0
-	g_endround = 0
+	g_gamestatus = STATUS_FREEZE
 
 	remove_game_task()
-	StopSound(0)
 	
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_NEWROUND)
 }
 
-public Event_RoundStart()
+public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 {
-	if(!g_game_playable || g_endround || g_gamestart)
+	if(g_gamestatus != STATUS_FREEZE)
 		return
 		
 	static GameSound[128]
 	ArrayGetString(sound_game_start, get_random_array(sound_game_start), GameSound, sizeof(GameSound))
 	PlaySound(0, GameSound)
 	
-	start_countdown()
-	set_task(get_cvar_float("mp_roundtime") * 60.0, "Event_TimedOut", TASK_ROUND)
+	g_roundstart_time = get_gametime()
+	g_gamestatus = STATUS_COUNTDOWN
+	g_countdown_count = g_countdown_time
+	set_task(1.0, "handle_countdown", TASK_COUNTDOWN, _, _, "b")
+
+	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
 }
 
-public Event_RoundEnd()
+// public Event_RoundEnd()
+public Fw_RG_RoundEnd(WinStatus:status, ScenarioEventEndRound:event, Float:tmDelay)
 {
-	if(!g_game_playable || !g_gamestart)
-		return	
+	if((event != ROUND_GAME_RESTART && event != ROUND_END_DRAW && event != ROUND_GAME_OVER))
+	{
+		SetHookChainReturn(ATYPE_BOOL, false)
+		return HC_SUPERCEDE;
+	}
 	
 	static iZombie
-	g_endround = 1
+	g_gamestatus = STATUS_ENDROUND
 	
 	// Update Score
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_alive(i))
 			continue
@@ -1060,19 +1015,14 @@ public Event_RoundEnd()
 
 		UpdateFrags(i, -1, iZombie ? 1 : 2, -1, 1)
 	}
+
+	SetHookChainReturn(ATYPE_BOOL, true)
+	return HC_CONTINUE;
 }
 
 public Event_GameRestart()
 {
-	g_endround = 1
-}
-
-public Event_TimedOut(task)
-{
-	if(!g_game_playable || g_endround)
-		return
-		
-	TerminateRound(TEAM_HUMAN)
+	g_gamestatus = STATUS_ENDROUND
 }
 
 public Event_CheckWeapon(id)
@@ -1096,36 +1046,21 @@ public Event_CheckWeapon(id)
 	}
 }
 
-public Event_Death()
+public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const assister, const inflictor, const killerWeaponName[], const DeathMessageFlags:iDeathMessageFlags, const KillRarity:iRarityOfKill)
 {
-	static victim, attacker, headshot
-	
-	attacker = read_data(1)
-	victim = read_data(2)
-	headshot = read_data(3)
-	
+	static headshot;
+	headshot = (iRarityOfKill == KILLRARITY_HEADSHOT)
 	set_user_nightvision(victim, 0, 1, 1)
 
 	if(!is_user_alive(victim) && g_gamemode == MODE_HERO)
 	{
 		if(g_zombie[victim]) // Zombie Death
 		{
-			if(headshot)
-			{
-				g_iRespawning[victim] = 0
-				UpdateFrags(attacker, victim, 3, 3, 1)
+			UpdateFrags(attacker, victim, headshot ? 3 : 0, headshot ? 3 : 0, headshot ? 1 : 1)
 
-				client_print(victim, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_NORESPAWN")
-			} else {
-				g_iRespawning[victim] = 1
-				g_zombie_respawn_time[victim] = g_RespawnTime[victim]
-				
-				UpdateFrags(attacker, victim, 0, 0, 1)
-				
-				set_task(1.0, "Dead_Effect", victim)
-				set_task(1.5, "Start_Revive", victim+TASK_REVIVE)
-			}
-			
+			if(headshot) client_print(victim, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_NORESPAWN")
+			else set_member(victim, m_flRespawnPending, get_gametime() + float(g_RespawnTime[victim]) + 1.0);
+
 			if(is_user_connected(attacker) && !g_zombie[attacker]) 
 				UpdateLevelTeamHuman()
 		}
@@ -1149,24 +1084,9 @@ public Message_StatusIcon(msg_id, msg_dest, msg_entity)
 	return PLUGIN_CONTINUE;
 }
 
-public Message_TeamScore()
-{
-	static team[2]
-	get_msg_arg_string(1, team, charsmax(team))
-	
-	switch (team[0])
-	{
-		// CT
-		case 'C': set_msg_arg_int(2, get_msg_argtype(2), g_TeamScore[TEAM_HUMAN])
-		// Terrorist
-		case 'T': set_msg_arg_int(2, get_msg_argtype(2), g_TeamScore[TEAM_ZOMBIE])
-	}
-}
-
 public Message_ClCorpse()
 {
-	if (g_iRespawning[get_msg_arg_int(12)]) return PLUGIN_HANDLED
-	
+	if(get_member(get_msg_arg_int(12), m_flRespawnPending)) return PLUGIN_HANDLED
 	return PLUGIN_CONTINUE
 }
 
@@ -1237,107 +1157,118 @@ public cmd_drop(id)
 	return PLUGIN_CONTINUE
 }
 
+public cmd_sel_zombie(id)
+{
+	show_menu_zombieclass(id, 0)
+}
 public Time_Change() 
 {
 	ExecuteForward(g_Forwards[FWD_TIME_CHANGE], g_fwResult)
 
-	if(!g_game_playable)
-	{
-		if(GetTotalPlayer(TEAM_ALL, 0) > 1)
-		{
-			g_game_playable = 1
-			TerminateRound(TEAM_START)
-		}
-	}
+	static i, alive, zombie, Float:gametime, Float:respawntime;
+	gametime = get_gametime()
 
+	if(g_gamestatus == STATUS_PLAY)
+		handle_round_timeout(gametime)
+	
 	if(g_gamemode <= MODE_ORIGINAL)
 		return
 
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
 			continue
-		if(is_user_bot(i))
-			continue
-		if(g_zombie[i] && g_zombie_type[i] == ZOMBIE_HOST && g_gamemode == MODE_MUTATION)
-			continue
-		if(is_user_alive(i) && g_gamemode == MODE_HERO)
-			show_evolution_hud(i, g_zombie[i])
-			
-		// show_score_hud(i)
-		ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+		
+		alive = is_user_alive(i)
+		zombie = g_zombie[i]
+		respawntime = get_member(i, m_flRespawnPending)
+
+		if(zombie && (g_zombie_type[i] == ZOMBIE_ORIGIN && g_gamemode == MODE_MUTATION) || g_gamemode == MODE_HERO)
+			ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+		
+		if(alive && g_gamemode == MODE_HERO )
+			show_evolution_hud(i, zombie)
+
+		if(!alive && respawntime > 0.1)
+			handle_respawn_countdown(i, gametime, respawntime)
 	}
 
 }
 // ===================== HAM & FM FORWARDS ========================
 // ================================================================
-public fw_PlayerSpawn_Post(id)
+public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 {
-	if(!is_user_connected(id)) 
+	if(!is_user_connected(id) || !is_user_alive(id))
 		return
-	
-	if(GetTotalPlayer(TEAM_ALL, 0) > 1 && !g_game_playable)
+
+	if(g_zombie[id] && g_gamestatus >= STATUS_PLAY)
 	{
-		g_game_playable = 1
-		TerminateRound(TEAM_START)
-	}
-	if(g_zombie[id] && g_gamestart && g_game_playable)
-	{
-		set_user_zombie(id, -1, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
+		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
-		
+		EmitSound(id, CHAN_AUTO, "items/suitchargeok1.wav")
 		ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
 
 		return
 	}
+
+	if(get_member(id, m_iTeam) == TEAM_TERRORIST)
+		set_team(id, TEAM_HUMAN)
 	
 	// Reset this Player
 	reset_player(id, 0, 0)
-	
-	// Set Special Var
-	g_iEvolution[id] = 0.0
 	
 	// Set Spawn
 	do_random_spawn(id, MAX_RETRY)
 	
 	// Set Human
-	set_team(id, TEAM_HUMAN)
+	// set_team(id, TEAM_HUMAN)
 	set_human_model(id)
 	fm_set_rendering(id)
 	
 	fm_set_user_health(id, human_health)
 	fm_cs_set_user_armor(id, human_armor, ARMOR_KEVLAR)
 	
-	fm_reset_user_speed(id)
+	rg_reset_maxspeed(id)
 	set_user_nightvision(id, 0, 1, 1)
 	
 	fm_reset_user_weapon(id)
-	
+	StopSound(id)
 	ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
 
 	return
 }
-
-public fw_PlayerTakeDamage(victim, inflictor, attacker, Float:Damage, damagebits)
+public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(!g_game_playable || !g_gamestart)
-		return HAM_SUPERCEDE
+	if(g_gamestatus != STATUS_PLAY)
+	{
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
 
-	return HAM_IGNORED
+	SetHookChainReturn(ATYPE_INTEGER, true)
+	return HC_CONTINUE;
 }
 
-public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
+public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(!g_game_playable || !g_gamestart)
-		return HAM_SUPERCEDE
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
-		return HAM_IGNORED	
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED
-	if(g_zombie[attacker] || !g_zombie[victim])  // Human Attack Zombie
-		return HAM_IGNORED
+	if(!is_user_alive(attacker))
+	{
+		SetHookChainReturn(ATYPE_INTEGER, true)
+		return HC_CONTINUE;
+	}
+	if(fm_cs_get_user_team(attacker) == fm_cs_get_user_team(victim) || g_gamestatus != STATUS_PLAY)
+	{
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
 
-	static Float:zb_class_painshock; zb_class_painshock = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+	if(g_zombie[attacker] && !g_zombie[victim] && inflictor == attacker)
+	{
+		set_user_zombie(victim, attacker, inflictor, false, false)
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_SUPERCEDE;
+	}
+
 	static Float:zb_class_dmgmulti; zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
 
 	if (zb_class_dmgmulti > 0.0)
@@ -1345,112 +1276,89 @@ public fw_PlayerTakeDamage_Post(victim, inflictor, attacker, Float:damage, damag
 	if (damagebits & DMG_GRENADE)
 		damage *= grenade_default_power
 	if (damagebits & DMG_BULLET && g_gamemode == MODE_HERO)
-		damage *= g_fDamageMulti[g_level[attacker]]
+		damage *= 1.0 + (g_level[attacker] * 0.1)
 
-	SetHamParamFloat(4, damage)
+	// SetHamParamFloat(4, damage)
+	SetHookChainArg(4, ATYPE_FLOAT, damage);
 
 	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(damage) / 8, true)
 	fm_cs_set_user_money(victim, fm_cs_get_user_money(victim) + floatround(damage) / 16, true)
-	if(pev_valid(victim) == 2) set_member(victim, m_flVelocityModifier, zb_class_painshock)
 
-	if(g_gamemode >= MODE_MUTATION)
-		if(g_restore_health[victim]) g_restore_health[victim] = 0
-
-	if(g_gamemode >= MODE_HERO)
+	switch(g_gamemode)
 	{
-		switch(g_level[victim])
+		case MODE_MUTATION: if(g_restore_health[victim]) g_restore_health[victim] = 0
+		case MODE_HERO:
 		{
-			case 1: g_iEvolution[victim] += damage * 0.001 // / 1000.0
-			case 2: g_iEvolution[victim] += damage * 0.0005 // / 2000.0
-		}
-
-		if(g_iEvolution[victim] > 10.0) UpdateLevelZombie(victim)
-	}
-
-	return HAM_IGNORED
-}
-
-public fw_PlayerTraceAttack(victim, attacker, Float:Damage, Float:direction[3], tracehandle, damagebits)
-{
-	if(!is_user_alive(victim) || !is_user_alive(attacker))
-		return HAM_IGNORED
-	if(!g_game_playable || !g_gamestart || g_endround)
-		return HAM_SUPERCEDE
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED
-	if(!g_zombie[attacker] || Damage < 0.0 || !(get_user_weapon(attacker) == CSW_KNIFE))
-		return HAM_IGNORED
-
-	set_user_zombie(victim, attacker, false, false)
-	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
-
-	return HAM_IGNORED
-}
-
-public fw_PlayerTraceAttack_Post(victim, attacker, Float:Damage, Float:direction[3], tracehandle, damagebits)
-{
-	if(pev_valid(victim) != 2)
-		return HAM_IGNORED
-	if(!g_game_playable || !g_gamestart || g_endround)
-		return HAM_SUPERCEDE
-	if(fm_cs_get_user_team(victim) == fm_cs_get_user_team(attacker))
-		return HAM_IGNORED		
-	if (!g_zombie[victim] || g_zombie[attacker] || victim == attacker)
-		return HAM_IGNORED
-	if (!(damagebits & DMG_BULLET))
-		return HAM_IGNORED
-
-	static ducking; ducking = pev(victim, pev_flags) & (FL_DUCKING | FL_ONGROUND) == (FL_DUCKING | FL_ONGROUND)
-	static flying; flying = !(pev(victim, pev_flags) & FL_ONGROUND)
-	static Float:Origin[3]; pev(attacker, pev_origin, Origin)
-	static Float:velocity[3]; pev(victim, pev_velocity, velocity)
-	static Float:classzb_knockback; classzb_knockback = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
-	
-	// Damage *= 0.5
-	floatclamp(Damage, 0.0, 100.0)
-
-	if(Damage) xs_vec_mul_scalar(direction, Damage, direction)
-	if(flying) xs_vec_mul_scalar(direction, 2.0, direction)
-	else if(ducking) xs_vec_mul_scalar(direction, 0.5, direction)
-	if(classzb_knockback > 0.0) xs_vec_mul_scalar(direction, classzb_knockback, direction)
-	
-	direction[2] *= 0.001
-
-	xs_vec_add(velocity, direction, direction)
-	set_pev(victim, pev_velocity, direction)
-	return HAM_SUPERCEDE;
-}
-
-public fw_PlayerResetMaxSpeed(id)
-{
-	if(g_zombie[id] || g_hero[id])
-		return HAM_SUPERCEDE
-	
-	return HAM_IGNORED
-}
-
-public fw_AddPlayerItem(id, iEnt)
-{
-	if (!is_user_alive(id) || !pev_valid(iEnt)) return HAM_IGNORED
-	
-	if(g_zombie[id])
-	{
-		new iWpnId = fm_cs_get_weapon_id(iEnt)
-		if (iWpnId == CSW_KNIFE || iWpnId == CSW_FLASHBANG || iWpnId == CSW_HEGRENADE || iWpnId == CSW_SMOKEGRENADE) return HAM_IGNORED
-		
-		SetHamReturnInteger(0)
-		return HAM_SUPERCEDE
-	}
-	else if(g_hero[id])
-	{
-		if(g_hero_locked[id])
-		{
-			SetHamReturnInteger(0)
-			return HAM_SUPERCEDE
+			if(g_restore_health[victim]) g_restore_health[victim] = 0
+			switch(g_zombie_type[attacker])
+			{
+				case ZOMBIE_HOST: handle_evolution(victim, damage * 0.001) 
+				case ZOMBIE_ORIGIN: handle_evolution(victim, damage * 0.0005)
+			}
 		}
 	}
+
+	do_knockback(victim, attacker)
+
+	SetHookChainReturn(ATYPE_INTEGER, true)
+	return HC_CONTINUE;
+}
+
+// 0 - Knockback
+// 1 - Painshock
+public do_knockback(victim, attacker)
+{
+	static wpn_ent, Float:wpn_attribute[3], Float:temp_attribute[3], Float:zb_class_attribute[2] 
 	
-	return HAM_IGNORED
+	wpn_attribute[0] = 170.0; wpn_attribute[1] = 0.5;
+	wpn_ent = get_member(attacker, m_pActiveItem)
+
+	zb_class_attribute[0] = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
+	zb_class_attribute[1] = ArrayGetCell(zombie_painshock, g_zombie_class[victim])
+
+	if(is_entity(wpn_ent))
+	{
+		get_entvar(wpn_ent, var_vuser4, temp_attribute)
+		if(temp_attribute[0] > 0.0) wpn_attribute[0] = temp_attribute[0]
+		if(temp_attribute[1] > 0.0) wpn_attribute[1] = temp_attribute[1]
+	}
+
+	wpn_attribute[0] *= zb_class_attribute[0]
+	wpn_attribute[1] *= zb_class_attribute[1]
+
+	fake_knockback(victim, attacker, wpn_attribute[0])
+	set_member(victim, m_flVelocityModifier, wpn_attribute[1]);
+}
+
+public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
+{
+	if(!g_zombie[id])
+		return HC_CONTINUE;
+
+	static Float:speed
+	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
+
+	set_entvar(id, var_maxspeed, speed)
+	return HC_SUPERCEDE;
+}
+
+public Fw_RG_CBasePlayer_AddPlayerItem(const this, const pItem)
+{
+	if(g_zombie[this])
+	{
+		new iWpnId = rg_get_iteminfo(pItem, ItemInfo_iId)
+		if ( iWpnId == CSW_KNIFE || iWpnId == CSW_FLASHBANG || iWpnId == CSW_HEGRENADE || iWpnId == CSW_SMOKEGRENADE )
+		{
+			SetHookChainReturn(ATYPE_INTEGER, true);
+			return HC_CONTINUE;
+		}
+
+		SetHookChainReturn(ATYPE_INTEGER, false);
+		return HC_SUPERCEDE;
+	}
+
+	SetHookChainReturn(ATYPE_INTEGER, true);
+	return HC_CONTINUE;
 }
 
 public set_team(id, {PlayerTeams,_}:team)
@@ -1460,8 +1368,8 @@ public set_team(id, {PlayerTeams,_}:team)
 	
 	switch(team)
 	{
-		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != TEAM_CT) fm_cs_set_user_team(id, TEAM_CT, 1)
-		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != TEAM_TERRORIST) fm_cs_set_user_team(id, TEAM_TERRORIST, 1)
+		case TEAM_HUMAN: if(fm_cs_get_user_team(id) != TEAM_CT) fm_cs_set_user_team(id, TEAM_CT)
+		case TEAM_ZOMBIE: if(fm_cs_get_user_team(id) != TEAM_TERRORIST) fm_cs_set_user_team(id, TEAM_TERRORIST)
 	}
 }
 
@@ -1486,140 +1394,66 @@ public fw_Touch(ent, id)
 
 public fw_EmitSound(id, channel, const sample[], Float:volume, Float:attn, flags, pitch)
 {
-	if (sample[0] == 'h' && sample[1] == 'o' && sample[2] == 's' && sample[3] == 't' && sample[4] == 'a' && sample[5] == 'g' && sample[6] == 'e')
-		return FMRES_SUPERCEDE;
-	if (!is_user_connected(id) || !g_zombie[id])
+	if (!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
+	if (strncmp(sample,"weapons/knife_", true) != 0)
+		return FMRES_IGNORED;
 	
-	static sound[64]
-	
-	// Zombie being hit
-	if (sample[7] == 'b' && sample[8] == 'h' && sample[9] == 'i' && sample[10] == 't' ||
-	sample[7] == 'h' && sample[8] == 'e' && sample[9] == 'a' && sample[10] == 'd')
+	static sound[64], attack_type;
+	attack_type = 0;
+
+	// Zombie Attack
+	switch(sample[17])
 	{
-		if (g_level[id] == 1) ArrayGetString(zombie_sound_hurt1, g_zombie_class[id], sound, charsmax(sound))
-		else ArrayGetString(zombie_sound_hurt2, g_zombie_class[id], sound, charsmax(sound))
-		emit_sound(id, channel, sound, volume, attn, flags, pitch)
-		return FMRES_SUPERCEDE;
+		case 'w': attack_type = 1
+		case '1'..'4': attack_type = 2
+		case 'b': attack_type = 2
+		case 's': attack_type = 3
+		default: attack_type = 0
 	}
-	
-	// Zombie dies
-	if (sample[7] == 'd' && ((sample[8] == 'i' && sample[9] == 'e') || (sample[8] == 'e' && sample[9] == 'a')))
+
+	if (attack_type)
 	{
-		if (g_level[id]==1) ArrayGetString(zombie_sound_death1, g_zombie_class[id], sound, charsmax(sound))
-		else ArrayGetString(zombie_sound_death2, g_zombie_class[id], sound, charsmax(sound))
+		switch(attack_type)
+		{
+			case 1: ArrayGetString(sound_zombie_hitwall, get_random_array(sound_zombie_hitwall), sound, charsmax(sound))
+			case 2: ArrayGetString(sound_zombie_attack, get_random_array(sound_zombie_attack), sound, charsmax(sound))
+			default: ArrayGetString(sound_zombie_swing, get_random_array(sound_zombie_swing), sound, charsmax(sound))
+		}
 		emit_sound(id, channel, sound, volume, attn, flags, pitch)
 		return FMRES_SUPERCEDE;
 	}
 
-	// Zombie Attack
-	new attack_type
-	if (equal(sample,"weapons/knife_hitwall1.wav")) attack_type = 1
-	else if (equal(sample,"weapons/knife_hit1.wav") ||
-	equal(sample,"weapons/knife_hit3.wav") ||
-	equal(sample,"weapons/knife_hit2.wav") ||
-	equal(sample,"weapons/knife_hit4.wav") ||
-	equal(sample,"weapons/knife_stab.wav")) attack_type = 2
-	else if(equal(sample,"weapons/knife_slash1.wav") ||
-	equal(sample,"weapons/knife_slash2.wav")) attack_type = 3
-	if (attack_type)
-	{
-		new sound[64]
-		if (attack_type == 1) ArrayGetString(sound_zombie_hitwall, get_random_array(sound_zombie_hitwall), sound, charsmax(sound))
-		else if (attack_type == 2) ArrayGetString(sound_zombie_attack, get_random_array(sound_zombie_attack), sound, charsmax(sound))
-		else if (attack_type == 3) ArrayGetString(sound_zombie_swing, get_random_array(sound_zombie_swing), sound, charsmax(sound))
-		emit_sound(id, channel, sound, volume, attn, flags, pitch)
-		return FMRES_SUPERCEDE;
-	}
-	
 	return FMRES_IGNORED;
 }
 
-public fw_PlayerPreThink(id)
+public Fw_RG_CBasePlayer_Pain(id)
 {
-	if(g_UsingCustomSpeed[id] && pev(id, pev_maxspeed) != g_PlayerMaxSpeed[id])
-		set_pev(id, pev_maxspeed, g_PlayerMaxSpeed[id])
+	if (!g_zombie[id])
+		return HC_CONTINUE;
+
+	static sound[64]
+	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_hurt1 : zombie_sound_hurt2, g_zombie_class[id], sound, charsmax(sound))
+
+	EmitSound(id, CHAN_BODY, sound)
+	return HC_SUPERCEDE;
+}
+
+public Fw_RG_CBasePlayer_DeathSound(id, lastHitGroup, bool:hasArmour)
+{
+	if (!g_zombie[id])
+		return HC_CONTINUE;
+
+	static sound[64]
+	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_death1 : zombie_sound_death2, g_zombie_class[id], sound, charsmax(sound))
+
+	EmitSound(id, CHAN_BODY, sound)
+	return HC_SUPERCEDE;
+}
+
+public Fw_RG_CBasePlayer_PreThink(id)
+{
 	if(g_zombie[id]) zombie_restore_health(id)
-}
-
-public fw_TraceLine(Float:vector_start[3], Float:vector_end[3], ignored_monster, id, handle)
-{
-	if (!is_user_alive(id) || !g_zombie[id])
-		return FMRES_IGNORED
-	if (get_user_weapon(id) != CSW_KNIFE)
-		return FMRES_IGNORED
-		
-	static buttons
-	buttons = pev(id, pev_button)
-	
-	if (!(buttons & IN_ATTACK) && !(buttons & IN_ATTACK2))
-		return FMRES_IGNORED
-		
-	new Float:vecStart[3], Float:vecEnd[3], Float:v_angle[3], Float:v_forward[3], Float:view_ofs[3], Float:fOrigin[3]
-	pev(id, pev_origin, fOrigin)
-	pev(id, pev_view_ofs, view_ofs)
-	xs_vec_add(fOrigin, view_ofs, vecStart)
-	pev(id, pev_v_angle, v_angle)
-	engfunc(EngFunc_MakeVectors, v_angle)
-	get_global_vector(GL_v_forward, v_forward)
-	
-	new Float:scalar
-	const Float:DEFAULT_KNIFE_SCALAR = 48.0
-	
-	if (buttons & IN_ATTACK)
-		scalar = ArrayGetCell(zombie_claw_distance1, g_zombie_class[id])
-	else if (buttons & IN_ATTACK2)
-		scalar = ArrayGetCell(zombie_claw_distance2,  g_zombie_class[id])
-		
-	xs_vec_mul_scalar(v_forward, scalar * DEFAULT_KNIFE_SCALAR, v_forward)
-	xs_vec_add(vecStart, v_forward, vecEnd)
-	
-	engfunc(EngFunc_TraceLine, vecStart, vecEnd, ignored_monster, id, handle)
-	
-	return FMRES_SUPERCEDE
-}
-
-public fw_TraceHull(Float:vector_start[3], Float:vector_end[3], ignored_monster, hull, id, handle)
-{
-	if (!is_user_alive(id) || !g_zombie[id])
-		return FMRES_IGNORED
-	if (get_user_weapon(id) != CSW_KNIFE)
-		return FMRES_IGNORED
-		
-	static buttons
-	buttons = pev(id, pev_button)
-	
-	if (!(buttons & IN_ATTACK) && !(buttons & IN_ATTACK2))
-		return FMRES_IGNORED
-		
-	new Float:vecStart[3], Float:vecEnd[3], Float:v_angle[3], Float:v_forward[3], Float:view_ofs[3], Float:fOrigin[3]
-	pev(id, pev_origin, fOrigin)
-	pev(id, pev_view_ofs, view_ofs)
-	xs_vec_add(fOrigin, view_ofs, vecStart)
-	pev(id, pev_v_angle, v_angle)
-	engfunc(EngFunc_MakeVectors, v_angle)
-	get_global_vector(GL_v_forward, v_forward)
-	
-	new Float:scalar
-	const Float:DEFAULT_KNIFE_SCALAR = 48.0
-	
-	if (buttons & IN_ATTACK)
-		scalar = ArrayGetCell(zombie_claw_distance1, g_zombie_class[id])
-	else if (buttons & IN_ATTACK2)
-		scalar = ArrayGetCell(zombie_claw_distance2, g_zombie_class[id])
-		
-	xs_vec_mul_scalar(v_forward, scalar * DEFAULT_KNIFE_SCALAR, v_forward)
-	xs_vec_add(vecStart, v_forward, vecEnd)
-	
-	engfunc(EngFunc_TraceHull, vecStart, vecEnd, ignored_monster, hull, id, handle)
-	
-	return FMRES_SUPERCEDE
-}
-
-public fw_GetGameDesc()
-{
-	forward_return(FMV_STRING, GAMENAME)
-	return FMRES_SUPERCEDE
 }
 
 public fw_Block(id)
@@ -1628,21 +1462,17 @@ public fw_Block(id)
 }
 // ======================== MAIN PUBLIC ===========================
 // ================================================================	
-public show_score_hud(id)
-{
-	static FullText[64]
-	formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "GAME_SCORE_HUD", g_TeamScore[TEAM_HUMAN], g_TeamScore[TEAM_ZOMBIE])
-	
-	set_dhudmessage(200, 200, 200, -1.0, 0.0, 0, 1.5, 1.5)
-	show_dhudmessage(id, FullText)
-}
-
 public show_evolution_hud(id, is_zombie)
 {
-	static level_color[3] 
-	new DamagePercent, PowerUp[32], PowerDown[32], FullText[88]
+	if(is_user_bot(id))
+		return;
 
-	for(new i = 0; i < sizeof(level_color); i++)
+	static Float:f , i, DamagePercent, level_color[3], PowerUp[32], PowerDown[32], FullText[88]
+
+	DamagePercent = 0
+	PowerUp[0] = PowerDown[0] = FullText[0] = '^0'
+
+	for(i = 0; i < sizeof(level_color); i++)
 		level_color[i] = get_color_level(id, i)
 	
 	// Show Hud
@@ -1654,20 +1484,20 @@ public show_evolution_hud(id, is_zombie)
 	{
 		DamagePercent = g_level[id]
 		
-		for(new Float:i = 0.0; i < g_iEvolution[id]; i += 1.0)
+		for(f = 0.0; f < g_iEvolution[id]; f += 1.0)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
-		for(new Float:i = 10.0; i > g_iEvolution[id]; i -= 1.0)
+		for(f = 10.0; f > g_iEvolution[id]; f -= 1.0)
 			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
 
 		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "ZOMBIE_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
 	}
 	case false:
 	{
-		DamagePercent = floatround(g_fDamageMulti[g_level[id]] * 100.0)
+		DamagePercent = 100 + (g_level[id] * 10)
 
-		for(new i = 0; i < g_level[id]; i++)
+		for(i = 0; i < g_level[id]; i++)
 			formatex(PowerUp, sizeof(PowerUp), "%s|", PowerUp)
-		for(new i = g_iMaxLevel[id]; i > g_level[id]; i--)
+		for(i = g_iMaxLevel[id]; i > g_level[id]; i--)
 			formatex(PowerDown, sizeof(PowerDown), "%s_", PowerDown)
 
 		formatex(FullText, sizeof(FullText), "%L", LANG_PLAYER, "HUMAN_EVOL_HUD", DamagePercent, PowerUp, PowerDown)
@@ -1691,30 +1521,13 @@ public UpdateLevelZombie(id)
 	g_level[id]++ //= g_level[id] == 1 ? 2 : 3
 
 	g_zombie_type[id] = ZOMBIE_ORIGIN
-	
-	// Update Health & Armor
-	fm_set_user_health(id, g_StartHealth[id])
-	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
-	
-	// Update Speed
-	new Float:speed = ArrayGetCell(zombie_speed_origin, g_zombie_class[id])
-	fm_set_user_speed(id, speed)
-	
-	// Update Player Model
-	new model[64]
-	ArrayGetString(zombie_model_origin, g_zombie_class[id], model, charsmax(model))
-	
-	set_model(id, model)
-	
+	set_zombie_class(id, g_zombie_class[id], -1, true, INFECT_CHANGECLASS)
+
 	// Play Evolution Sound
 	new sound[64]
 	ArrayGetString(zombie_sound_evolution, g_zombie_class[id], sound, charsmax(sound))
-	EmitSound(id, CHAN_ITEM, sound)
-	
-	// Reset Claws
-	Event_CheckWeapon(id)
-	set_weapon_anim(id, 3)
-	
+	EmitSound(id, CHAN_AUTO, sound)
+
 	// Show Hud
 	new szText[128]
 	format(szText, charsmax(szText), "%L", LANG_PLAYER, g_level[id] > 2 ? "NOTICE_ZOMBIE_LEVELUP3" : "NOTICE_ZOMBIE_LEVELUP2")
@@ -1731,11 +1544,11 @@ public UpdateLevelZombie(id)
 
 public UpdateLevelTeamHuman()
 {
-	if(!g_game_playable || g_endround || !g_gamestart)
+	if(g_gamestatus != STATUS_PLAY)
 		return
 		
-	for (new id = 0; id < g_MaxPlayers; id++)
-		set_task(random_float(0.1, 0.5), "delay_UpdateLevelHuman", id)
+	for (new id = 1; id <= g_MaxPlayers; id++)
+		delay_UpdateLevelHuman(id)
 }
 
 public delay_UpdateLevelHuman(id)
@@ -1756,7 +1569,7 @@ public delay_UpdateLevelHuman(id)
 	PlaySound(id, sound_human_levelup)
 	format(szText, charsmax(szText), "%L", LANG_PLAYER, "NOTICE_HUMAN_LEVELUP", g_level[id])
 
-	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 1, 3.0, 3.0)
+	set_dhudmessage(200, 200, 0, MAIN_HUD_X, MAIN_HUD_Y, 0, 3.0, 3.0)
 	show_dhudmessage(id, szText)
 }
 
@@ -1764,7 +1577,7 @@ public zombie_restore_health(id)
 {
 	if(!is_user_alive(id)) 
 		return
-	if (!g_zombie[id] || !g_gamestart || g_endround || !g_game_playable) 
+	if (!g_zombie[id]) 
 		return
 	
 	static Float:velocity[3]
@@ -1803,13 +1616,11 @@ public zombie_restore_health(id)
 	}
 }
 		
-public Dead_Effect(id)
-{
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
-	if(!g_iRespawning[id])
-		return
-		
+public bool:Dead_Effect(id, countdown)
+{		
+	if(countdown != g_RespawnTime[id] + 1)
+		return false;
+
 	new Float:fOrigin[3]
 	pev(id, pev_origin, fOrigin)
 	
@@ -1823,64 +1634,38 @@ public Dead_Effect(id)
 	write_byte(20)
 	write_byte(14)
 	message_end()
-}
 
-public Start_Revive(id)
-{
-	id -= TASK_REVIVE
-	
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
-	if(!is_user_connected(id) || is_user_alive(id))
-		return
-	if(!g_iRespawning[id])
-		return
-	if(g_zombie_respawn_time[id] <= 0)
-	{
-		Revive_Now(id+TASK_REVIVE)
-		return
-	}
-		
-	client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_RESPAWN", g_zombie_respawn_time[id])
-	
-	if(g_zombie_respawn_time[id] <= 10)
-	{
-		static sound[64]
-		format(sound, charsmax(sound), sound_game_count, g_zombie_respawn_time[id])
-		
-		PlaySound(id, sound)
-	}
-		
-	g_zombie_respawn_time[id]--
-	set_task(1.0, "Start_Revive", id+TASK_REVIVE)
-}
-
-public Revive_Now(id)
-{
-	id -= TASK_REVIVE
-	
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
-	if(!g_iRespawning[id])
-		return
-	if(is_user_alive(id))
-		return
-		
-	g_iRespawning[id] = 0
-	ExecuteHamB(Ham_CS_RoundRespawn, id)
+	return true;
 }
 
 public gameplay_check()
 {
-	if(!g_game_playable || g_endround || !g_gamestart)
-		return
-		
-	if(GetTotalPlayer(TEAM_ALL, 1) >= 0)
+	switch(g_gamestatus)
 	{
-		if(GetTotalPlayer(TEAM_HUMAN, 1) <= 0)
-			TerminateRound(TEAM_ZOMBIE)
-		else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0)
-			if(!GetRespawningCount()) TerminateRound(TEAM_HUMAN)
+		case STATUS_WAITING:
+		{
+			if(GetTotalPlayer(TEAM_START, 0) >= 2)
+			{
+				g_gamestatus = STATUS_PLAY;
+				TerminateRound(TEAM_START);
+				return;
+			}
+		}
+		case STATUS_PLAY:
+		{
+			if(GetTotalPlayer(TEAM_HUMAN, 1) <= 0)
+				TerminateRound(TEAM_ZOMBIE)
+			else if(GetTotalPlayer(TEAM_ZOMBIE, 1) <= 0)
+				if(!GetRespawningCount()) TerminateRound(TEAM_HUMAN)
+		}
+		default:
+		{
+			if(GetTotalPlayer(TEAM_ALL, 0) < 2)
+			{
+				g_gamestatus = STATUS_WAITING;
+				return;
+			}
+		}
 	}
 }
 
@@ -1997,125 +1782,35 @@ public set_player_light(id, const LightStyle[])
 }
 
 public remove_game_task()
-{
+{	
 	remove_task(TASK_COUNTDOWN)
-	remove_task(TASK_ROUND)
 	
-	for(new i = 0; i < g_MaxPlayers; i++)
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
 		if(!is_user_connected(i))
 			continue
 			
-		remove_task(i+TASK_REVIVE)
 		remove_task(i+TASK_CHOOSECLASS)
 		remove_task(i+TASK_NVGCHANGE)
-		remove_task(i+TASK_REVIVE)
 	}
 }
 
-public start_countdown()
+public remove_game_task_player(id)
 {
-	PlaySound(0, sound_remain_time)
-	
-	g_countdown_count = DEF_COUNTDOWN
-	counting_down()
-	
-	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
-}
-
-public counting_down()
-{
-	if(!g_game_playable || g_endround || g_gamestart)
-		return
-	if(g_countdown_count <= 0)
-	{
-		start_game_now()
-		return
-	}
-	
-	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
-	
-	if(g_countdown_count <= 10)
-	{
-		static sound[64]
-		format(sound, charsmax(sound), sound_game_count, g_countdown_count)
-		
-		PlaySound(0, sound)
-	}
-	
-	g_countdown_count--
-	set_task(1.0, "counting_down", TASK_COUNTDOWN)
+	remove_task(id+TASK_CHOOSECLASS)
+	remove_task(id+TASK_NVGCHANGE)
 }
 
 public start_game_now()
 {
 	// Set Game Start
-	g_gamestart = 1
+	g_gamestatus = STATUS_PLAY
 
-	// Pick a Random Zombie & Hero
-	new Required_Zombie, Required_Hero, Total_Player
-	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
-	
-	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
-	Required_Hero = Total_Player / 16 // max 2 heroes
+	get_random_zombie()
+	if(g_gamemode == MODE_HERO) get_random_hero()
 
-	// used for consistent first zombie health
-	g_firstzombie = Required_Zombie
-	g_firsthuman  = Total_Player - Required_Zombie
-	
-	// Get and Set Zombie
-	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
-		set_user_zombie(GetRandomAlive(), -1, 1, 0)
-	
 	set_task(3.0, "play_ambience_sound")
-	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_ZOMBIEAPPEAR)
-
-	if(g_gamemode != MODE_HERO)
-		return
-	// Get and Set Hero
-	new id, Name[64], MyHero, FullText[64], g_Hero[3 + 1], g_Hero_Count
-	for(new i = 0; i < Required_Hero; i++)
-	{
-		id = GetRandomAlive()
-		get_user_name(id, Name, sizeof(Name))
-		
-		if(Required_Hero == 1)
-			MyHero = id
-			
-		g_Hero[g_Hero_Count] = id
-		g_Hero_Count++
-		
-		set_user_hero(id, g_sex[id])
-	}
-	
-	if(Required_Hero == 1)
-	{
-		get_user_name(MyHero, Name, sizeof(Name))
-		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", Name)
-	} 
-	
-	static Have_Hero
-	for(new i = 0; i < g_MaxPlayers; i++)
-	{
-		if(!is_user_connected(i))
-			continue
-			
-		Have_Hero = 0
-
-		for(new a = 0; a < g_Hero_Count; a++)
-		{
-			if(i == g_Hero[a])
-			{
-				Have_Hero = 1
-				break
-			}
-		}
-			
-		if(Have_Hero)
-			continue
-
-		client_print(i, print_center, FullText)
-	}
+	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_ZOMBIEAPPEAR)	
 }
 
 public play_ambience_sound()
@@ -2123,13 +1818,61 @@ public play_ambience_sound()
 	PlaySound(0, sound_ambience)	
 }
 
+public get_random_zombie()
+{
+	// Pick a Random Zombie & Hero
+	static Required_Zombie, Total_Player
+
+	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
+	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
+
+	// used for consistent first zombie health
+	g_firstzombie = Required_Zombie
+	g_firsthuman  = Total_Player - Required_Zombie
+	
+	// Get and Set Zombie
+	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
+		set_user_zombie(GetRandomAlive(), -1, 0, 1, 0)
+}
+public get_random_hero()
+{
+	static i, id, Total_Player, Required_Hero, szName[32], szHeroNames[64], FullText[64];
+	szName[0] = szHeroNames[0] = FullText[0] = '^0';
+
+	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
+	Required_Hero = Total_Player / 9 // max 2 heroes
+
+	// Get and Set Hero
+	for(i = 0; i < Required_Hero; i++)
+	{
+		id = GetRandomAlive()
+
+		set_user_hero(id, g_sex[id])
+		get_user_name(id, szName, sizeof(szName))
+
+		if(i > 0)
+			strcat(szHeroNames, ", ", sizeof(szHeroNames))
+
+		strcat(szHeroNames, szName, sizeof(szHeroNames))
+	}
+
+	if(Required_Hero)
+	{
+		formatex(FullText, sizeof(FullText), "%L", LANG_OFFICIAL, "NOTICE_HERO_FOR_ALL", szHeroNames)
+
+		for(i = 1; i <= g_MaxPlayers; i++)
+		{
+			if(!is_user_connected(i) || !is_user_alive(i) || g_zombie[i] || g_hero[i])
+				continue
+
+			client_print(i, print_center, FullText)
+		}
+	}
+}
 public set_user_hero(id, player_sex)
 {
-	if(!is_user_alive(id) || g_gamemode != MODE_HERO)
+	if(!is_user_alive(id) || g_gamemode != MODE_HERO || g_hero[id] || g_zombie[id])
 		return 
-
-	// Reset Player
-	// reset_player(id, 0, 0)
 	
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_PRIMARY)
 	rg_drop_items_by_slot(id, InventorySlotType:CS_WEAPONSLOT_SECONDARY)
@@ -2169,56 +1912,52 @@ public Lock_Hero(id)
 	g_hero_locked[id] = 1
 }
 
-public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
+public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 {
 	if(!is_user_alive(id))
 		return
+	if(g_gamestatus < STATUS_PLAY)
+		return
 
-	static DeathSound[64], PlayerModel[64]
+	static DeathSound[64]
 	static zombie_maxhealth, zombie_maxarmor;
 	static start_zombie_health[2], start_zombie_armor[2] , respawn_zombie_health, respawn_zombie_armor
 
 	if(is_user_alive(attacker))
 	{
-		static inflictor
-		inflictor = find_ent_by_owner(-1, "weapon_knife", attacker)
-			
 		if(pev_valid(inflictor))
 		{
-			SendDeathMsg(attacker, id)
+			rg_death_notice(id, attacker, inflictor);
 			UpdateFrags(attacker, id, 1, 1, 1)
+			fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
 		}
 		
 		switch(g_gamemode)
 		{
-			case MODE_MUTATION: 
-			{
-				if(g_level[attacker] < 3)
-				{
-					g_iEvolution[attacker] += 1.0
-					SendScenarioMsg(attacker, g_evo_need_infect[g_zombie_type[attacker]] - floatround(g_iEvolution[attacker]))
-				}
-				if(g_iEvolution[attacker] == g_evo_need_infect[g_zombie_type[attacker]]) UpdateLevelZombie(attacker)
-			}
+			case MODE_MUTATION: handle_evolution(attacker, 1.0)
 			case MODE_HERO:
 			{
-				switch(g_level[attacker])
+				switch(g_zombie_type[attacker])
 				{
-					case 1: g_iEvolution[attacker] += g_hero[id] ? 10.0 : 3.0
-					case 2: g_iEvolution[attacker] += g_hero[id] ? 5.0  : 2.0
+					case ZOMBIE_HOST: handle_evolution(attacker, g_hero[id] ? 10.0 : 3.0)
+					case ZOMBIE_ORIGIN: handle_evolution(attacker, g_hero[id] ? 5.0  : 2.0)
 				}
-				if(g_iEvolution[attacker] > 9.9) UpdateLevelZombie(attacker)
 			}
 		}
 	}
 
 	reset_player(id, 0, Respawn)
-	g_zombie[id] = 1
+	g_zombie[id] = true
+	g_can_choose_class[id] = 1
+	if(g_next_zombie_class[id] >= 0)
+	{
+		g_zombie_class[id] = g_next_zombie_class[id]
+		g_next_zombie_class[id] = -1
+	}
 	
 	// Zombie Class
 	if(!Respawn)
 	{
-		g_zombie_class[id] = 0
 		if(Origin_Zombie)
 		{
 			g_level[id] = 2
@@ -2260,9 +1999,6 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 
 	respawn_zombie_health = clamp( floatround(g_StartHealth[id] * g_health_reduce_percent ), zombie_minhealth, zombie_maxhealth )
 	respawn_zombie_armor  = clamp( floatround(g_StartArmor[id]  * g_health_reduce_percent ), zombie_minarmor, zombie_maxarmor)
-
-	fm_set_rendering(id)
-	fm_reset_user_weapon(id)
 	
 	// Set Zombie
 	set_team(id, TEAM_ZOMBIE)
@@ -2272,39 +2008,88 @@ public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 	g_StartArmor[id]  = Respawn ? respawn_zombie_armor  : start_zombie_armor [ g_zombie_type[id] ]
 
 	set_zombie_nvg(id, 1)
-	set_weapon_anim(id, 3)
-	
-	fm_set_user_health(id, g_StartHealth[id])
-	set_pev(id, pev_max_health, float(g_StartHealth[id]))
-	fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
 
-	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] == ZOMBIE_HOST ? zombie_speed_host : zombie_speed_origin , g_zombie_class[id]))
-	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
-
-	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_model_host : zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	set_model(id, PlayerModel)
-	
 	if(g_gamemode == MODE_MUTATION)
 		SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
 
-	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
+	set_zombie_class(id, g_zombie_class[id], attacker, true, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
 
 	gameplay_check()
 }
 
-public SendDeathMsg(attacker, victim)
+public handle_evolution(id, Float:value)
+ {
+	if(g_level[id] >= 3)
+		return
+
+	switch(g_gamemode)
+	{
+		case MODE_MUTATION: 
+		{
+			g_iEvolution[id] += value;
+			SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
+			if(g_iEvolution[id] == g_evo_need_infect[g_zombie_type[id]]) UpdateLevelZombie(id)
+		}
+		case MODE_HERO:
+		{
+			g_iEvolution[id] += value
+			if(g_iEvolution[id] > 9.9) UpdateLevelZombie(id)
+		}
+	}
+}
+
+public handle_countdown()
 {
-	message_begin(MSG_BROADCAST, g_msgDeathMsg)
-	write_byte(attacker) // killer
-	write_byte(victim) // victim
-	write_byte(0) // headshot flag
-	write_string("knife") // killer's weapon
-	message_end()
+	if(g_gamestatus != STATUS_COUNTDOWN)
+	{
+		remove_task(TASK_COUNTDOWN)
+		return
+	}
+
+	if(g_countdown_count < 0)
+	{
+		start_game_now()
+		return
+	}
+
+	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
+
+	static sound[64]
+	format(sound, charsmax(sound), sound_game_count, g_countdown_count)
+					
+	PlaySound(0, sound)
+	g_countdown_count--
+}
+
+public handle_round_timeout(Float:gametime)
+{
+	static Float:endtime;
+	endtime = g_roundstart_time + float(get_member_game(m_iRoundTimeSecs))
+
+	if(gametime > endtime)
+		TerminateRound(TEAM_HUMAN)
+}
+
+public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
+{
+	static countdown, anim_finish
+	
+	anim_finish = get_member(id, m_fSequenceFinished)
+	countdown = floatround(respawntime - gametime, floatround_ceil)
+
+	if(countdown)
+	{
+		switch(anim_finish)
+		{
+			case true: { Dead_Effect(id, countdown); client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_RESPAWN", countdown); }
+			case false: { set_member(id, m_flRespawnPending, respawntime + 1.0); }
+		}
+	}
 }
 
 public set_menu_zombieclass(id)
 {
-	if(!is_user_bot(id))
+	if(!is_user_bot(id) && !g_randomizer)
 	{
 		show_menu_zombieclass(id, 0)
 		return
@@ -2314,67 +2099,55 @@ public set_menu_zombieclass(id)
 	classid = random_num(0, g_zombieclass_i - 1)
 
 	ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-
-	g_zombie_class[id] = classid
-	set_zombie_class(id, g_zombie_class[id])
+	set_zombie_class(id, classid, -1, false, INFECT_VICTIM)
 }
 public show_menu_zombieclass(id, page)
 {
 	if(!is_user_connected(id))
 		return
-	if(!g_zombie[id] || g_gamemode <= MODE_ORIGINAL)
+	if(g_gamemode <= MODE_ORIGINAL)
 		return
 		
 	if(pev_valid(id) == 2) set_member(id, m_iMenu, CS_Menu_OFF)
 
-	new menuwpn_title[64], temp_string[128]
+	static i, class_name[128], class_desc[128], class_id[128], String[2][64], menuwpn_title[64], temp_string[128]
 	format(menuwpn_title, 63, "%L:", LANG_PLAYER, "MENU_CLASSZOMBIE_TITLE")
 	new mHandleID = menu_create(menuwpn_title, "menu_selectclass_handle")
-	new class_name[128], class_desc[128], class_id[128]
 	
-	for (new i = 0; i < g_zombieclass_i; i++)
+	for (i = 0; i < g_zombieclass_i; i++)
 	{
-		if(!ArrayGetCell(zombie_lockcost, i))
-		{
-			ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-			ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
-			
-			formatex(class_id, charsmax(class_name), "%i", i)
-			formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
+		String[0][0] = '^0'
+		String[1][0] = '^0'
+
+		ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
+		ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
+		formatex(class_id, charsmax(class_name), "%i", i)
+
+		if(!g_unlocked_class[id][i] && ArrayGetCell(zombie_lockcost, i))
+		{	
+			formatex(String[0], 63, "%L", LANG_OFFICIAL, "MENU_LOCKED")
+			formatex(String[1], 63, "%L", LANG_OFFICIAL, "MENU_UNLOCK_COST")
+				
+			formatex(temp_string, charsmax(temp_string), "%s \r[%s]\n (%s: \r$%i\n)", class_name, String[0], String[1], ArrayGetCell(zombie_lockcost, i))
 			
 			menu_additem(mHandleID, temp_string, class_id)
-		} else {
-			if(!g_unlocked_class[id][i] && !check_user_admin(id) && !g_free_gun)
-			{
-				ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-
-				formatex(class_id, charsmax(class_name), "%i", i)
-				
-				static String[2][64]
-				
-				formatex(String[0], 63, "%L", LANG_OFFICIAL, "MENU_LOCKED")
-				formatex(String[1], 63, "%L", LANG_OFFICIAL, "MENU_UNLOCK_COST")
-				
-				formatex(temp_string, charsmax(temp_string), "%s \r[%s]\n (%s: \r$%i\n)", class_name, String[0], String[1], ArrayGetCell(zombie_lockcost, i))
-				
-				menu_additem(mHandleID, temp_string, class_id)
-			} else {
-				ArrayGetString(zombie_name, i, class_name, charsmax(class_name))
-				ArrayGetString(zombie_desc, i, class_desc, charsmax(class_desc))
-				
-				formatex(class_id, charsmax(class_name), "%i", i)
-				formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
-				
-				menu_additem(mHandleID, temp_string, class_id)	
-			}
+		}
+		else
+		{
+			formatex(temp_string, charsmax(temp_string), "%s \y(%s)", class_name, class_desc)
+			menu_additem(mHandleID, temp_string, class_id)
 		}
 	}
 	
 	menu_display(id, mHandleID, page)
 	
 	remove_task(id+TASK_CHOOSECLASS)
-	set_task(float(g_classchoose_time), "Remove_ChooseClass", id+TASK_CHOOSECLASS)
-	client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
+
+	if(g_can_choose_class[id])
+	{ 
+		set_task(float(g_classchoose_time), "Remove_ChooseClass", id+TASK_CHOOSECLASS)
+		client_printc(id, "%L", LANG_PLAYER, "ZOMBIE_SELECTCLASS_NOTICE", g_classchoose_time)
+	}
 }
 
 public Remove_ChooseClass(id)
@@ -2393,115 +2166,84 @@ public menu_selectclass_handle(id, menu, item)
 {
 	if(!is_user_connected(id))
 		return PLUGIN_HANDLED
-	if(!g_zombie[id]) 
-		return PLUGIN_HANDLED
-	
+
 	if(item == MENU_EXIT)
 	{
 		menu_destroy(menu)
 		return PLUGIN_HANDLED
 	}
-	if(!g_can_choose_class[id])
-	{
-		client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_SELECT_CLASS", g_classchoose_time)
-		return PLUGIN_HANDLED
-	}
+	
 	
 	new idclass[32], name[32], access, classid
 	menu_item_getinfo(menu, item, access, idclass, 31, name, 31, access)
 	
 	classid = str_to_num(idclass)	
-	
-	if(!ArrayGetCell(zombie_lockcost, classid))
+
+	if(!g_can_choose_class[id])
+	{
+		if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid])
+			g_next_zombie_class[id] = classid
+		return PLUGIN_HANDLED
+	}
+
+	if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid] )
 	{
 		ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
+		set_zombie_class(id, classid, -1, false, INFECT_CHANGECLASS)
+
+		menu_destroy(menu)	
+		g_can_choose_class[id] = 0
+	} 
+	else 
+	{
+		static lock_cost
+		lock_cost = ArrayGetCell(zombie_lockcost, classid)
 		
-		g_zombie_class[id] = classid
-		set_zombie_class(id, g_zombie_class[id])
-		
-		ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
-		
-		set_weapon_anim(id, 3)
-		menu_destroy(menu)
-		
-		if(classid != 0)
-			g_can_choose_class[id] = 0
-	} else {
-		if(!g_unlocked_class[id][classid] && !check_user_admin(id) && !g_free_gun)
+		if(fm_cs_get_user_money(id) >= lock_cost)
 		{
-			static lock_cost
-			lock_cost = ArrayGetCell(zombie_lockcost, classid)
-			
-			if(fm_cs_get_user_money(id) >= lock_cost)
-			{
-				g_unlocked_class[id][classid] = 1
-				fm_cs_set_user_money(id, fm_cs_get_user_money(id) - lock_cost)
-				client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_UNLOCKED_CLASS")
-				
-				ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-				g_zombie_class[id] = classid
-				set_zombie_class(id, g_zombie_class[id])
-				
-				set_weapon_anim(id, 3)
-				
-				ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
-				g_can_choose_class[id] = 0
-				
-				menu_destroy(menu)			
-			} else {
-				client_printc(id, "!g[%s]!n %L", GAMENAME, LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
-				menu_destroy(menu)
-				
-				switch(classid)
-				{
-					case 0..6: show_menu_zombieclass(id, 0)
-					case 7..13: show_menu_zombieclass(id, 1)
-					case 14..19: show_menu_zombieclass(id, 2)
-					default: show_menu_zombieclass(id, 0)
-				}
-			}
-		} else {
-			ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-			
-			g_zombie_class[id] = classid
-			set_zombie_class(id, g_zombie_class[id])
-				
-			set_weapon_anim(id, 3)
-			
-			ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, -1, INFECT_CHANGECLASS)
-			menu_destroy(menu)
-			
-			g_can_choose_class[id] = 0
+			g_unlocked_class[id][classid] = 1
+			fm_cs_set_user_money(id, fm_cs_get_user_money(id) - lock_cost)
+			client_printc(id, "%L", LANG_PLAYER, "MENU_UNLOCKED_CLASS")
+			menu_selectclass_handle(id, menu, item)
+		} 
+		else 
+		{
+			client_printc(id, "%L", LANG_PLAYER, "MENU_CANT_UNLOCK_CLASS")
+			menu_destroy( menu )
+			show_menu_zombieclass(id, 0)
 		}
-	}
+	} 
 	
 	return PLUGIN_HANDLED
 }
 
-public set_zombie_class(id, idclass)
+public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 {
 	if(!is_user_connected(id))
 		return
 	if(!g_zombie[id])
 		return
-		
-	static PlayerModel[64]
-	if(g_zombie_type[id] == ZOMBIE_ORIGIN)
-	{
-		g_zombie_type[id] = ZOMBIE_ORIGIN
-
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_origin, g_zombie_class[id]))
-		ArrayGetString(zombie_model_origin, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	} else {
-		g_zombie_type[id] = ZOMBIE_HOST
-
-		fm_set_user_speed(id, ArrayGetCell(zombie_speed_host, g_zombie_class[id]))
-		ArrayGetString(zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
-	}
 	
+	static PlayerModel[64]
+	g_zombie_class[id] = idclass
+
+	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id]))
+	ArrayGetString(g_zombie_type[id] ? zombie_model_origin : zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
 	set_model(id, PlayerModel)
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
 	
+	fm_set_rendering(id)
+	fm_reset_user_weapon(id)
+	set_weapon_anim(id, 3)
+
+	if(reset_hp)
+	{
+		fm_set_user_health(id, g_StartHealth[id])
+		set_pev(id, pev_max_health, float(g_StartHealth[id]))
+		fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
+	}
+
+	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
 	Event_CheckWeapon(id)
 }
 
@@ -2509,11 +2251,10 @@ public set_human_model(id)
 {
 	static Model[64]
 	
-	if(g_sex[id] == SEX_MALE)
+	switch(g_sex[id])
 	{
-		ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
-	} else if(g_sex[id] == SEX_FEMALE) {
-		ArrayGetString(human_model_female, get_random_array(human_model_female), Model, sizeof(Model))
+		case SEX_FEMALE: ArrayGetString(human_model_female, get_random_array(human_model_female), Model, sizeof(Model))
+		default: ArrayGetString(human_model_male, get_random_array(human_model_male), Model, sizeof(Model))
 	}
 	
 	set_model(id, Model)
@@ -2528,40 +2269,30 @@ public reset_player(id, new_player, zombie_respawn)
 		g_iMaxLevel[id] = 10
 		g_iEvolution[id] = 0.0
 		g_flinfect_multi[id] = 0.5
-
+		g_zombie_class[id] = 0
+		g_next_zombie_class[id] = -1
 		for(new i = 0; i < MAX_ZOMBIECLASS; i++)
 			g_unlocked_class[id][i] = 0
 	}
 
 	if(!zombie_respawn)
 	{
-		g_zombie[id] = g_zombie_class[id] = g_hero[id] = 0
-		g_hero_locked[id] = g_HasNvg[id] = g_iRespawning[id] = 0
-		g_can_choose_class[id] = 1
+		g_zombie[id] = false
+		g_hero_locked[id] = g_HasNvg[id] = g_hero[id] = 0
 		g_level[id] = 0		
-		g_zombie_respawn_time[id] = 0
 		g_iEvolution[id] = 0.0
 	} else {
-		g_hero[id] = g_iRespawning[id] = 0
+		g_hero[id] = 0
 		g_hero_locked[id] = g_HasNvg[id] = 0
-		g_zombie_respawn_time[id] = 0
 	}
 }
 
 public sex_selection(id)
 {
 	if(!is_user_connected(id))
-		return 0
-		
-	new sex
+		return SEX_NONE
 	
-	switch(id)
-	{
-		case 2, 4, 8, 10, 13, 16, 20, 24, 26, 28, 30, 32: sex = SEX_FEMALE
-		default: sex = SEX_MALE
-	}
-	
-	return sex
+	return random_num(0, 2) > 0 ? SEX_FEMALE : SEX_MALE
 }
 
 public do_random_spawn(id, retry_count)
@@ -2643,7 +2374,50 @@ public UpdateFrags(attacker, victim, frags, deaths, scoreboard)
 		}
 	}
 }
+public get_ammo_supply(id, weaponid)
+{
+	static weapon_name[32], ammo_count, ammo_max_rounds
+	static weapon_slot
+	static i, k
 
+	weapon_name[0] = '^0'
+	ammo_count = ammo_max_rounds = weapon_slot = i = k = 0;
+
+	if(weaponid > MAX_WEAPONS && is_entity(weaponid))
+	{
+		i = fm_cs_get_weapon_id(weaponid)
+		ammo_count = rg_get_iteminfo(weaponid, ItemInfo_iMaxClip)
+		ammo_max_rounds = rg_get_iteminfo(weaponid, ItemInfo_iMaxAmmo1)
+
+		rg_set_user_bpammo(id, WeaponIdType:i, ammo_max_rounds)
+		return
+	}
+
+	for(i = 1; i < MAX_WEAPONS - 1; i++)
+	{
+		if(weaponid > 0 && k) continue
+		if(weaponid > 0) i = weaponid; k = 1;
+
+		weapon_slot = rg_get_weapon_info(i, WI_SLOT)
+
+		if(weapon_slot == 0 || weapon_slot == CS_WEAPONSLOT_C4 || weapon_slot == CS_WEAPONSLOT_KNIFE)
+			continue
+
+		if(weapon_slot == CS_WEAPONSLOT_GRENADE)
+		{
+			rg_get_weapon_info(i, WI_NAME, weapon_name, sizeof(weapon_name))
+			rg_give_item(id, weapon_name)
+		}
+
+		ammo_max_rounds = rg_get_weapon_info(i, WI_MAX_ROUNDS)
+		ammo_count = clamp(ammo_max_rounds * (weapon_slot == CS_WEAPONSLOT_GRENADE ? 1 : 3), 0, 240)
+
+		if(rg_get_user_bpammo(id, WeaponIdType:i) == ammo_count)
+			continue
+
+		rg_set_user_bpammo(id, WeaponIdType:i, ammo_count)
+	}
+}
 // ======================== SET MODELS ============================
 // ================================================================
 
@@ -2652,7 +2426,11 @@ public set_model(id, const model[])
 	if(!is_user_alive(id))
 		return
 
-	rg_set_user_model(id, model, true);
+	static Buffer[64];
+	formatex(Buffer, sizeof(Buffer), "models/player/%s/%s.mdl", model, model)
+
+	if(file_exists(Buffer, true))
+		rg_set_user_model(id, model, true);
 }
 // ========================= GAME STOCKS ==========================
 // ================================================================
@@ -2672,35 +2450,6 @@ stock get_color_level(id, num)
 	
 	return color[num];
 }
-
-stock client_printc(index, const text[], any:...)
-{
-	new szMsg[128];
-	vformat(szMsg, sizeof(szMsg) - 1, text, 3);
-
-	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03");
-
-	if(index == 0)
-	{
-		for(new i = 0; i < get_maxplayers(); i++)
-		{
-			if(is_user_connected(i))
-			{
-				message_begin(MSG_ONE_UNRELIABLE, g_Msg_SayText, _, i);
-				write_byte(i);
-				write_string(szMsg);
-				message_end();	
-			}
-		}		
-	} else {
-		message_begin(MSG_ONE_UNRELIABLE, g_Msg_SayText, _, index);
-		write_byte(index);
-		write_string(szMsg);
-		message_end();
-	}
-} 
 
 stock check_user_admin(id)
 {
@@ -2757,38 +2506,44 @@ stock set_weapon_anim(id, anim)
 stock fm_set_user_speed(id, Float:speed)
 {
 	if(!is_user_alive(id))
-		return
-		
-	g_UsingCustomSpeed[id] = 1
-	g_PlayerMaxSpeed[id] = speed		
-		
-	/*
-	set_pev(id, pev_maxspeed, speed)
-	ExecuteHamB(Ham_Player_ResetMaxSpeed, id)
-	
-	client_print(id, print_chat, "Speed %f", speed)*/
+		return	
+
+	set_entvar(id, var_maxspeed, speed)
 }
 
-stock fm_reset_user_speed(id)
+stock fm_reset_user_weapon(id, bool:strip = true)
 {
 	if(!is_user_alive(id))
 		return
-	static Float:speed
-	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
 
-	g_UsingCustomSpeed[id] = g_zombie[id] ? 1 : 0
+	static ent, Float:distance, Float:scalar;
 
-	if(g_zombie[id]) g_PlayerMaxSpeed[id] = speed
-	else rg_reset_maxspeed(id)
-}
+	if(strip)
+		rg_remove_all_items(id, false)
 
-stock fm_reset_user_weapon(id)
-{
-	if(!is_user_alive(id))
-		return
-	rg_remove_all_items(id, false)
-	if(!g_zombie[id]) rg_give_default_items(id)
-	else rg_give_item(id, "weapon_knife")
+	switch(g_zombie[id])
+	{
+		case true: 
+		{
+			ent = rg_give_custom_item(id, "weapon_knife", GT_REPLACE, KNIFE_IMPULSE)
+
+			if(ent)
+			{
+				distance = get_member(ent, m_Knife_flSwingDistance)
+				scalar = ArrayGetCell(zombie_claw_distance1, g_zombie_class[id])
+
+				if(scalar > 0.0)
+					set_member(ent, m_Knife_flSwingDistance, distance * scalar)
+
+				distance = get_member(ent, m_Knife_flStabDistance)
+				scalar = ArrayGetCell(zombie_claw_distance2,  g_zombie_class[id])
+
+				if(scalar > 0.0)
+					set_member(ent, m_Knife_flStabDistance, distance * scalar)
+			}
+		}
+		case false: rg_give_default_items(id)
+	}
 }
 
 stock round(num)
@@ -2846,21 +2601,17 @@ stock GetTotalPlayer({PlayerTeams,_}:team, alive)
 
 stock GetRespawningCount()
 {
-	static Count; Count = 0
-	
-	for(new i = 0; i < g_MaxPlayers; i++)
+	static respawning; respawning = 0
+	for(new i = 1; i <= g_MaxPlayers; i++)
 	{
-		if(!is_user_connected(i))
+		if(!is_user_connected(i) || !g_zombie[i])
 			continue
-		if(!g_zombie[i] || is_user_alive(i))
-			continue
-		if(!g_iRespawning[i])
-			continue
-			
-		Count++
+
+		if(get_member(i, m_flRespawnPending) > 0.0) 
+			respawning++
 	}
 	
-	return Count
+	return respawning;
 }
 
 stock PlaySound(id, const sound[])
@@ -2925,32 +2676,9 @@ stock TeamName:fm_cs_get_user_team(client)
 	return get_member(client, m_iTeam);
 }
 
-stock fm_cs_set_user_team(id, TeamName:team, send_message)
+stock fm_cs_set_user_team(id, TeamName:team)
 {
-	remove_task(id+TASK_TEAMMSG)
-	set_member(id, m_iTeam, team);
-
-	// Send message to update team?
-	if (send_message) set_task(0.1, "fm_cs_set_user_team_msg", id+TASK_TEAMMSG)
-}
-
-// Send User Team Message (Note: this next message can be received by other plugins)
-public fm_cs_set_user_team_msg(taskid)
-{
-	// Tell everyone my new team
-	emessage_begin(MSG_ALL, g_MsgTeamInfo)
-	ewrite_byte(ID_TEAMMSG) // player
-	ewrite_string(CS_TEAM_NAMES[_:fm_cs_get_user_team(ID_TEAMMSG)]) // team
-	emessage_end()
-	
-	// Fix for AMXX/CZ bots which update team paramater from ScoreInfo message
-	emessage_begin(MSG_BROADCAST, g_MsgScoreInfo)
-	ewrite_byte(ID_TEAMMSG) // id
-	ewrite_short(pev(ID_TEAMMSG, pev_frags)) // frags
-	ewrite_short(fm_cs_get_user_deaths(ID_TEAMMSG)) // deaths
-	ewrite_short(0) // class?
-	ewrite_short(_:fm_cs_get_user_team(ID_TEAMMSG)) // team
-	emessage_end()
+	rg_set_user_team(id, team)
 }
 
 public SendScenarioMsg(id, num)
@@ -2968,61 +2696,48 @@ public SendScenarioMsg(id, num)
 	message_end()
 }
 
+// pev->velocity += (pev->origin - pAttacker->pev->origin).Normalize() * flKnockbackForce;
+stock fake_knockback(victim, attacker, Float:flKnockbackForce, bool:bPull = false)
+{
+	if(!is_user_alive(victim) || !is_user_alive(attacker) || flKnockbackForce == 0.0)
+		return
+
+	static Float:Velocity[3], Float:EntOrigin[3], Float:VicOrigin[3]
+
+	pev(victim, pev_velocity, Velocity)
+
+	if(xs_vec_len(Velocity) > 300.0)
+		return
+
+	pev(victim, pev_origin, bPull ? EntOrigin : VicOrigin)
+	pev(attacker, pev_origin, bPull ? VicOrigin : EntOrigin)
+
+	xs_vec_sub(VicOrigin, EntOrigin, VicOrigin)
+	xs_vec_normalize(VicOrigin, VicOrigin)
+	xs_vec_mul_scalar(VicOrigin, flKnockbackForce, VicOrigin)
+	xs_vec_add(Velocity, VicOrigin, Velocity)
+
+	set_pev(victim, pev_velocity, Velocity)
+}
+
 // ======================== Round Terminator ======================
 // ================================================================
 stock bool:TerminateRound({PlayerTeams,_}:team)
 {
-	new WinStatus:winStatus
-	new ScenarioEventEndRound:event
-	new sound[64]
+	new sound[64]; sound[0] = '^0'
 	
 	switch(team)
 	{
-		case TEAM_ZOMBIE:
-		{
-			winStatus         = WINSTATUS_TERRORISTS
-			event             = ROUND_GAME_OVER
-			
-			g_TeamScore[TEAM_ZOMBIE]++
-			ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
-		
-			client_print(0, print_center, g_WinText[TEAM_ZOMBIE])
-		}
-		case TEAM_HUMAN:
-		{
-			winStatus         = WINSTATUS_CTS
-			event             = ROUND_GAME_OVER
-			
-			g_TeamScore[TEAM_HUMAN]++
-			ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
-			
-			client_print(0, print_center, g_WinText[TEAM_HUMAN])
-		}
-		case TEAM_ALL:
-		{
-			winStatus         = WINSTATUS_DRAW
-			event             = ROUND_END_DRAW
-			
-			client_print(0, print_center, g_WinText[TEAM_ALL])
-		}
-		case TEAM_START:
-		{
-			winStatus         = WINSTATUS_NONE
-			event             = ROUND_GAME_COMMENCE
-			
-			client_print(0, print_center, g_WinText[TEAM_START])
-		}
-		default:
-		{
-			return false;
-		}
+		case TEAM_ZOMBIE: ArrayGetString(sound_win_zombie, get_random_array(sound_win_zombie), sound, sizeof(sound))
+		case TEAM_HUMAN: ArrayGetString(sound_win_human, get_random_array(sound_win_human), sound, sizeof(sound))
 	}
 	
-	g_endround = 1
-	StopSound(0)
-	
-	rg_round_end(team == TEAM_START ? 3.0 : 5.0, winStatus, event, g_WinText[team]);
-	PlaySound(0, sound)
+	g_gamestatus = STATUS_ENDROUND
+
+	rg_update_teamscores(team == TEAM_HUMAN, team == TEAM_ZOMBIE);
+	rg_round_end(team == TEAM_START ? 3.0 : 5.0, WINSTATUS_NONE, ROUND_NONE, g_WinText[team]);
+
+	if(sound[0]) PlaySound(0, sound)
 	
 	ExecuteForward(g_Forwards[FWD_GAME_END], g_fwResult, team)
 	
@@ -3040,12 +2755,15 @@ public load_config_file()
 	if( str_to_num(buffer) >= MODE_ORIGINAL ) g_gamemode = clamp( str_to_num(buffer), MODE_ORIGINAL, MODE_HERO)
 	else g_gamemode = MODE_HERO
 
+	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "RANDOMIZER", buffer, sizeof(buffer), DummyArray); g_randomizer = str_to_num(buffer)
+
 	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "MUTANT_ORIGIN_EVO_REQ", buffer, sizeof(buffer), DummyArray); 
 	g_evo_need_infect[ZOMBIE_ORIGIN] = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Game Sub-Mode", "MUTANT_HOST_EVO_REQ", buffer, sizeof(buffer), DummyArray); 
 	g_evo_need_infect[ZOMBIE_HOST] = str_to_num(buffer)
 
 	// GamePlay Configs
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "COUNTDOWN", buffer, sizeof(buffer), DummyArray); g_countdown_time = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level3_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_ARMOR", buffer, sizeof(buffer), DummyArray); zombie_level2_armor = str_to_num(buffer)

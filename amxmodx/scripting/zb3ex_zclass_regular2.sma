@@ -36,9 +36,12 @@ new g_zombie_classid, g_can_berserk[33], g_berserking[33], Float:g_current_time[
 
 #define FASTRUN_FOV 110
 
-#define TASK_BERSERKING 12000
-#define TASK_COOLDOWN 12001
-#define TASK_BERSERK_SOUND 12002
+enum (+= 50)
+{
+	TASK_BERSERKING = 21000,
+	TASK_COOLDOWN,
+	TASK_BERSERK_SOUND
+}
 
 new g_Msg_Fov, g_synchud1
 
@@ -252,7 +255,7 @@ public Do_Berserk(id)
 		
 		// Set MaxSpeed & Gravity
 		zb3_set_user_speed(id, g_beserk_speed)
-		set_pev(id, pev_maxspeed, g_beserk_gravity)
+		zb3_set_user_gravity(id, g_beserk_gravity)
 		
 		// Play Berserk Sound
 		EmitSound(id, CHAN_VOICE, berserk_startsound)

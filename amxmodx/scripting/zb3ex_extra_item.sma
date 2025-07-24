@@ -1,12 +1,13 @@
 #include <amxmodx>
 #include <cstrike>
 #include <hamsandwich>
+#define PRINT_CHAT_COLOR
 #include <zombie_thehero2>
 
 #define PLUGIN "[Zombie: The Hero] Addon: Extra Item"
 #define VERSION "2.0"
 #define AUTHOR "Dias"
-
+// #define _VERBOSE
 #define MAX_ITEM 20
 #define MAX_FORWARD 2
 
@@ -43,6 +44,8 @@ public plugin_init()
 public plugin_natives()
 {
 	register_native("zb3_register_item", "native_register_item", 1)
+	register_native("zb3_get_own_item", "native_get_own_item", 1)
+	register_native("zb3_set_own_item", "native_set_own_item", 1)
 }
 
 public plugin_precache()
@@ -75,7 +78,7 @@ public client_disconnect(id)
 public reset_value_handle(id)
 {
 	for(new i = 0; i < MAX_ITEM; i++)
-		g_bought_item[id][i] = 0
+		g_bought_item[id][i] = is_user_bot(id) ? 1 : 0
 }
 
 public zb3_round_start_post() g_zombie_appear = 0
@@ -87,8 +90,6 @@ public fw_Spawn_Post(id)
 		return HAM_IGNORED
 	if(zb3_get_user_zombie(id))
 		return HAM_IGNORED
-		
-	client_printc(id, "!g[Zombie: The Hero]!n Bam !g(M)!n de mua Item")
 	
 	return HAM_HANDLED
 }
@@ -106,7 +107,7 @@ public cmd_openmenu(id)
 				
 			return PLUGIN_HANDLED
 		} else {
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY_START")
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_START")
 			return PLUGIN_HANDLED
 		}
 	} else if(cs_get_user_team(id) == CS_TEAM_T) {
@@ -121,7 +122,8 @@ public open_menu_shop(id, team)
 {
 	new item_menu, temp_string[128], temp_string2[128], temp_int, temp_string3[128], 
 	temp_string4[3], temp_int2, temp_string5[10]
-	item_menu = menu_create("[Zombie: The Hero] Item Menu", "item_menu_handle")
+	formatex(temp_string, sizeof(temp_string), "[%L] %L", LANG_PLAYER, "GAME_BRANDING", LANG_PLAYER, "SHOP_MENU")
+	item_menu = menu_create(temp_string, "item_menu_handle")
 	
 	for(new i = 0; i < g_item_count; i++)
 	{
@@ -166,7 +168,7 @@ public item_menu_handle(id, menu, item)
 	
 	if(cs_get_user_team(id) == CS_TEAM_CT && g_zombie_appear)
 	{
-		client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY_START")
+		client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_START")
 		return PLUGIN_HANDLED
 	}
 	
@@ -191,42 +193,56 @@ public item_menu_handle(id, menu, item)
 	{
 		if(CurMoney >= Cost)
 		{
-			ArrayGetString(item_desc, item_id, temp_string2, sizeof(temp_string2))
 			cs_set_user_money(id, CurMoney - Cost)
+#if defined _VERBOSE
+			ArrayGetString(item_desc, item_id, temp_string2, sizeof(temp_string2))
 			
 			if(ArrayGetCell(item_permanent_buy, item_id))
 				formatex(temp_string3, sizeof(temp_string3), "%L", LANG_PLAYER, "SHOP_PERMANENT_ITEM")
 			else
 				formatex(temp_string3, sizeof(temp_string3), "%L", LANG_PLAYER, "SHOP_ITEM_ONCETIME_USE")
 			
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY", temp_string, Cost, temp_string3)
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY_DESC", temp_string, temp_string2)
-			
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY", temp_string, Cost, temp_string3)
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_DESC", temp_string, temp_string2)
+#else
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_LESS", temp_string, Cost)
+#endif
 			ExecuteForward(g_item_forward[FWD_ITEM_SELECTED_POST], g_forward_dummy, id, item_id)
 		} else {
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY", temp_string, Cost)
+#if defined _VERBOSE
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY", temp_string, Cost)
+#else
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY_LESS")
+#endif
 		}
 	} else if(ArrayGetCell(item_permanent_buy, item_id) && !g_bought_item[id][item_id]) {
 		if(CurMoney >= Cost)
 		{
-			ArrayGetString(item_desc, item_id, temp_string2, sizeof(temp_string2))
 			cs_set_user_money(id, CurMoney - Cost)
+#if defined _VERBOSE
+			ArrayGetString(item_desc, item_id, temp_string2, sizeof(temp_string2))
 			
 			if(ArrayGetCell(item_permanent_buy, item_id))
 				formatex(temp_string3, sizeof(temp_string3), "%L", LANG_PLAYER, "SHOP_PERMANENT_ITEM")
 			else
 				formatex(temp_string3, sizeof(temp_string3), "%L", LANG_PLAYER, "SHOP_ITEM_ONCETIME_USE")
 			
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY", temp_string, Cost, temp_string3)
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY_DESC", temp_string, temp_string2)
-			
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY", temp_string, Cost, temp_string3)
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_DESC", temp_string, temp_string2)
+#else
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_LESS", temp_string, Cost)
+#endif
 			g_bought_item[id][item_id] = 1
 			ExecuteForward(g_item_forward[FWD_ITEM_SELECTED_POST], g_forward_dummy, id, item_id)
 		} else {
-			client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY", temp_string, Cost)
+#if defined _VERBOSE
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY", temp_string, Cost)
+#else
+			client_printc(id, "%L", LANG_PLAYER, "SHOP_NOT_ENOUGH_MONEY_LESS")
+#endif
 		}		
 	} else if(ArrayGetCell(item_permanent_buy, item_id) && g_bought_item[id][item_id]) {
-		client_printc(id, "!g[Zombie: The Hero]!n %L", LANG_PLAYER, "SHOP_BUY_ONE_TIME", temp_string)
+		client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_ONE_TIME", temp_string)
 	}
 	
 	return PLUGIN_CONTINUE
@@ -247,32 +263,11 @@ public native_register_item(const name[], const desc[], cost, team, permanent_bu
 	
 	return (g_item_count - 1)
 }
-
-stock client_printc(index, const text[], any:...)
+public native_get_own_item(id, item)
 {
-	new szMsg[128];
-	vformat(szMsg, sizeof(szMsg) - 1, text, 3);
-
-	replace_all(szMsg, sizeof(szMsg) - 1, "!g", "^x04");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!n", "^x01");
-	replace_all(szMsg, sizeof(szMsg) - 1, "!t", "^x03");
-
-	if(index == 0)
-	{
-		for(new i = 0; i < get_maxplayers(); i++)
-		{
-			if(is_user_connected(i))
-			{
-				message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, i);
-				write_byte(i);
-				write_string(szMsg);
-				message_end();	
-			}
-		}		
-	} else {
-		message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, index);
-		write_byte(index);
-		write_string(szMsg);
-		message_end();
-	}
-} 
+	return g_bought_item[id][item]
+}
+public native_set_own_item(id, item, bool:own)
+{
+	g_bought_item[id][item] = own
+}

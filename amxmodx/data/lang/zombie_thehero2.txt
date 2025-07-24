@@ -1,4 +1,5 @@
 ﻿[en]
+GAME_BRANDING = multiZ
 GAME_LESS_PLAYER = Waiting for the opposing player to enter...
 GAME_COUNTDOWN = Remaining time for zombie selection: %i second(s)
 GAME_SCORE_HUD = Human - Zombie^n%i -------- %i
@@ -21,14 +22,17 @@ NOTICE_ITEM_BROADCAST = A supply box has arrived!!
 NOTICE_ITEM_PICKUP = Acquired (%s) Supply Item.
 NOTICE_ITEM_PICKUP_BROADCAST = %s has acquired (%s) Supply Item.
 
+SHOP_MENU = Item Menu
 SHOP_BUY_START = You can only buy before countdown end. 
 SHOP_PERMANENT_ITEM = Permanent
 SHOP_ITEM_ONCETIME_USE = One-Time Use
 SHOP_BOUGHT = Bought
-SHOP_BUY = You bought: !g%s!n with cost: !g$%i!n. Item Type: !g%s!n
+SHOP_BUY = You bought: !g%s!n with cost: !g$%i!n. Type: !g%s!n
+SHOP_BUY_LESS = You bought: !t%s!n @ !t$%i!n.
 SHOP_BUY_DESC = [!g%s!n] Description: !g%s!n
-SHOP_NOT_ENOUGH_MONEY = You don't have Enough money to buy: !g%s!n (Required: !g$%i!n)
-
+SHOP_NOT_ENOUGH_MONEY = You don't have enough money to buy: !g%s!n (Required: !g$%i!n)
+SHOP_NOT_ENOUGH_MONEY_LESS = #Cstrike_TitlesTXT_Not_Enough_Money
+SHOP_BUY_ONE_TIME = You already have !t%s!n
 WIN_HUMAN = Human Wins
 WIN_ZOMBIE = Zombie Wins
 
@@ -38,6 +42,16 @@ MENU_UNLOCK_COST = Unlock Cost
 MENU_CANT_SELECT_CLASS = You only can choose class before %i second(s) after get infected...
 MENU_UNLOCKED_CLASS = You have !gUnlocked!n this class zombie. Now you can use it for !gAll Round!n
 MENU_CANT_UNLOCK_CLASS = You !gDon't Have Enough Money!n to unlock this class.
+
+SHOP_WEAPON = Weapon Selection
+SHOP_PRIMARY = Primary 
+SHOP_SECONDARY = Secondary 
+SHOP_MELEE = Melee 
+SHOP_GRENADE = Grenade 
+SHOP_GET = Buy Weapons
+SHOP_MISSCLICK = Press 'buyammo1' to reopen weapon selection.
+
+RANDOM_WEAPON_NOTICE = Weapon Selection
 
 ZOMBIE_REGULAR_CANTBERSERK = Your Health is too low... Need bigger than 500
 ZOMBIE_BANSHEE_NODUCK = You can't use your skill when you are ducking ...
@@ -77,3 +91,31 @@ ZCLASS_STAMPER_DESC = Stamping
 ZCLASS_RESIDENT_NAME = Sting Finger
 ZCLASS_RESIDENT_DESC = Penetration
 ZCLASS_RESIDENT_DESC2 = Heavenly Jump
+
+ITEM_SPRINT_NAME = Sprint
+ITEM_DS_NAME = Deadly Shot
+ITEM_BB_NAME = Bloody Blade
+ITEM_WB_NAME = Wing Boots
+ITEM_DMG_NAME = Morale Boost+
+ITEM_DG_NAME = Double Grenade
+ITEM_70INFECT_NAME = 70%% Infect Health
+ITEM_ZGREN_NAME = Zombie Grenade
+ITEM_IM_NAME = Instart Respawn
+ITEM_HABOOST_NAME = Strong Infected
+
+ITEM_SPRINT_DESC = Run Faster
+ITEM_DS_DESC = Do Headshot Only
+ITEM_BB_DESC = 2x Melee DMG
+ITEM_DMG_DESC = 30%% DMG Boost
+ITEM_WB_DESC = -0.2 Gravity
+ITEM_DG_DESC = +1 Grenade
+ITEM_70INFECT_DESC = -20%% Penalty
+ITEM_ZGREN_DESC = Knockback Utility
+ITEM_IM_DESC = 0" Respawn
+ITEM_HABOOST_DESC = 1000HP + 100AP
+
+SUPPLY_ITEM_AMMO = Grenades and Magazines Set
+SUPPLY_ITEM_NVGS = Nightvision Googles
+SUPPLY_ITEM_AK47L = CV-47 60R
+SUPPLY_ITEM_DMP7A1 = Dual MP7A1
+SUPPLY_ITEM_DDEAGLE = Dual Nighthawk

@@ -28,12 +28,17 @@ new TrapSlow[64], model_trap[64], sound_trapsetup[64], sound_trapped[64]
 
 new g_zombie_classid, g_can_set_trap[33], Float:g_current_time[33]
 
+enum (+= 50)
+{
+	TASK_REMOVETRAP = 24000,
+	TASK_COOLDOWN
+}
+
 #define TRAP_CLASSNAME "zb_trap"
-#define TASK_COOLDOWN 12001
 #define TRAP_INVISIBLE 150
 #define MAX_TRAP 10
+
 // IDs inside tasks
-#define TASK_REMOVETRAP 12938
 #define ID_REMOVETRAP (taskid - TASK_REMOVETRAP)
 
 // Vars

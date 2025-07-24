@@ -21,14 +21,15 @@ new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Floa
 new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
 new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
-new Float:g_heal_cooldown[2], g_heal_amount[2], Float:g_heal_radius
+new Array:HealAmountLevel
+new Float:g_heal_cooldown[2], g_heal_amount[3], Float:g_heal_radius
 new HealSkillSound[64], HealSoundMale[64], HealSoundFemale[64], HealerSpr[64], HealedSpr[64]
 
 new g_zombie_classid, g_can_heal[33], Float:g_current_time[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
-new g_synchud1, g_MaxPlayers
+new g_synchud1, g_synchud2, g_MaxPlayers
 
 public plugin_init() 
 {
@@ -38,6 +39,7 @@ public plugin_init()
 	register_clcmd("drop", "cmd_drop")
 	
 	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
+	g_synchud2 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL2)
 	g_MaxPlayers = get_maxplayers()
 }
 
@@ -47,8 +49,19 @@ public plugin_precache()
 
 	DeathSound = ArrayCreate(64, 1)
 	HurtSound = ArrayCreate(64, 1)
+	HealAmountLevel = ArrayCreate(64, 1)
 
 	load_cfg()
+
+	static i, size, szBuffer[16]
+
+	size = sizeof(g_heal_amount)
+
+	for(i = 0; i < size; i++)
+	{
+		ArrayGetString(HealAmountLevel, i, szBuffer, charsmax(szBuffer))
+		g_heal_amount[i] = str_to_num(szBuffer)
+	}
 
 	ArrayGetString(DeathSound, 0, DeathSoundString1, charsmax(DeathSoundString1))
 	ArrayGetString(DeathSound, 1, DeathSoundString2, charsmax(DeathSoundString2))
@@ -109,8 +122,7 @@ public load_cfg()
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_COOLDOWN_ORIGIN", buffer, sizeof(buffer), DummyArray); g_heal_cooldown[ZOMBIE_ORIGIN] = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_heal_cooldown[ZOMBIE_HOST] = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_AMOUNT_ORIGIN", buffer, sizeof(buffer), DummyArray); g_heal_amount[ZOMBIE_ORIGIN] = str_to_num(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_AMOUNT_HOST", buffer, sizeof(buffer), DummyArray); g_heal_amount[ZOMBIE_HOST] = str_to_num(buffer)
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SKILL, "HEAL_AMOUNT", buffer, 0, HealAmountLevel);
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_RADIUS", buffer, sizeof(buffer), DummyArray); g_heal_radius = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAL_SKILL_SOUND", HealSkillSound, sizeof(HealSkillSound), DummyArray); 
@@ -221,53 +233,51 @@ public cmd_drop(id)
 
 public Do_Heal(id)
 {
+	static i, Float:Origin[3]
 	static CurrentHealth, MaxHealth, RealHealth, PatientGender
-	static HealTotalAmount; HealTotalAmount = 0
+	static HealAmount, HealTotalAmount, HealSingle; 
+	i = RealHealth = CurrentHealth = PatientGender = MaxHealth = HealAmount = HealTotalAmount = HealSingle = 0
 	g_current_time[id] = 0.0
 	g_can_heal[id] = 0
 	
-	if(zb3_get_user_level(id) > 1) // Origin Zombie
+	set_hudmessage(0, 255, 255, 0.7, 0.9, 0, 3.0, 3.0, 0.05, 3.0);
+
+	pev(id, pev_origin, Origin)
+
+	while((i = find_ent_in_sphere(i, Origin, g_heal_radius)) != 0)
 	{
-		for(new i = 0; i < g_MaxPlayers; i++)
+		if(!is_user_alive(i))
+			continue
+		if(!zb3_get_user_zombie(i))
+			continue
+
+		PatientGender = zb3_get_user_sex(i)
+		CurrentHealth = get_user_health(i)
+		MaxHealth = zb3_get_user_starthealth(i)
+		HealAmount = g_heal_amount[zb3_get_user_level(id) - 1]
+
+		RealHealth = clamp(CurrentHealth + HealAmount, CurrentHealth, MaxHealth)
+		HealSingle = RealHealth - CurrentHealth
+		HealTotalAmount += HealSingle
+
+		if(HealSingle < 1)
+			continue
+
+		zb3_set_user_health(i, RealHealth)
+
+		if(id == i) Heal_Icon(i, 1)
+		else 
 		{
-			if(!is_user_alive(i))
-				continue
-			if(!zb3_get_user_zombie(i))
-				continue
-			if(entity_range(id, i) > g_heal_radius)
-				continue
-
-			PatientGender = zb3_get_user_sex(i)
-			CurrentHealth = get_user_health(i)
-			MaxHealth = zb3_get_user_starthealth(i)
-			
-			RealHealth = clamp(CurrentHealth +  g_heal_amount[ZOMBIE_ORIGIN], CurrentHealth, MaxHealth)
-			HealTotalAmount += RealHealth - CurrentHealth
-
-			if(RealHealth - CurrentHealth < 1)
-				continue
-
-			zb3_set_user_health(i, RealHealth)
-
-			if(id == i) Heal_Icon(i, 1)
-			else Heal_Icon(i, 0)
-
+			ShowSyncHudMsg(i, g_synchud2, "+ %i", HealSingle)
+			Heal_Icon(i, 0)
 			EmitSound(i, CHAN_AUTO, PatientGender == SEX_FEMALE ? HealSoundFemale : HealSoundMale)
 		}
-#if defined _DEBUG
-		client_print(id, print_chat, "Heal for %i", HealTotalAmount); HealTotalAmount = 0
-#endif
-		EmitSound(id, CHAN_AUTO, HealSkillSound)
-	} else { // Host Zombie
-		CurrentHealth = get_user_health(id)
-		MaxHealth = zb3_get_user_starthealth(id)
-		
-		RealHealth = clamp(CurrentHealth + g_heal_amount[ZOMBIE_HOST], CurrentHealth, MaxHealth)
-		zb3_set_user_health(id, RealHealth)
-		
-		Heal_Icon(id, 1)
-		EmitSound(id, CHAN_AUTO, HealSkillSound)
 	}
+
+	if(HealTotalAmount > 0)
+		ShowSyncHudMsg(id, g_synchud2, "+ %i", HealTotalAmount)
+
+	EmitSound(id, CHAN_AUTO, HealSkillSound)
 }
 
 public zb3_skill_show(id)
@@ -286,7 +296,7 @@ public zb3_skill_show(id)
 	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
 	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
 
-	if(percent >= 100) {
+	if(percent >= 99) {
 		if(!g_can_heal[id]) g_can_heal[id] = 1
 	}	
 }
