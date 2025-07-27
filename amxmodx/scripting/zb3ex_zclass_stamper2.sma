@@ -64,7 +64,7 @@ public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
-	RegisterHam(Ham_TraceAttack, "info_target", "Coffin_TraceAttack")
+	// RegisterHam(Ham_TraceAttack, "info_target", "Coffin_TraceAttack")
 	RegisterHam(Ham_Think, "info_target", "Coffin_Think")
 
 	g_msg_ScreenShake = get_user_msgid("ScreenShake")
@@ -411,7 +411,7 @@ public CoffinExp_Handle(ent, Exp)
 		{
 			if(!is_user_alive(Victim) || !is_valid_ent(Victim)) 
 				continue
-			
+#if 0
 			static Float:VictimOrigin[3], Float:Distance, Float:Speed, Float:NewSpeed, Float:Velocity[3]
 			pev(Victim, pev_origin, VictimOrigin)
 			
@@ -425,6 +425,10 @@ public CoffinExp_Handle(ent, Exp)
 			
 			if(get_user_health(Victim) > g_coffin_damage) ExecuteHam(Ham_TakeDamage, Victim, 0, Victim, g_coffin_damage, DMG_BLAST)
 			else ExecuteHamB(Ham_Killed, Victim, 0, 0)
+#else
+			zb3_do_knockback(ent, Victim, g_coffin_knockback)
+			CreateScreenShake(Victim)
+#endif
 		}
 	}
 	
@@ -557,7 +561,7 @@ stock is_entity_stuck(ent)
 	
 	return false
 }
-
+#if 0
 GetSpeedVector(const Float:origin1[3],const Float:origin2[3],Float:speed, Float:new_velocity[3])
 {
 	new_velocity[0] = origin2[0] - origin1[0]
@@ -570,3 +574,4 @@ GetSpeedVector(const Float:origin1[3],const Float:origin2[3],Float:speed, Float:
 	
 	return 1
 }
+#endif

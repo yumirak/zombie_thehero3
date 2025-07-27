@@ -868,9 +868,9 @@ public native_give_user_ammo(id, weaponid)
 	get_ammo_supply(id, weaponid)
 }
 
-public native_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull)
+public native_do_knockback(attacker, victim, Float:flKnockbackForce, const iFlag)
 {
-	fake_knockback(victim, attacker, Float:flKnockbackForce, bPull)
+	fake_knockback(victim, attacker, Float:flKnockbackForce, iFlag)
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
@@ -1375,7 +1375,7 @@ public do_knockback(victim, attacker)
 	wpn_attribute[0] *= zb_class_attribute[0]
 	wpn_attribute[1] *= zb_class_attribute[1]
 
-	fake_knockback(victim, attacker, wpn_attribute[0])
+	fake_knockback(victim, attacker, wpn_attribute[0], ZB3_KFL_IGNOREZ)
 	set_member(victim, m_flVelocityModifier, wpn_attribute[1]);
 #if defined _DEBUG
 	client_print(victim, print_chat, "%f, %f", wpn_attribute[0], wpn_attribute[1])
@@ -2775,7 +2775,7 @@ public SendScenarioMsg(id, num)
 }
 
 // pev->velocity += (pev->origin - pAttacker->pev->origin).Normalize() * flKnockbackForce;
-stock fake_knockback(victim, attacker, Float:flKnockbackForce, bool:bPull = false)
+stock fake_knockback(victim, attacker, Float:flKnockbackForce, const iFlag)
 {
 	if(!is_entity(victim) || !is_entity(attacker) || flKnockbackForce == 0.0)
 		return
@@ -2784,17 +2784,26 @@ stock fake_knockback(victim, attacker, Float:flKnockbackForce, bool:bPull = fals
 
 	pev(victim, pev_velocity, Velocity)
 
-	if(xs_vec_len(Velocity) > 300.0)
+	if(!(iFlag & ZB3_KFL_IGNORE_VEL) && xs_vec_len(Velocity) > 400.0)
 		return
 
-	pev(victim, pev_origin, bPull ? EntOrigin : VicOrigin)
-	pev(attacker, pev_origin, bPull ? VicOrigin : EntOrigin)
+	pev(victim, pev_origin, (iFlag & ZB3_KFL_PULL) ? EntOrigin : VicOrigin)
+	pev(attacker, pev_origin, (iFlag & ZB3_KFL_PULL) ? VicOrigin : EntOrigin)
 
 	xs_vec_sub(VicOrigin, EntOrigin, VicOrigin)
 	xs_vec_normalize(VicOrigin, VicOrigin)
 	xs_vec_mul_scalar(VicOrigin, flKnockbackForce, VicOrigin)
-	xs_vec_add(Velocity, VicOrigin, Velocity)
 
+	if(iFlag & ZB3_KFL_IGNOREZ)
+		VicOrigin[2] = 0.0
+
+	if(iFlag & ZB3_KFL_IGNORE_CURVEL)
+	{
+		set_pev(victim, pev_velocity, VicOrigin)
+		return
+	}
+
+	xs_vec_add(Velocity, VicOrigin, Velocity)
 	set_pev(victim, pev_velocity, Velocity)
 }
 

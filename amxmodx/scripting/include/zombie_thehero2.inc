@@ -14,6 +14,15 @@
 #define GAMESYSTEMNAME "zombie_thehero2"
 
 // Enum
+enum
+{
+	ZB3_KFL_NONE = 0,
+	ZB3_KFL_IGNOREZ,
+	ZB3_KFL_IGNORE_VEL,
+	ZB3_KFL_IGNORE_CURVEL,
+	ZB3_KFL_PULL
+}
+
 enum iGameCurStatus
 {
 	STATUS_WAITING,
@@ -215,7 +224,7 @@ native zb3_get_player_spawn_count();
 native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
 native zb3_give_user_ammo(id, weaponid = -1);
-native zb3_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull = false)
+native zb3_do_knockback(attacker, victim, Float:flKnockbackForce, const iFlag = ZB3_KFL_NONE)
 native zb3_register_zcooldown(cooldown_host, cooldown_origin);
 // END NEW NATIVES
 

@@ -177,7 +177,7 @@ public fw_Trap_Think(ent)
 
 	if(!zb3_get_user_zombie(catchid))
 	{
-		zb3_do_knockback(ent, catchid, 250.0, true)
+		zb3_do_knockback(ent, catchid, 100.0, ZB3_KFL_PULL)
 	}
 	else
 	{

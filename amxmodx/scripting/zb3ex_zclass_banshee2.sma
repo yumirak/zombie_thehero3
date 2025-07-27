@@ -304,10 +304,11 @@ public fw_Bat_Think(ent)
 	if(!pev_valid(ent))
 		return
 
-	static Owner, catchid, Victim, Float:Origin[3]; 
+	static Owner, catchid, Victim, Float:Origin[3], Float:livetime; 
 	Owner = pev(ent, pev_owner)
+	pev(ent, pev_livetime, livetime)
 	
-	if(get_gametime() > pev(ent, pev_livetime) || !is_user_alive(Owner) || zb3_get_user_zombie_class(Owner) != g_zombie_classid)
+	if(get_gametime() > livetime || !is_user_alive(Owner) || zb3_get_user_zombie_class(Owner) != g_zombie_classid)
 	{
 		Bat_Explosion(ent)
 		Reset_Owner(Owner)
@@ -329,8 +330,9 @@ public fw_Bat_Think(ent)
 		{
 			if(!is_user_alive(Victim) && zb3_get_user_zombie(Victim))
 				continue
-				
-			hook_ent(Victim, Owner, float(g_bat_catch_velocity[zb3_get_user_zombie_type(Owner)]))
+			
+			zb3_do_knockback(Owner, Victim, float(g_bat_catch_velocity[zb3_get_user_zombie_type(Owner)]), ZB3_KFL_PULL | ZB3_KFL_IGNORE_CURVEL)
+			// hook_ent(Victim, Owner, float(g_bat_catch_velocity[zb3_get_user_zombie_type(Owner)]))
 		}
 	}
 	else

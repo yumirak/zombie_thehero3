@@ -24,13 +24,6 @@ ZOMBIEBOM_P_MODEL[64], ZOMBIEBOM_W_MODEL[64]
 const PEV_NADE_TYPE = pev_flTimeStepSound
 const NADE_TYPE_BLAST = 1123
 new Array:viewmodel_sound
-
-new const hit_sound[3][] =
-{
-	"player/bhit_flesh-1.wav",
-	"player/bhit_flesh-2.wav",
-	"player/bhit_flesh-3.wav"
-}	
 /// ==========================================
 
 // Item: x Health & Armor
@@ -380,29 +373,13 @@ stock zombiebomb_explode(ent)
 	static victim
 	victim = -1
 	
-	new Float:fOrigin[3],Float:fDistance,Float:fDamage
 	while ((victim = engfunc(EngFunc_FindEntityInSphere, victim, originF, g_zombie_grenade_radius)) != 0)
 	{
-		// Only effect alive non-spawnprotected humans
 		if (!is_user_alive(victim))
 			continue;
-		
-		// get value
-		pev(victim, pev_origin, fOrigin)
-		if(is_wall_between_points(originF, fOrigin, victim))
-			continue		
-		
-		fDistance = get_distance_f(fOrigin, originF)
-		fDamage = g_zombie_grenade_power - floatmul(g_zombie_grenade_power, floatdiv(fDistance, g_zombie_grenade_radius))//get the damage value
-		fDamage *= estimate_take_hurt(originF, victim, 0)//adjust
-		if (fDamage < 0)
-			continue
-	
+
+		zb3_do_knockback(ent, victim, zb3_get_user_zombie(victim) ? g_zombie_grenade_power : g_zombie_grenade_power * 2.0)
 		shake_screen(victim)
-		hook_ent2(victim, originF, g_zombie_grenade_power, 2)
-		emit_sound(victim, CHAN_AUTO, hit_sound[random(sizeof(hit_sound))], 1.0, ATTN_NORM, 0, PITCH_NORM)	
-	
-		continue;
 	}
 	
 	// Get rid of the grenade
@@ -428,21 +405,6 @@ stock EffectZombieBomExp(id)
 	}
 }
 
-stock manage_effect_action(iEnt, Float:fEntOrigin[3], Float:fPoint[3], Float:fDistance, Float:fDamage)
-{
-	new Float:Velocity[3]
-	pev(iEnt, pev_velocity, Velocity)
-	
-	new Float:fTime = floatdiv(fDistance, fDamage)
-	new Float:fVelocity[3]
-	fVelocity[0] = floatdiv((fEntOrigin[0] - fPoint[0]), fTime) + Velocity[0]*0.5
-	fVelocity[1] = floatdiv((fEntOrigin[1] - fPoint[1]), fTime) + Velocity[1]*0.5
-	fVelocity[2] = floatdiv((fEntOrigin[2] - fPoint[2]), fTime) + Velocity[2]*0.5
-	set_pev(iEnt, pev_velocity, fVelocity)
-	
-	return 1
-}
-
 stock shake_screen(id)
 {
 	if(!is_user_connected(id))
@@ -453,44 +415,6 @@ stock shake_screen(id)
 	write_short(1<<13)
 	write_short(1<<13)
 	message_end()
-}
-
-stock hook_ent2(ent, Float:VicOrigin[3], Float:speed, type)
-{
-	static Float:fl_Velocity[3]
-	static Float:EntOrigin[3]
-	
-	pev(ent, pev_origin, EntOrigin)
-	static Float:distance_f
-	distance_f = get_distance_f(EntOrigin, VicOrigin)
-	
-	new Float:fl_Time = distance_f / speed
-	
-	if(type == 1)
-	{
-		fl_Velocity[0] = ((VicOrigin[0] - EntOrigin[0]) / fl_Time) * 1.5
-		fl_Velocity[1] = ((VicOrigin[1] - EntOrigin[1]) / fl_Time) * 1.5
-		fl_Velocity[2] = (VicOrigin[2] - EntOrigin[2]) / fl_Time		
-	} else if(type == 2) {
-		fl_Velocity[0] = ((EntOrigin[0] - VicOrigin[0]) / fl_Time) * 1.5
-		fl_Velocity[1] = ((EntOrigin[1] - VicOrigin[1]) / fl_Time) * 1.5
-		fl_Velocity[2] = (EntOrigin[2] - VicOrigin[2]) / fl_Time
-	}
-
-	set_pev(ent, pev_velocity, fl_Velocity)
-}
-
-stock Float:estimate_take_hurt(Float:fPoint[3], ent, ignored) 
-{
-	new Float:fOrigin[3]
-	new tr
-	new Float:fFraction
-	pev(ent, pev_origin, fOrigin)
-	engfunc(EngFunc_TraceLine, fPoint, fOrigin, DONT_IGNORE_MONSTERS, ignored, tr)
-	get_tr2(tr, TR_flFraction, fFraction)
-	if ( fFraction == 1.0 || get_tr2( tr, TR_pHit ) == ent ) //no valid enity between the explode point & player
-		return 1.0
-	return 0.6//if has fraise, lessen blast hurt
 }
 
 public event_CurWeapon(id)
@@ -510,18 +434,3 @@ public event_CurWeapon(id)
 		}
 	}
 }
-
-// ================ Stock
-stock is_wall_between_points(Float:start[3], Float:end[3], ignore_ent)
-{
-	static ptr
-	ptr = create_tr2()
-
-	engfunc(EngFunc_TraceLine, start, end, IGNORE_MONSTERS, ignore_ent, ptr)
-	
-	static Float:EndPos[3]
-	get_tr2(ptr, TR_vecEndPos, EndPos)
-
-	free_tr2(ptr)
-	return floatround(get_distance_f(end, EndPos))
-} 
