@@ -4,6 +4,7 @@
 #include <fakemeta_util>
 #include <hamsandwich>
 #include <zombie_thehero2>
+#include <reapi>
 
 #define PLUGIN "[ZB3] Zombie Class: Sting Finger"
 #define VERSION "2.0"
@@ -27,8 +28,7 @@ new Float:g_tentacle_cooldown[2], Float:g_tentacle_range[2], Float:g_tentacle_st
 new TentacleSound[64], HeavyJumpSound[64]
 
 new g_zombie_classid
-new g_synchud1, Float:g_current_time[33], Float:g_current_time2[33]
-new g_can_tentacle[33], g_can_hj[33], g_hj_ing[33], g_temp_attack[33], m_iBlood[2]
+new g_hj_ing[33], m_iBlood[2]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
@@ -49,10 +49,6 @@ enum (+= 50)
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	register_forward(FM_CmdStart, "fw_CmdStart")	
-	register_clcmd("drop", "cmd_drop")
-	
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -78,6 +74,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_tentacle_cooldown[ZOMBIE_HOST], g_tentacle_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheSound, TentacleSound)
@@ -150,33 +147,19 @@ public zb3_user_infected(id, infector, infect_flag)
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id, true) 
-		case INFECT_CHANGECLASS:
-		{
-			if(g_hj_ing[id]) {
-				zb3_set_user_gravity(id, g_jump_gravity[zb3_get_user_zombie_type(id)])
-			}
-		} 
+		case INFECT_VICTIM: reset_skill(id) 
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
+		reset_skill(id)
 	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time )
-	{
-		g_current_time[id] = g_tentacle_cooldown[zb3_get_user_zombie_type(id)]
-		g_current_time2[id] = g_jump_cooldown[zb3_get_user_zombie_type(id)]
-	} 
-
-	g_can_tentacle[id] = reset_time ? 1 : 0
-	g_can_hj[id] = reset_time ? 1 : 0
 	g_hj_ing[id] = 0
 
 	if(task_exists(id+TASK_HEAVYJUMP)) remove_task(id+TASK_HEAVYJUMP)
@@ -186,7 +169,7 @@ public reset_skill(id, bool:reset_time)
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
 public zb3_user_dead(id) 
@@ -194,69 +177,40 @@ public zb3_user_dead(id)
 	if(!zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return;
 
-	reset_skill(id, false)
+	reset_skill(id)
 }
-public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
+	if(class != g_zombie_classid)
+		return 0
 	if(get_user_weapon(id) != CSW_KNIFE)
-		return PLUGIN_CONTINUE
-	if(!g_can_tentacle[id])
+		return 0
+	switch(skullnum)
 	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
-
-	Do_Tentacle(id)
-
-	return PLUGIN_HANDLED
-}
-
-public fw_CmdStart(id, uc_handle, seed)
-{
-	if(!is_user_alive(id) || zb3_get_mode() <= MODE_ORIGINAL)
-		return FMRES_IGNORED
-	if(!zb3_get_user_zombie(id))
-		return FMRES_IGNORED
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid || zb3_get_mode() == MODE_MUTATION && zb3_get_user_zombie_type(id) != ZOMBIE_ORIGIN)
-		return FMRES_IGNORED
-	if(get_user_weapon(id) != CSW_KNIFE)
-		return FMRES_IGNORED
-	
-	static CurButton
-	CurButton = get_uc(uc_handle, UC_Buttons)
-	
-	if((CurButton & IN_RELOAD) && !(pev(id, pev_oldbuttons) & IN_RELOAD))
-	{
-		if(!g_can_hj[id] || g_hj_ing[id])
+		case 0:
 		{
-			client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc2 , floatround(get_cooldowntime2(id) -  g_current_time2[id]))
-			return PLUGIN_HANDLED
+			Do_Tentacle(id)
+			return 1
 		}
-			
-		Do_HeavyJump(id)				
+		case 1:
+		{
+			if(g_hj_ing[id])
+				return 0
+			Do_HeavyJump(id)
+			return 1
+		}
+		default: return 0
 	}
-		
-	return FMRES_IGNORED
+	return 0
 }
 
 public Do_Tentacle(id)
 {
-	g_can_tentacle[id] = 0
-	g_current_time[id] = 0.0
+	set_member(id, m_flTimeWeaponIdle, g_tentacle_starttime + 3.0);
+	set_member(id, m_flNextAttack, g_tentacle_starttime)
 	
-	set_weapons_timeidle(id, g_tentacle_starttime)
-	set_player_nextattack(id, g_tentacle_starttime)
-	
-	do_fake_attack(id)
-	
-	set_weapon_anim(id, TENTACLE_ANIM)
-	//set_entity_anim(id, TENTACLE_PLAYERANIM, 1.0)
+	rg_weapon_send_animation(id, TENTACLE_ANIM)
+	set_entity_anim(id, TENTACLE_PLAYERANIM, 1.0)
 	set_pev(id, pev_sequence, TENTACLE_PLAYERANIM)
 	
 	EmitSound(id, CHAN_ITEM, TentacleSound)
@@ -296,7 +250,6 @@ public Check_Tentacle(id)
 		|| get_distance_f(VicOrigin, Point[3]) <= 35.0)
 		{
 			VicOrigin[2] += 15.0
-			create_blood(VicOrigin)
 			zb3_infect(i, id, false, false)
 		}
 
@@ -305,15 +258,12 @@ public Check_Tentacle(id)
 
 public Do_HeavyJump(id)
 {
-	g_can_hj[id] = 0
 	g_hj_ing[id] = 1
-	g_current_time2[id] = 0.0
 	
-	set_weapons_timeidle(id, g_jump_starttime)
-	set_player_nextattack(id, g_jump_starttime)
+	set_member(id, m_flTimeWeaponIdle, g_jump_starttime + 3.0);
+	set_member(id, m_flNextAttack, g_jump_starttime)
 	
-	do_fake_attack(id)
-	set_weapon_anim(id, HEAVYJUMP_ANIM)
+	rg_weapon_send_animation(id, HEAVYJUMP_ANIM)
 	set_pev(id, pev_sequence, HEAVYJUMP_PLAYERANIM)
 	
 	EmitSound(id, CHAN_ITEM, HeavyJumpSound)
@@ -353,95 +303,12 @@ public Stop_HeavyJump(id)
 	zb3_reset_user_gravity(id)
 }
 
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-	
-	if(g_current_time[id] < get_cooldowntime(id)) 
-		g_current_time[id]++
-	if(g_current_time2[id] < get_cooldowntime2(id))
-		g_current_time2[id]++
-	
-	static percent , percent2
-	
-	// Tentacle Skill
-	percent = floatround(floatclamp((g_current_time[id] / get_cooldowntime(id)) * 100.0, 0.0, 100.0))
-	// HeavyJump Skill
-	percent2 = floatround(floatclamp((g_current_time2[id] / get_cooldowntime2(id)) * 100.0, 0.0, 100.0))
-
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0) // "[G] - %s (%i%%)^n[R] - %s (%i%%)"
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_DOUBLE", zclass_desc, percent, zclass_desc2, percent2)
-	
-	if(percent == 100 && !g_can_tentacle[id])
-		g_can_tentacle[id] = 1
-	
-	if(percent2 == 100 && !g_can_hj[id])
-	{
-		g_can_hj[id] = 1
-		g_hj_ing[id] = 0
-	}
-}
-
 stock EmitSound(id, chan, const file_sound[])
 {
 	if(!pev_valid(id))
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock set_weapon_anim(id, anim)
-{
-	if(!is_user_alive(id))
-		return
-		
-	set_pev(id, pev_weaponanim, anim)
-	
-	message_begin(MSG_ONE_UNRELIABLE, SVC_WEAPONANIM, _, id)
-	write_byte(anim)
-	write_byte(0)
-	message_end()	
-}
-
-stock set_weapons_timeidle(id, Float:TimeIdle)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flTimeWeaponIdle = 48
-	
-	new entwpn = fm_get_user_weapon_entity(id, CSW_KNIFE)
-	if (pev_valid(entwpn)) set_pdata_float(entwpn, m_flTimeWeaponIdle, TimeIdle + 3.0, 4)
-}
-
-stock set_player_nextattack(id, Float:nexttime)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flNextAttack = 83
-	set_pdata_float(id, m_flNextAttack, nexttime, 5)
-}
-
-public do_fake_attack(id)
-{
-	if(!is_user_alive(id))
-		return
-	
-	static ent
-	ent = fm_find_ent_by_owner(-1, "weapon_knife", id)
-	
-	if(pev_valid(ent)) 
-	{
-		g_temp_attack[id] = 1
-		ExecuteHamB(Ham_Weapon_PrimaryAttack, ent)	
-		g_temp_attack[id] = 0
-	}
 }
 
 stock set_entity_anim(ent, anim, Float:framerate)
@@ -484,30 +351,3 @@ stock is_wall_between_points(Float:start[3], Float:end[3], ignore_ent)
 
 	return floatround(get_distance_f(end, EndPos))
 } 
-
-stock create_blood(const Float:origin[3])
-{
-	// Show some blood :)
-	message_begin(MSG_BROADCAST, SVC_TEMPENTITY) 
-	write_byte(TE_BLOODSPRITE)
-	engfunc(EngFunc_WriteCoord, origin[0])
-	engfunc(EngFunc_WriteCoord, origin[1])
-	engfunc(EngFunc_WriteCoord, origin[2])
-	write_short(m_iBlood[1])
-	write_short(m_iBlood[0])
-	write_byte(75)
-	write_byte(5)
-	message_end()
-}
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_tentacle_cooldown[zb3_get_user_zombie_type(id)]
-}
-stock Float:get_cooldowntime2(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_jump_cooldown[zb3_get_user_zombie_type(id)] 
-}

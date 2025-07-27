@@ -32,7 +32,7 @@ new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new Float:g_invis_time[2], Float:g_invis_cooldown[2], g_invis_speed[2], invisible_startsound[64]
 
-new g_zombie_classid, g_can_invisible[33], g_invis[33], Float:g_current_time[33]
+new g_zombie_classid, g_invis[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
@@ -43,20 +43,14 @@ enum (+= 50)
 	TASK_COOLDOWN
 }
 
-new g_synchud1
-
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
 	
 	register_event("HLTV", "Event_CheckWeapon", "be", "1=1")
-	
-	register_clcmd("drop", "cmd_drop")
-
 	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
 
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -83,6 +77,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_invis_cooldown[ZOMBIE_HOST], g_invis_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheSound, invisible_startsound)
@@ -147,40 +142,27 @@ public zb3_user_infected(id, infector, infect_flag)
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id, true) 
-		case INFECT_CHANGECLASS:
-		{
-			if(g_invis[id]) {
-				zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransColor, 16)
-				zb3_set_user_speed(id, g_invis_speed[zb3_get_user_zombie_type(id)])
-			}
-		} 
+		case INFECT_VICTIM: reset_skill(id) 
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
+		reset_skill(id)
 	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time ) 
-		g_current_time[id] = g_invis_cooldown[zb3_get_user_zombie_type(id)]
-
-	g_can_invisible[id] = reset_time ? 1 : 0
 	g_invis[id] = 0
-
-	zb3_set_user_rendering(id)
 	if(task_exists(id+TASK_INVISIBLE)) remove_task(id+TASK_INVISIBLE)
 }
 
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
 public zb3_user_dead(id) 
@@ -188,7 +170,7 @@ public zb3_user_dead(id)
 	if(!zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return;
 
-	reset_skill(id, false)
+	reset_skill(id)
 }
 
 public Event_CheckWeapon(id)
@@ -226,34 +208,19 @@ public fw_takedamage(victim, inflictor, attacker, Float: damage)
 	
 	return HAM_HANDLED;
 }
-public cmd_drop(id)
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
-	if(!g_can_invisible[id] || g_invis[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
-		
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 	Do_Invisible(id)	
-		
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Invisible(id)
 {
 	zb3_reset_user_speed(id)
-	
-	// Set Vars
 	g_invis[id] = 1
-	g_can_invisible[id] = 0
-	g_current_time[id] = 0.0
-	
 	// Set Render Red
 	zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransColor, 16)
 
@@ -261,7 +228,7 @@ public Do_Invisible(id)
 	zb3_set_user_speed(id, g_invis_speed[zb3_get_user_zombie_type(id)])
 	
 	// Play Berserk Sound
-	EmitSound(id, CHAN_VOICE, invisible_startsound)
+	emit_sound(id, CHAN_VOICE, invisible_startsound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 
 	// Set Invisible Claws
 	set_pev(id, pev_viewmodel2, zclass_clawsinvisible)
@@ -283,12 +250,7 @@ public Remove_Invisible(id)
 		return
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 
-	if(!g_invis[id])
-		return	
-
-	// Set Vars
 	g_invis[id] = 0
-	//g_can_invisible[id] = 0	
 	
 	// Reset Rendering
 	zb3_set_user_rendering(id)
@@ -297,35 +259,8 @@ public Remove_Invisible(id)
 	new Claws[128]
 	formatex(Claws, sizeof(Claws), "models/zombie_thehero/%s", zb3_get_user_level(id) > 1 ? zclass_clawsmodelorigin : zclass_clawsmodelhost)
 	set_pev(id, pev_viewmodel2, Claws)
-	
-	// Reset Speed
-	static Float:DefaultSpeed
-	DefaultSpeed = zb3_get_user_level(id) > 1 ? zclass_speedorigin : zclass_speedhost
-	
-	zb3_set_user_speed(id, floatround(DefaultSpeed))		
-}
 
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-
-	percent = floatround(floatclamp(g_current_time[id] / get_cooldowntime(id) * 100.0, 0.0, 100.0))
-	
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-
-	if(percent >= 99) {
-		if(!g_can_invisible[id]) g_can_invisible[id] = 1
-	}	
+	zb3_reset_user_speed(id)	
 }
 public zb3_zombie_evolution(id, level)
 {
@@ -337,19 +272,4 @@ public zb3_zombie_evolution(id, level)
 			Remove_Invisible(id+TASK_INVISIBLE) // break invisibility when evolution
 		}
 	}
-}
-
-stock EmitSound(id, chan, const file_sound[])
-{
-	if(!is_user_connected(id))
-		return
-		
-	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_invis_cooldown[zb3_get_user_zombie_type(id)]
 }

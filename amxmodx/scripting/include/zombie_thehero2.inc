@@ -90,8 +90,8 @@ enum
 enum
 {
 	INFECT_VICTIM = 0,
-	INFECT_RESPAWN,
-	INFECT_CHANGECLASS
+	INFECT_CHANGECLASS,
+	INFECT_RESPAWN
 }
 
 enum
@@ -127,6 +127,7 @@ enum
 	FWD_GAME_END,
 	FWD_USER_EVOLUTION,
 	FWD_USER_HERO,
+	FWD_USER_SKILL,
 	FWD_TIME_CHANGE,
 	FWD_SKILL_HUD,
 	FWD_MAX
@@ -215,6 +216,7 @@ native zb3_set_player_spawn_used( num, bool:status );
 native zb3_get_player_spawn_used( num );
 native zb3_give_user_ammo(id, weaponid = -1);
 native zb3_do_knockback(attacker, victim, Float:flKnockbackForce, bool:bPull = false)
+native zb3_register_zcooldown(cooldown_host, cooldown_origin);
 // END NEW NATIVES
 
 // Forwards
@@ -228,7 +230,7 @@ forward zb3_zombie_evolution(id, level);
 forward zb3_user_become_hero(id, hero_type);
 forward zb3_time_change();
 forward zb3_skill_show(id);
-
+forward zb3_do_skill(id, class, skullnum)
 forward zb3_item_selected_pre(id, itemid);
 forward zb3_item_selected_post(id, itemid);
 

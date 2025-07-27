@@ -22,44 +22,7 @@ new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new Float:g_smoke_cooldown[2], Float:g_smoke_time[2]
 new sprites_smoke[64], sound_smoke[64]
-#if 0
-// Zombie Configs
-new const zclass_name[] = "Psycho"
-new const zclass_desc[] = "Smoke"
-new const zclass_sex = SEX_MALE
-new const zclass_lockcost = 0
-new const zclass_hostmodel[] = "pc_zombi_host"
-new const zclass_originmodel[] = "pc_zombi_origin"
-new const zclass_clawsmodelhost[] = "v_knife_pc_zombi.mdl"
-new const zclass_clawsmodelorigin[] = "v_knife_pc_zombi.mdl"
-new const zombiegrenade_modelhost[] = "models/zombie_thehero/v_zombibomb_pc_zombi.mdl"
-new const zombiegrenade_modelorigin[] = "models/zombie_thehero/v_zombibomb_pc_zombi.mdl"
-new const Float:zclass_gravity = 0.8
-new const Float:zclass_speedhost = 280.0
-new const Float:zclass_speedorigin = 280.0
-new const Float:zclass_knockback = 1.0
-new const Float:zclass_painshock = 0.4
-new const Float:zclass_dmgmulti = 1.1
-
-new const DeathSound[2][] =
-{
-	"zombie_thehero/zombi_death_1.wav",
-	"zombie_thehero/zombi_death_2.wav"
-}
-new const HurtSound[2][] = 
-{
-	"zombie_thehero/zombi_hurt_01.wav",
-	"zombie_thehero/zombi_hurt_02.wav"	
-}
-
-new const HealSound[] = "zombie_thehero/zombi_heal.wav"
-new const EvolSound[] = "zombie_thehero/zombi_evolution.wav"
-new const Float:ClawsDistance1 = 1.0
-new const Float:ClawsDistance2 = 1.1
-new const sound_smoke[] = "zombie_thehero/zombi_smoke.wav"
-new const sprites_smoke[] = "sprites/zombie_thehero/zb_smoke.spr"
-#endif
-new g_zombie_classid, g_can_smoke[33],  Float:g_current_time[33]
+new g_zombie_classid
 
 // Main Vars
 new id_smoke1
@@ -68,24 +31,17 @@ new g_smoke[33], Float:g_smoke_origin[33][3]
 enum (+= 50)
 {
 	TASK_SMOKE = 22000,
-	TASK_SMOKE_EXP,
-	TASK_BOT_USE_SKILL
+	TASK_SMOKE_EXP
 }
 // IDs inside tasks
 #define ID_SMOKE (taskid - TASK_SMOKE)
 #define ID_SMOKE_EXP (taskid - TASK_SMOKE_EXP)
-#define ID_BOT_USE_SKILL (taskid - TASK_BOT_USE_SKILL)
 
 #define LANG_OFFICIAL LANG_PLAYER
-
-new g_synchud1
 
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	register_clcmd("drop", "cmd_drop")
-
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -112,6 +68,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_smoke_cooldown[ZOMBIE_HOST], g_smoke_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	id_smoke1 = precache_model(sprites_smoke)
@@ -171,30 +128,20 @@ public zb3_user_infected(id, infector, infect_flag)
 	{
 		case INFECT_VICTIM: 
 		{
-			reset_skill(id, true)
-			/*
-			if (is_user_bot(id))
-			{
-				if (task_exists(id+TASK_BOT_USE_SKILL)) remove_task(id+TASK_BOT_USE_SKILL)
-				set_task(float(random_num(5,15)), "bot_use_skill", id+TASK_BOT_USE_SKILL)
-			}*/ 
+			reset_skill(id)
 		}
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
+		reset_skill(id)
 	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time ) 
-		g_current_time[id] = g_smoke_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? SMOKE_COOLDOWN_ORIGIN : SMOKE_COOLDOWN_HOST
-
-	g_can_smoke[id] = reset_time ? 1 : 0
 	g_smoke[id] = 0
 
 	if (task_exists(id+TASK_SMOKE)) remove_task(id+TASK_SMOKE)
@@ -204,52 +151,23 @@ public reset_skill(id, bool:reset_time)
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public zb3_user_dead(id) 
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!zb3_get_user_zombie(id))
-		return;
-	if( zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return;
-
-	reset_skill(id, false)
-}
-
-// bot use skill
-public bot_use_skill(taskid)
-{
-	new id = ID_BOT_USE_SKILL
-	if (!is_user_bot(id)) return;
-
-	cmd_drop(id)
-	if (task_exists(taskid)) remove_task(taskid)
-	set_task(float(random_num(20,35)), "bot_use_skill", id+TASK_BOT_USE_SKILL)
-}
-public cmd_drop(id)
-{
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
-	if(!g_can_smoke[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(g_smoke_cooldown[zb3_get_user_zombie_type(id)] - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
+	if(g_smoke[id])
+		return 0
 		
 	Do_Smoke(id)
-
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Smoke(id)
 {
-	g_can_smoke[id] = 0
-	g_current_time[id] = 0.0
 	g_smoke[id] = 1
 		
 	// task smoke exp
@@ -275,7 +193,7 @@ public SmokeExplode(taskid)
 	new id = ID_SMOKE_EXP
 	
 	// remove smoke
-	if (!g_smoke[id])
+	if (!g_smoke[id] || !zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
 	{
 		if (task_exists(id+TASK_SMOKE_EXP)) remove_task(id+TASK_SMOKE_EXP)
 		return;
@@ -305,32 +223,6 @@ public RemoveSmoke(taskid)
 	// remove smoke
 	g_smoke[id] = 0
 	if (task_exists(taskid)) remove_task(taskid)
-}
-
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < g_smoke_cooldown[zb3_get_user_zombie_type(id)])
-		g_current_time[id]++
-	
-	static percent
-	static Float:timewait
-	
-	timewait = g_smoke_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? (SMOKE_COOLDOWN_ORIGIN): (SMOKE_COOLDOWN_HOST )
-	percent = floatround( floatclamp((g_current_time[id] / timewait) * 100.0, 0.0, 100.0) )
-	
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	//ShowSyncHudMsg(id, g_synchud1, "[G] - %s (%i%%)", zclass_desc, percent)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-	if(percent > 99 && !g_can_smoke[id]) 
-		g_can_smoke[id] = 1
-		
 }
 
 stock EmitSound(id, chan, const file_sound[])

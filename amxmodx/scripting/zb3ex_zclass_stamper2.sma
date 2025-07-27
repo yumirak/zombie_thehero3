@@ -3,6 +3,7 @@
 #include <fakemeta>
 #include <fakemeta_util>
 #include <hamsandwich>
+#include <reapi>
 #include <zombie_thehero2>
 
 #define PLUGIN "[ZB3] Zombie Class: Stamper"
@@ -26,46 +27,7 @@ new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new CoffinModel[64], CoffinExp[64], CoffinHitSound[64], CoffinExpSpr[64], CoffinSlow[64], StampingSound[64]
 new Float:g_coffin_cooldown[2], g_coffin_livetime[2], Float:g_coffin_range, g_coffin_health, Float:g_coffin_knockback
 new Float:g_coffin_starttime, g_coffin_damage, g_coffin_victim_velocity, Float:g_coffin_victim_time
-#if 0
-// Zombie Configs
-new const zclass_name[] = "Stamper"
-new const zclass_desc[] = "Stamping"
-new const zclass_sex = SEX_MALE
-new const zclass_lockcost = 0
-new const zclass_hostmodel[] = "stamper_zombi_host"
-new const zclass_originmodel[] = "stamper_zombi_origin"
-new const zclass_clawsmodelhost[] = "v_knife_stamper_zombi.mdl"
-new const zclass_clawsmodelorigin[] = "v_knife_stamper_zombi.mdl"
-new const zombiegrenade_modelhost[] = "models/zombie_thehero/v_zombibomb_stamper_zombi.mdl"
-new const zombiegrenade_modelorigin[] = "models/zombie_thehero/v_zombibomb_stamper_zombi.mdl"
-new const Float:zclass_gravity = 0.8
-new const Float:zclass_speedhost = 280.0
-new const Float:zclass_speedorigin = 280.0
-new const Float:zclass_knockback = 1.5
-new const Float:zclass_dmgmulti  = 1.1
-new const Float:zclass_painshock = 0.2
-new const DeathSound[2][] =
-{
-	"zombie_thehero/zombi_death_stamper_1.wav",
-	"zombie_thehero/zombi_death_stamper_2.wav"
-}
-new const HurtSound[2][] = 
-{
-	"zombie_thehero/zombi_hurt_stamper_1.wav",
-	"zombie_thehero/zombi_hurt_stamper_2.wav"	
-}
-new const HealSound[] = "zombie_thehero/zombi_heal.wav"
-new const EvolSound[] = "zombie_thehero/zombi_evolution.wav"
-new const Float:ClawsDistance1 = 1.0
-new const Float:ClawsDistance2 = 1.1
 
-new const CoffinModel[] = "models/zombie_thehero/zombipile.mdl"
-new const StampingSound[] = "zombie_thehero/zombi_stamper_iron_maiden_stamping.wav"
-new const CoffinExp[] = "zombie_thehero/zombi_stamper_iron_maiden_explosion.wav"
-new const CoffinHitSound[] = "zombie_thehero/zombi_attack_3.wav"
-new const CoffinExpSpr[] = "sprites/zombie_thehero/zombiebomb_exp.spr"
-new const CoffinSlow[] = "sprites/zombie_thehero/zbt_slow.spr"
-#endif
 new const HandSound[2][] =
 {
 	"zombie_thehero/zombi_stamper_clap.wav",
@@ -75,7 +37,6 @@ new const HandSound[2][] =
 new g_zombie_classid
 
 const UNIT_SECOND = (1<<12)
-const BREAK_WOOD = 0x08
 
 const pev_livetime = pev_iuser4
 const pev_checktime = pev_fuser4
@@ -91,47 +52,22 @@ enum (+= 50)
 }
 
 #define COFFIN_CLASSNAME "coffin"
-#if 0
-#define COFFIN_HEALTH 300
-#define COFFIN_EXP_RADIUS 200
-#define COFFIN_EXP_KNOCKBACK 800
-#define COFFIN_EXP_DAMAGE 10
-#define COFFIN_LIVETIME_ORIGIN 14
-#define COFFIN_LIVETIME_HOST 14
-
-#define STAMPING_COOLDOWN_ORIGIN 15.0
-#define STAMPING_COOLDOWN_HOST 15.0
-
-#define STAMPING_FOV 100
-#define STAMPING_STARTTIME 0.5
-#endif
-
-#define HUMAN_SLOWTIME 5
-#define HUMAN_SLOWSPEED 100
 
 #define STAMPING_ANIM 2
 #define STAMPING_PLAYERANIM 10
 new g_SprBeam_Id, g_SprExp_Id, g_SprBlast_Id
-new g_msg_ScreenShake//,  g_iMaxPlayers // ,g_Msg_Fov 
-new g_can_stamp[33], g_stamping[33], g_freezing[33]
+new g_msg_ScreenShake
+new g_stamping[33]
 
-new g_synchud1, Float:g_current_time[33]
 
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-
-	register_clcmd("drop", "cmd_drop")
-	
-	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
 	
 	RegisterHam(Ham_TraceAttack, "info_target", "Coffin_TraceAttack")
 	RegisterHam(Ham_Think, "info_target", "Coffin_Think")
-	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
-	//g_iMaxPlayers = get_maxplayers()
-	//g_Msg_Fov = get_user_msgid("SetFOV")
+
 	g_msg_ScreenShake = get_user_msgid("ScreenShake")
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -157,6 +93,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_coffin_cooldown[ZOMBIE_HOST], g_coffin_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheModel, CoffinModel)
@@ -238,36 +175,25 @@ public zb3_user_infected(id, infector, infect_flag)
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id, true)  
+		case INFECT_VICTIM: reset_skill(id)  
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time )
-	{
-		g_current_time[id] = g_coffin_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST
-	} 
-
-	g_can_stamp[id] = reset_time ? 1 : 0
 	g_stamping[id] = 0
-	g_freezing[id] = 0
-
 	if(task_exists(id+TASK_STAMPING)) remove_task(id+TASK_STAMPING)
-	if(task_exists(id+TASK_FREEZING)) remove_task(id+TASK_FREEZING)
 }
 
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
 public zb3_user_dead(id) 
@@ -275,60 +201,31 @@ public zb3_user_dead(id)
 	if(!zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return;
 
-	reset_skill(id, false)
+	reset_skill(id)
 }
 
-public Event_NewRound()
+public zb3_game_start()
 {
 	remove_entity_name(COFFIN_CLASSNAME)
 }
-public fw_takedamage(victim, inflictor, attacker, Float: damage)
+
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(victim))
-		return HAM_IGNORED;
-	if(!zb3_get_user_zombie(victim))
-		return HAM_IGNORED;
-	if( zb3_get_user_zombie_class(victim) != g_zombie_classid)
-		return HAM_IGNORED;
-	if(!g_stamping[victim])
-		return HAM_IGNORED;
-	
-	damage = damage * 2.0;
-	SetHamParamFloat(4, damage);
-	
-	return HAM_HANDLED;
-}
-public cmd_drop(id)
-{
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 	if(get_user_weapon(id) != CSW_KNIFE)
-		return PLUGIN_CONTINUE
-	if(!g_can_stamp[id] || g_stamping[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
+		return 0
 
 	Do_Stamping(id)
-
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Stamping(id)
 {
-	g_can_stamp[id] = 0
-	g_current_time[id] = 0.0
-	g_stamping[id] = 1
-	
-	set_weapons_timeidle(id, g_coffin_starttime)
-	set_player_nextattack(id, g_coffin_starttime)
-	
-	set_weapon_anim(id, STAMPING_ANIM)
+	set_member(id, m_flTimeWeaponIdle, g_coffin_starttime + 3.0);
+	set_member(id, m_flNextAttack, g_coffin_starttime)
+	rg_weapon_send_animation(id, STAMPING_ANIM)
 	set_pev(id, pev_sequence, STAMPING_PLAYERANIM)
 
 	// Start Stamping
@@ -345,11 +242,7 @@ public Set_Stamping(id)
 		return
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 
-	if(!g_stamping[id])
-		return	
-		
-	// Reset
-	g_stamping[id] = 0
+
 	Create_Coffin(id)	
 }
 
@@ -413,7 +306,6 @@ public Create_Coffin(id)
 			// Shake
 			CreateScreenShake(Victim)
 			// Freeze Player
-			g_freezing[Victim] = 1
 			zb3_set_user_speed(Victim, g_coffin_victim_velocity)
 			zb3_set_head_attachment(Victim, CoffinSlow, g_coffin_victim_time, 1.0, 1.0, 0)
 			set_task(g_coffin_victim_time, "ResetFreeze", Victim+TASK_FREEZING)
@@ -438,7 +330,6 @@ public ResetFreeze(id)
 	if(!is_user_connected(id) || zb3_get_user_zombie(id))
 		return
 		
-	g_freezing[id] = 0
 	zb3_reset_user_speed(id)
 }
 
@@ -599,74 +490,12 @@ public Coffin_TraceAttack(ent, attacker, Float: damage, Float: direction[3], tra
 	return HAM_IGNORED
 }
 
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-
-	percent = floatround(floatclamp(g_current_time[id] / get_cooldowntime(id) * 100.0, 0.0, 100.0))
-
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-		
-	if(percent >= 100) {
-		if(!g_can_stamp[id]) 
-		{
-			g_can_stamp[id] = 1
-			g_stamping[id] = 0
-		}
-	}	
-}
-
-
 stock EmitSound(id, chan, const file_sound[])
 {
 	if(!pev_valid(id))
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock set_weapon_anim(id, anim)
-{
-	if(!is_user_alive(id))
-		return
-		
-	set_pev(id, pev_weaponanim, anim)
-	
-	message_begin(MSG_ONE_UNRELIABLE, SVC_WEAPONANIM, _, id)
-	write_byte(anim)
-	write_byte(0)
-	message_end()	
-}
-
-stock set_weapons_timeidle(id, Float:TimeIdle)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flTimeWeaponIdle = 48
-	
-	new entwpn = fm_get_user_weapon_entity(id, CSW_KNIFE)
-	if (pev_valid(entwpn)) set_pdata_float(entwpn, m_flTimeWeaponIdle, TimeIdle + 3.0, 4)
-}
-
-stock set_player_nextattack(id, Float:nexttime)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flNextAttack = 83
-	set_pdata_float(id, m_flNextAttack, nexttime, 5)
 }
 
 stock get_origin_distance(index, Float:Origin[3], Float:Dist)
@@ -741,10 +570,3 @@ GetSpeedVector(const Float:origin1[3],const Float:origin2[3],Float:speed, Float:
 	
 	return 1
 }
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_coffin_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? STAMPING_COOLDOWN_ORIGIN : STAMPING_COOLDOWN_HOST;
-}
-	

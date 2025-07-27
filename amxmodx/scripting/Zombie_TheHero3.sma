@@ -45,7 +45,7 @@ g_firstzombie, g_firsthuman
 
 new bool:g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_next_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
-g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33]
+g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], Float:g_zombie_cooldown[33], Float:g_zombie_cooldown_progress[33]
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
 grenade_default_power, human_health, human_armor,
@@ -62,7 +62,8 @@ sound_remain_time[64]
 new Array:zombie_name, Array:zombie_desc, Array:zombie_sex, Array:zombie_lockcost, Array:zombie_model_host, Array:zombie_model_origin,
 Array:zombie_gravity, Array:zombie_speed_host, Array:zombie_speed_origin, Array:zombie_knockback, Array:zombie_dmgmulti,
 Array:zombie_painshock, Array:zombie_sound_death1, Array:zombie_sound_death2, Array:zombie_sound_hurt1,
-Array:zombie_sound_hurt2, Array:zombie_clawsmodel_host, Array:zombie_clawsmodel_origin, Array:zombie_claw_distance1, Array:zombie_claw_distance2
+Array:zombie_sound_hurt2, Array:zombie_clawsmodel_host, Array:zombie_clawsmodel_origin, Array:zombie_claw_distance1, Array:zombie_claw_distance2,
+Array:zombie_cooldown_host, Array:zombie_cooldown_origin
 	
 new Array:zombie_sound_heal, Array:zombie_sound_evolution, Array:sound_zombie_attack,
 Array:sound_zombie_hitwall, Array:sound_zombie_swing
@@ -164,6 +165,7 @@ public plugin_init()
 	g_Forwards[FWD_USER_EVOLUTION] = CreateMultiForward("zb3_zombie_evolution", ET_IGNORE, FP_CELL, FP_CELL)
 	g_Forwards[FWD_USER_HERO] = CreateMultiForward("zb3_user_become_hero", ET_IGNORE, FP_CELL, FP_CELL)
 	g_Forwards[FWD_TIME_CHANGE] = CreateMultiForward("zb3_time_change", ET_IGNORE)
+	g_Forwards[FWD_USER_SKILL] = CreateMultiForward("zb3_do_skill", ET_CONTINUE, FP_CELL, FP_CELL, FP_CELL)
 	g_Forwards[FWD_SKILL_HUD] = CreateMultiForward("zb3_skill_show", ET_IGNORE, FP_CELL)
 	
 	g_SyncHud[SYNCHUD_NOTICE] = CreateHudSyncObj(SYNCHUD_NOTICE)
@@ -188,7 +190,8 @@ public plugin_init()
 #endif
 
 	register_clcmd("nightvision", "cmd_nightvision")
-	register_clcmd("drop", "cmd_drop")
+	register_clcmd("drop", "do_skill")
+	register_clcmd("zb3_skill", "do_skill")
 	register_clcmd("buyammo2", "cmd_sel_zombie")
 	
 	set_member_game(m_GameDesc, GAMENAME);
@@ -275,7 +278,9 @@ public plugin_precache()
 	zombie_clawsmodel_host = ArrayCreate(64, 1)
 	zombie_clawsmodel_origin = ArrayCreate(64, 1)
 	zombie_claw_distance1 = ArrayCreate(1, 1)
-	zombie_claw_distance2 = ArrayCreate(1, 1)	
+	zombie_claw_distance2 = ArrayCreate(1, 1)
+	zombie_cooldown_host = ArrayCreate(1, 1)
+	zombie_cooldown_origin = ArrayCreate(1, 1)	
 	
 	zombie_sound_heal = ArrayCreate(64, 1)
 	zombie_sound_evolution = ArrayCreate(64, 1)	
@@ -494,6 +499,7 @@ public plugin_natives()
 
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
 	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
+	register_native("zb3_register_zcooldown", "native_register_zcooldown", 1)
 
 	register_native("zb3_give_user_ammo", "native_give_user_ammo", 1)
 	register_native("zb3_do_knockback", "native_do_knockback", 1)
@@ -940,6 +946,11 @@ const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[]
 	ArrayPushString(zombie_sound_evolution, EvolSound)
 	engfunc(EngFunc_PrecacheSound, EvolSound)
 }
+public native_register_zcooldown(cooldown_host, cooldown_origin)
+{
+	ArrayPushCell(zombie_cooldown_host, cooldown_host)
+	ArrayPushCell(zombie_cooldown_origin, cooldown_origin)
+}
 
 // ========================= AMXX FORWARDS ========================
 // ================================================================
@@ -1147,14 +1158,34 @@ public cmd_nightvision(id)
 	return PLUGIN_HANDLED;
 }
 
-public cmd_drop(id)
+public do_skill(id, skillnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(g_hero[id] || g_zombie[id] && g_zombie_type[id] == ZOMBIE_HOST && g_gamemode == MODE_MUTATION)
-		return PLUGIN_HANDLED
-		
-	return PLUGIN_CONTINUE
+	if(!is_user_alive(id)) return PLUGIN_CONTINUE
+	if(g_hero[id]) return PLUGIN_HANDLED
+	if(!g_zombie[id]) return PLUGIN_CONTINUE
+
+	if(g_gamemode <= MODE_ORIGINAL)	return PLUGIN_CONTINUE
+	if(g_gamemode == MODE_MUTATION && g_zombie_type[id] == ZOMBIE_HOST) return PLUGIN_CONTINUE
+	
+	static fwResult, szTemp[16]
+	fwResult = 0; szTemp[0] = '^0'
+	
+	read_argv(1, szTemp, sizeof(szTemp))
+
+	if(!skillnum)
+		skillnum = clamp(str_to_num(szTemp), 0, 9)
+
+	if(g_zombie_cooldown_progress[id] >= g_zombie_cooldown[id])
+	{
+		ExecuteForward(g_Forwards[FWD_USER_SKILL], fwResult, id, g_zombie_class[id], skillnum)
+		if(fwResult) g_zombie_cooldown_progress[id] = 0.0;
+	}
+	else
+	{
+		ArrayGetString(zombie_desc, g_zombie_class[id], szTemp, charsmax(szTemp))
+		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", szTemp, floatround(g_zombie_cooldown[id] - g_zombie_cooldown_progress[id]))
+	}
+	return PLUGIN_HANDLED
 }
 
 public cmd_sel_zombie(id)
@@ -1165,7 +1196,7 @@ public Time_Change()
 {
 	ExecuteForward(g_Forwards[FWD_TIME_CHANGE], g_fwResult)
 
-	static i, alive, zombie, Float:gametime, Float:respawntime;
+	static i, alive, zombie, bot, Float:gametime, Float:respawntime;
 	gametime = get_gametime()
 
 	if(g_gamestatus == STATUS_PLAY)
@@ -1178,19 +1209,25 @@ public Time_Change()
 	{
 		if(!is_user_connected(i))
 			continue
-		
+		bot = is_user_bot(i)
 		alive = is_user_alive(i)
 		zombie = g_zombie[i]
 		respawntime = get_member(i, m_flRespawnPending)
 
-		if(zombie && (g_zombie_type[i] == ZOMBIE_ORIGIN && g_gamemode == MODE_MUTATION) || g_gamemode == MODE_HERO)
-			ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+		if(zombie && alive && ((g_zombie_type[i] == ZOMBIE_ORIGIN && g_gamemode == MODE_MUTATION) || g_gamemode == MODE_HERO))
+		{
+			handle_zcooldown(i)
+			// ExecuteForward(g_Forwards[FWD_SKILL_HUD], g_fwResult, i)
+		}
 		
 		if(alive && g_gamemode == MODE_HERO )
 			show_evolution_hud(i, zombie)
 
 		if(!alive && respawntime > 0.1)
 			handle_respawn_countdown(i, gametime, respawntime)
+
+		if(zombie && bot && !random_num(0, 4))
+			do_skill(i, 0)
 	}
 
 }
@@ -2007,6 +2044,7 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	g_StartHealth[id] = Respawn ? respawn_zombie_health : start_zombie_health[ g_zombie_type[id] ]
 	g_StartArmor[id]  = Respawn ? respawn_zombie_armor  : start_zombie_armor [ g_zombie_type[id] ]
 
+
 	set_zombie_nvg(id, 1)
 
 	if(g_gamemode == MODE_MUTATION)
@@ -2017,6 +2055,21 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	gameplay_check()
 }
 
+public handle_zcooldown(id)
+{
+	if(g_zombie_cooldown_progress[id] < g_zombie_cooldown[id])
+		g_zombie_cooldown_progress[id]++
+
+	static Float:percent, Float:cooldown, Float:cooldown_progress, class_desc[16]
+
+	cooldown = g_zombie_cooldown[id]
+	cooldown_progress = g_zombie_cooldown_progress[id]
+	percent = cooldown_progress / cooldown * 100.0
+	ArrayGetString(zombie_desc, g_zombie_class[id], class_desc, charsmax(class_desc))
+
+	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 1.5, 1.5)
+	ShowSyncHudMsg(id, g_SyncHud[SYNCHUD_ZBHM_SKILL1], "%L", LANG_PLAYER, "ZOMBIE_SKILL", class_desc, percent, cooldown_progress, cooldown)
+}
 public handle_evolution(id, Float:value)
  {
 	if(g_level[id] >= 3)
@@ -2241,6 +2294,12 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 		fm_set_user_health(id, g_StartHealth[id])
 		set_pev(id, pev_max_health, float(g_StartHealth[id]))
 		fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
+	}
+	
+	if(flag != INFECT_RESPAWN)
+	{
+		g_zombie_cooldown[id] = ArrayGetCell(g_zombie_type[id] ? zombie_cooldown_origin : zombie_cooldown_host , g_zombie_class[id])
+		g_zombie_cooldown_progress[id] = g_zombie_cooldown[id]
 	}
 
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
@@ -2699,7 +2758,7 @@ public SendScenarioMsg(id, num)
 // pev->velocity += (pev->origin - pAttacker->pev->origin).Normalize() * flKnockbackForce;
 stock fake_knockback(victim, attacker, Float:flKnockbackForce, bool:bPull = false)
 {
-	if(!is_user_alive(victim) || !is_user_alive(attacker) || flKnockbackForce == 0.0)
+	if(!is_entity(victim) || !is_entity(attacker) || flKnockbackForce == 0.0)
 		return
 
 	static Float:Velocity[3], Float:EntOrigin[3], Float:VicOrigin[3]

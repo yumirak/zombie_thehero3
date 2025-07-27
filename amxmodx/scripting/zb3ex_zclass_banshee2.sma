@@ -3,6 +3,7 @@
 #include <fakemeta>
 #include <fakemeta_util>
 #include <hamsandwich>
+#include <reapi>
 #include <zombie_thehero2>
 
 #define PLUGIN "[ZB3] Zombie Class: Banshee"
@@ -27,8 +28,8 @@ new BatModel[64], BatFireSound[64], BatFlySound[64], BatFailSound[64], Catch_Pla
 new Float:g_bat_cooldown[2], Float:g_bat_grouprange[2], Float:g_bat_starttime, Float:g_bat_gravity, g_bat_velocity[2], g_bat_catch_velocity[2], Float:g_bat_timelive[2]
 
 new g_zombie_classid
-new g_synchud1, g_Msg_Shake, g_BatExpSpr_Id, Float:g_current_time[33]
-new g_can_skill[33], g_skilling[33]
+new g_Msg_Shake, g_BatExpSpr_Id
+new g_skilling[33]
 
 const pev_catchid = pev_iuser2
 const pev_livetime = pev_fuser2
@@ -43,24 +44,18 @@ const pev_livetime = pev_fuser2
 
 enum (+= 50)
 {
-	TASK_SKILLING = 25000,
-	TASK_CATCHING, 
-	TASK_BATFLYING
+	TASK_SKILLING = 25000
 }
 
 public plugin_init() 
 {
-	register_plugin(PLUGIN, VERSION, AUTHOR)
-	
-	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
-	register_clcmd("drop", "cmd_drop")	
+	register_plugin(PLUGIN, VERSION, AUTHOR)	
 
 	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
 
 	register_touch(BAT_CLASSNAME, "*", "fw_Bat_Touch")
 	register_think(BAT_CLASSNAME, "fw_Bat_Think")	
 	g_Msg_Shake = get_user_msgid("ScreenShake")
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -86,6 +81,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_bat_cooldown[ZOMBIE_HOST], g_bat_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheModel, BatModel)
@@ -163,35 +159,29 @@ public zb3_user_infected(id, infector, infect_flag)
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id, true) 
+		case INFECT_VICTIM: reset_skill(id) 
 		case INFECT_CHANGECLASS: if(g_skilling[id]) zb3_set_user_speed(id, 1)
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
+		reset_skill(id)
 	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time ) 
-		g_current_time[id] = g_bat_cooldown[zb3_get_user_zombie_type(id)]
-
-	g_can_skill[id] = reset_time ? 1 : 0
 	g_skilling[id] = 0
 
 	if(task_exists(id+TASK_SKILLING)) remove_task(id+TASK_SKILLING)
-	if(task_exists(id+TASK_CATCHING)) remove_task(id+TASK_CATCHING)
-	if(task_exists(id+TASK_BATFLYING)) remove_task(id+TASK_BATFLYING)
 }
 
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
 public zb3_user_dead(id) 
@@ -201,10 +191,10 @@ public zb3_user_dead(id)
 	if( zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return;
 
-	reset_skill(id, false)
+	reset_skill(id)
 }
 
-public Event_NewRound()
+public zb3_game_start(start_type)
 {
 	remove_entity_name(BAT_CLASSNAME)
 }
@@ -224,44 +214,33 @@ public fw_takedamage(victim, inflictor, attacker, Float: damage)
 	
 	return HAM_HANDLED;
 }
-public cmd_drop(id)
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 	if(get_user_weapon(id) != CSW_KNIFE)
-		return PLUGIN_HANDLED
-	if(!g_can_skill[id] || g_skilling[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
+		return 0
 	if(pev(id, pev_flags) & FL_DUCKING)
 	{
-		client_print(id, print_chat, "%L", LANG_OFFICIAL, "ZOMBIE_BANSHEE_NODUCK")
-		return PLUGIN_HANDLED
+		client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_BANSHEE_NODUCK")
+		return 0
 	}	
 	
 	Do_Skill(id)
-
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Skill(id)
 {
-	g_can_skill[id] = 0
 	g_skilling[id] = 1
-	g_current_time[id] = 0.0
 	
 	zb3_set_user_speed(id, 1)
 	
-	set_weapons_timeidle(id, 99999.0)
-	set_player_nextattack(id, 99999.0)
+	set_member(id, m_flTimeWeaponIdle, 99999.0);
+	set_member(id, m_flNextAttack, 99999.0)
 	
-	set_weapon_anim(id, BAT_ANIM)
+	rg_weapon_send_animation(id, BAT_ANIM)
 	set_entity_anim(id, BAT_PLAYERANIM, 0.35)
 	
 	EmitSound(id, CHAN_ITEM, BatFireSound)
@@ -292,7 +271,6 @@ public CreateBat(id)
 		
 	static Float:BatOrigin[3], Float:Angles[3], Float:Velocity[3]
 	
-	// get_position(id, 50.0, 0.0, 0.0, BatOrigin)
 	pev(id, pev_origin, BatOrigin)
 	pev(id, pev_angles, Angles)
 	
@@ -413,14 +391,13 @@ public Reset_Owner(id)
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 
 		
-	g_can_skill[id] = 0
 	g_skilling[id] = 0
 
-	zb3_set_user_speed(id, zb3_get_user_level(id) > 1 ? floatround(zclass_speedorigin) : floatround(zclass_speedhost))
+	zb3_reset_user_speed(id)
 	
-	set_weapons_timeidle(id, 1.0)
-	set_player_nextattack(id, 1.0)
-	set_weapon_anim(id, 3)
+	set_member(id, m_flTimeWeaponIdle, 1.0);
+	set_member(id, m_flNextAttack, 1.0)
+	rg_weapon_send_animation(id, 3)
 }
 
 public Bat_Explosion(ent)
@@ -446,74 +423,12 @@ public Bat_Explosion(ent)
 	engfunc(EngFunc_RemoveEntity, ent)	
 }
 
-
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-
-	percent = floatround(floatclamp(g_current_time[id] / get_cooldowntime(id) * 100.0, 0.0, 100.0))
-
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-		
-	if(percent >= 100) {
-		if(!g_can_skill[id])
-		{
-			g_can_skill[id] = 1
-			g_skilling[id] = 0
-		}
-	}	
-}
-
 stock EmitSound(id, chan, const file_sound[])
 {
 	if(!pev_valid(id))
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock set_weapon_anim(id, anim)
-{
-	if(!is_user_alive(id))
-		return
-		
-	set_pev(id, pev_weaponanim, anim)
-	
-	message_begin(MSG_ONE_UNRELIABLE, SVC_WEAPONANIM, _, id)
-	write_byte(anim)
-	write_byte(0)
-	message_end()	
-}
-
-stock set_weapons_timeidle(id, Float:TimeIdle)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flTimeWeaponIdle = 48
-	
-	new entwpn = fm_get_user_weapon_entity(id, CSW_KNIFE)
-	if (pev_valid(entwpn)) set_pdata_float(entwpn, m_flTimeWeaponIdle, TimeIdle + 3.0, 4)
-}
-
-stock set_player_nextattack(id, Float:nexttime)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flNextAttack = 83
-	set_pdata_float(id, m_flNextAttack, nexttime, 5)
 }
 
 stock set_entity_anim(ent, anim, Float:framerate)
@@ -524,26 +439,6 @@ stock set_entity_anim(ent, anim, Float:framerate)
 	set_pev(ent, pev_animtime, get_gametime())
 	set_pev(ent, pev_framerate, framerate)
 	set_pev(ent, pev_sequence, anim)
-}
-
-stock get_position(ent, Float:forw, Float:right, Float:up, Float:vStart[])
-{
-	new Float:vOrigin[3], Float:vAngle[3], Float:vForward[3], Float:vRight[3], Float:vUp[3]
-	
-	pev(ent, pev_origin, vOrigin)
-	pev(ent, pev_view_ofs,vUp) //for player
-	xs_vec_add(vOrigin,vUp,vOrigin)
-	pev(ent, pev_v_angle, vAngle) // if normal entity ,use pev_angles
-	
-	vAngle[0] = 0.0
-	
-	angle_vector(vAngle,ANGLEVECTOR_FORWARD,vForward) //or use EngFunc_AngleVectors
-	angle_vector(vAngle,ANGLEVECTOR_RIGHT,vRight)
-	angle_vector(vAngle,ANGLEVECTOR_UP,vUp)
-	
-	vStart[0] = vOrigin[0] + vForward[0] * forw + vRight[0] * right + vUp[0] * up
-	vStart[1] = vOrigin[1] + vForward[1] * forw + vRight[1] * right + vUp[1] * up
-	vStart[2] = vOrigin[2] + vForward[2] * forw + vRight[2] * right + vUp[2] * up
 }
 
 public ScreenShake(id)
@@ -586,11 +481,4 @@ stock hook_ent(victim, attacker, Float:speed)
 	}
 
 	entity_set_vector(victim, EV_VEC_velocity, fl_Velocity)
-}
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-		
-	return g_bat_cooldown[zb3_get_user_zombie_type(id)]
 }

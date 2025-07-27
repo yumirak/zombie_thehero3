@@ -4,6 +4,7 @@
 #include <fakemeta_util>
 #include <hamsandwich>
 #include <zombie_thehero2>
+#include <reapi>
 
 #define PLUGIN "[ZB3] Zombie Class: Deimos"
 #define VERSION "2.0"
@@ -27,7 +28,7 @@ new Float:g_shock_cooldown[2], g_shock_range[2], g_shock_radius, Float:g_shock_s
 new SkillStart[64], SkillHit[64], SkillExp[64], SkillSpr[64], SkillTrail[64], SkillModel[64]
 
 new g_SkillSpr_Id, g_SkillTrail_Id
-new g_zombie_classid, g_can_skill[33], Float:g_current_time[33]
+new g_zombie_classid
 
 #define LANG_OFFICIAL LANG_PLAYER
 
@@ -37,23 +38,15 @@ new g_zombie_classid, g_can_skill[33], Float:g_current_time[33]
 
 #define TASK_SKILLING 31000
 
-new g_synchud1, g_Msg_Shake
+new  g_Msg_Shake
 
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
-	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
-	register_clcmd("drop", "cmd_drop")
-	
-	register_forward(FM_EmitSound, "fw_EmitSound")
-	register_forward(FM_TraceLine, "fw_TraceLine")
-	register_forward(FM_TraceHull, "fw_TraceHull")	
-	
 	register_think(SHOCK_CLASSNAME, "fw_Shock_Think")
 	register_touch(SHOCK_CLASSNAME, "*", "fw_Shock_Touch")
 	
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 	g_Msg_Shake = get_user_msgid("ScreenShake")
 }
 
@@ -79,6 +72,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_shock_cooldown[ZOMBIE_HOST], g_shock_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheModel, SkillModel)
@@ -142,84 +136,28 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "SHOCK_SPR_BEAM", SkillTrail, sizeof(SkillTrail), DummyArray); 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "SHOCK_MODEL", SkillModel, sizeof(SkillModel), DummyArray);
 }
-
-public zb3_user_infected(id, infector, infect_flag)
-{
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return;
-
-	switch(infect_flag)
-	{
-		case INFECT_VICTIM: reset_skill(id, true) 
-	}
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
-}
-
-public reset_skill(id, bool:reset_time)
-{
-	if( reset_time ) 
-		g_current_time[id] = g_shock_cooldown[zb3_get_user_zombie_type(id)]
-
-	g_can_skill[id] = reset_time ? 1 : 0
-	remove_task(id+TASK_SKILLING)
-}
-
-public zb3_user_spawned(id) 
-{
-	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
-}
-
-public zb3_user_dead(id) 
-{
-	if(!zb3_get_user_zombie(id))
-		return;
-	if( zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return;
-
-	reset_skill(id, false)
-}
-
-public Event_NewRound()
+public zb3_game_start(start_type)
 {
 	remove_entity_name(SHOCK_CLASSNAME)
 }
 
-public cmd_drop(id)
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE	
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 	if(get_user_weapon(id) != CSW_KNIFE)
-		return PLUGIN_CONTINUE
-	if(!g_can_skill[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
+		return 0
 
 	Do_Skill(id)
-
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Skill(id)
 {
-	g_can_skill[id] = 0
-	g_current_time[id] = 0.0
-	
-	set_weapons_timeidle(id, g_shock_starttime)
-	set_player_nextattack(id, g_shock_starttime)
-	set_weapon_anim(id, SHOCK_ANIM)
+	set_member(id, m_flTimeWeaponIdle, g_shock_starttime + 3.0);
+	set_member(id, m_flNextAttack, g_shock_starttime)
+	rg_weapon_send_animation(id, SHOCK_ANIM)
 	set_pev(id, pev_sequence, SHOCK_PLAYERANIM)
 	
 	EmitSound(id, CHAN_ITEM, SkillStart)
@@ -239,8 +177,6 @@ public Do_Shock(id)
 		return
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 
-		
-	g_can_skill[id] = 0
 
 	// Create Light
 	Create_Light(id)
@@ -325,7 +261,7 @@ public LightExp(ent, victim)
 	static Float:Origin[3]
 	pev(ent, pev_origin, Origin)
 	
-	for(new i = 0; i < 2; i++)
+	// for(new i = 0; i < 2; i++)
 	{
 		message_begin(MSG_BROADCAST,SVC_TEMPENTITY)
 		write_byte(TE_EXPLOSION)
@@ -333,9 +269,9 @@ public LightExp(ent, victim)
 		engfunc(EngFunc_WriteCoord, Origin[1])
 		engfunc(EngFunc_WriteCoord, Origin[2])
 		write_short(g_SkillSpr_Id)
-		write_byte(40)
+		write_byte(20)
 		write_byte(30)
-		write_byte(14)
+		write_byte(TE_EXPLFLAG_NODLIGHTS | TE_EXPLFLAG_NOSOUND)
 		message_end()
 	}
 	
@@ -344,15 +280,20 @@ public LightExp(ent, victim)
 	
 	if(is_user_alive(id) && is_user_alive(victim) && !zb3_get_user_zombie(victim) && !zb3_get_user_hero(victim))
 	{
-		const WPN_NOT_DROP = ((1<<2)|(1<<CSW_HEGRENADE)|(1<<CSW_SMOKEGRENADE)|(1<<CSW_FLASHBANG)|(1<<CSW_KNIFE)|(1<<CSW_C4))
+		static pEntity, j
+		pEntity = -1
 		
-		static wpnname[64]
-		if(!(WPN_NOT_DROP & (1<<get_user_weapon(victim))) && get_weaponname(get_user_weapon(victim), wpnname, charsmax(wpnname)))
+		for(j = 1;j <= 2; j++)
 		{
-			engclient_cmd(victim, "drop", wpnname)
-			EmitSound(victim, CHAN_ITEM, SkillHit)
+			pEntity = get_member(victim, m_rgpPlayerItems, j);
+			if(is_entity(pEntity))
+			{
+				rg_drop_items_by_slot(victim, InventorySlotType:j)
+				break;
+			}
 		}
 
+		EmitSound(victim, CHAN_ITEM, SkillHit)
 		ScreenShake(victim)
 	}
 	
@@ -372,77 +313,12 @@ public ScreenShake(id)
 	message_end()
 }
 
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-
-	percent = floatround(floatclamp(g_current_time[id] / get_cooldowntime(id) * 100.0, 0.0, 100.0))
-	
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-
-	if(percent >= 100) {
-		if(!g_can_skill[id]) g_can_skill[id] = 1
-	}	
-}
-
 stock EmitSound(id, chan, const file_sound[])
 {
 	if(!pev_valid(id))
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock PlaySound(id, const sound[])
-{
-	if (equal(sound[strlen(sound)-4], ".mp3"))
-		client_cmd(id, "mp3 play ^"sound/%s^"", sound)
-	else
-		client_cmd(id, "spk ^"%s^"", sound)
-}
-
-stock set_weapon_anim(id, anim)
-{
-	if(!is_user_alive(id))
-		return
-		
-	set_pev(id, pev_weaponanim, anim)
-	
-	message_begin(MSG_ONE_UNRELIABLE, SVC_WEAPONANIM, _, id)
-	write_byte(anim)
-	write_byte(0)
-	message_end()	
-}
-
-stock set_weapons_timeidle(id, Float:TimeIdle)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flTimeWeaponIdle = 48
-	
-	new entwpn = fm_get_user_weapon_entity(id, CSW_KNIFE)
-	if (pev_valid(entwpn)) set_pdata_float(entwpn, m_flTimeWeaponIdle, TimeIdle + 3.0, 4)
-}
-
-stock set_player_nextattack(id, Float:nexttime)
-{
-	if(!is_user_alive(id))
-		return
-		
-	const m_flNextAttack = 83
-	set_pdata_float(id, m_flNextAttack, nexttime, 5)
 }
 
 stock Make_TrailEffect(ent)
@@ -463,11 +339,3 @@ stock Make_TrailEffect(ent)
 	write_byte(255); // brightness
 	message_end();
 }
-
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_shock_cooldown[zb3_get_user_zombie_type(id)]
-}
-

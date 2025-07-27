@@ -24,9 +24,9 @@ new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
 new Array:BeserkSound, BeserkSoundString1[64], BeserkSoundString2[64]
 new Array:ShellColor, g_beserk_shell_color[3]
 new berserk_startsound[64]
-new Float:g_beserk_time[2], Float:g_beserk_cooldown[2], g_beserk_cost, g_beserk_speed, Float:g_beserk_gravity
+new Float:g_beserk_time[2], Float:g_beserk_cooldown[2], g_beserk_cost, g_beserk_speed //, Float:g_beserk_gravity
 
-new g_zombie_classid, g_can_berserk[33], g_berserking[33], Float:g_current_time[33]
+new g_zombie_classid, g_berserking[33]
 
 #define LANG_OFFICIAL LANG_PLAYER
 
@@ -43,17 +43,12 @@ enum (+= 50)
 	TASK_BERSERK_SOUND
 }
 
-new g_Msg_Fov, g_synchud1
-
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
-	register_clcmd("drop", "cmd_drop")
+	// // register_clcmd("drop", "cmd_drop")
 
 	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
-
-	g_Msg_Fov = get_user_msgid("SetFOV")
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
 }
 
 public plugin_precache()
@@ -63,7 +58,7 @@ public plugin_precache()
 	DeathSound = ArrayCreate(64, 1)
 	HurtSound = ArrayCreate(64, 1)
 	BeserkSound = ArrayCreate(64, 1)
-	ShellColor = ArrayCreate(1, 1)
+	ShellColor = ArrayCreate(4, 1)
 
 	load_cfg()
 
@@ -75,7 +70,12 @@ public plugin_precache()
 	ArrayGetString(BeserkSound, 1, BeserkSoundString2, charsmax(BeserkSoundString2))
 
 	for(new i; i < 3; i++)
-		g_beserk_shell_color[i] = ArrayGetCell(ShellColor, i)
+	{
+		static szTemp[8]
+		ArrayGetString(ShellColor, i, szTemp, charsmax(szTemp)) // ArrayGetCell(ShellColor, i)
+		g_beserk_shell_color[i] = str_to_num(szTemp)
+		server_print("%i", g_beserk_shell_color[i])
+	}
 
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheSound, berserk_startsound)
@@ -90,6 +90,7 @@ public plugin_precache()
 		DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_beserk_cooldown[ZOMBIE_HOST], g_beserk_cooldown[ZOMBIE_ORIGIN]);
 }
 public load_cfg()
 {
@@ -131,7 +132,7 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BERSERK_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_beserk_cooldown[ZOMBIE_HOST] = str_to_float(buffer)
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEALTH_COST", buffer, sizeof(buffer), DummyArray); g_beserk_cost = str_to_num(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "GRAVITY", buffer, sizeof(buffer), DummyArray); g_beserk_gravity = str_to_float(buffer)
+	// zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "GRAVITY", buffer, sizeof(buffer), DummyArray); g_beserk_gravity = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "SPEED", buffer, sizeof(buffer), DummyArray); g_beserk_speed = str_to_num(buffer)
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BESERK_START", berserk_startsound, sizeof(berserk_startsound), DummyArray);
@@ -147,44 +148,29 @@ public zb3_user_infected(id, infector, infect_flag)
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id, true) 
-		case INFECT_CHANGECLASS:
-		{
-			if(g_berserking[id]) {
-				zb3_set_user_speed(id, g_beserk_speed)
-				zb3_set_user_gravity(id, g_beserk_gravity) 
-			}
-		} 
+		case INFECT_VICTIM: reset_skill(id) 
 	}
 }
 public zb3_user_change_class(id, oldclass, newclass)
 {
 	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
+		reset_skill(id)
 	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
+		reset_skill(id)
 }
 
-public reset_skill(id, bool:reset_time)
+public reset_skill(id)
 {
-	if( reset_time ) 
-		g_current_time[id] = g_beserk_cooldown[zb3_get_user_zombie_type(id)]
-
-	g_can_berserk[id] = reset_time ? 1 : 0
 	g_berserking[id] = 0
-
-	zb3_set_user_rendering(id)
 	
 	if(task_exists(id+TASK_BERSERKING)) remove_task(id+TASK_BERSERKING)
 	if(task_exists(id+TASK_BERSERK_SOUND)) remove_task(id+TASK_BERSERK_SOUND)
-	
-	if(is_user_connected(id)) set_fov(id)
 }
 
 public zb3_user_spawned(id) 
 {
 	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)//set_task(0.1, "reset_skill", id)
+		reset_skill(id)//set_task(0.1, "reset_skill", id)
 }
 
 public zb3_user_dead(id) 
@@ -194,7 +180,7 @@ public zb3_user_dead(id)
 	if( zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return;
 
-	reset_skill(id, false)
+	reset_skill(id)
 }
 
 public fw_takedamage(victim, inflictor, attacker, Float: damage)
@@ -214,23 +200,14 @@ public fw_takedamage(victim, inflictor, attacker, Float: damage)
 	return HAM_HANDLED;
 }
 
-public cmd_drop(id)
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
-	if(!g_can_berserk[id] || g_berserking[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
-		
-	Do_Berserk(id)
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 
-	return PLUGIN_HANDLED
+	Do_Berserk(id)
+	return 1
 }
 
 public Do_Berserk(id)
@@ -241,21 +218,15 @@ public Do_Berserk(id)
 		
 		// Set Vars
 		g_berserking[id] = 1
-		g_can_berserk[id] = 0
-		g_current_time[id] = 0.0
-		
+
 		// Decrease Health
 		zb3_set_user_health(id, get_user_health(id) - g_beserk_cost)
 		
 		// Set Render Red
 		zb3_set_user_rendering(id, kRenderFxGlowShell, g_beserk_shell_color[0], g_beserk_shell_color[1], g_beserk_shell_color[2], kRenderNormal, 0)
-	
-		// Set Fov
-		set_fov(id, FASTRUN_FOV)
 		
-		// Set MaxSpeed & Gravity
+		// Set MaxSpeed
 		zb3_set_user_speed(id, g_beserk_speed)
-		zb3_set_user_gravity(id, g_beserk_gravity)
 		
 		// Play Berserk Sound
 		EmitSound(id, CHAN_VOICE, berserk_startsound)
@@ -287,19 +258,10 @@ public Remove_Berserk(id)
 
 	// Set Vars
 	g_berserking[id] = 0
-	//g_can_berserk[id] = 0	
 	
 	// Reset Rendering
 	zb3_set_user_rendering(id)
-	
-	// Reset FOV
-	set_fov(id)
-	
-	// Reset Speed
-	static Float:DefaultSpeed
-	DefaultSpeed = zb3_get_user_level(id) > 1 ? zclass_speedorigin : zclass_speedhost
-	
-	zb3_set_user_speed(id, floatround(DefaultSpeed))
+	zb3_reset_user_speed(id)
 }
 
 public Berserk_HeartBeat(id)
@@ -312,33 +274,12 @@ public Berserk_HeartBeat(id)
 		return
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
 		return 
-	if(g_can_berserk[id] || !g_berserking[id])
+	if(!g_berserking[id])
 		return
 
 	EmitSound(id, CHAN_VOICE, random_num(1,2) == 1 ? BeserkSoundString1 : BeserkSoundString2)
 
 	set_task(2.0, "Berserk_HeartBeat", id+TASK_BERSERK_SOUND)
-}
-
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id))
-		return
-	if(!zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-	percent = floatround(floatclamp(g_current_time[id] / get_cooldowntime(id) * 100.0, 0.0, 100.0))
-
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-		
-	if(percent >= 99 && !g_can_berserk[id]) g_can_berserk[id] = 1	
 }
 
 public zb3_zombie_evolution(id, level)
@@ -353,27 +294,10 @@ public zb3_zombie_evolution(id, level)
 	}
 }
 
-stock set_fov(id, num = 90)
-{
-	if(!is_user_connected(id))
-		return
-	
-	message_begin(MSG_ONE_UNRELIABLE, g_Msg_Fov, {0,0,0}, id)
-	write_byte(num)
-	message_end()
-}
-
 stock EmitSound(id, chan, const file_sound[])
 {
 	if(!is_user_connected(id))
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_beserk_cooldown[zb3_get_user_zombie_type(id)]
 }

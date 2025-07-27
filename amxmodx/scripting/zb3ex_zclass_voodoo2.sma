@@ -25,22 +25,19 @@ new Array:HealAmountLevel
 new Float:g_heal_cooldown[2], g_heal_amount[3], Float:g_heal_radius
 new HealSkillSound[64], HealSoundMale[64], HealSoundFemale[64], HealerSpr[64], HealedSpr[64]
 
-new g_zombie_classid, g_can_heal[33], Float:g_current_time[33]
+new g_zombie_classid
 
 #define LANG_OFFICIAL LANG_PLAYER
 
-new g_synchud1, g_synchud2, g_MaxPlayers
+new g_synchud1
 
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 	
 	register_forward(FM_AddToFullPack, "fw_AddToFullPack_Post", 1)
-	register_clcmd("drop", "cmd_drop")
-	
-	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL1)
-	g_synchud2 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL2)
-	g_MaxPlayers = get_maxplayers()
+
+	g_synchud1 = zb3_get_synchud_id(SYNCHUD_ZBHM_SKILL2)
 }
 
 public plugin_precache()
@@ -77,6 +74,7 @@ public plugin_precache()
 	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
 	
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_heal_cooldown[ZOMBIE_HOST], g_heal_cooldown[ZOMBIE_ORIGIN]);
 	
 	// Precache Class Resource
 	engfunc(EngFunc_PrecacheSound, HealSoundMale)
@@ -134,43 +132,6 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEALED_SPR", HealedSpr, sizeof(HealedSpr), DummyArray);
 }
 
-public zb3_user_infected(id, infector, infect_flag)
-{
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return;
-		
-	if(infect_flag == INFECT_VICTIM) reset_skill(id, true) 	
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id, true)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id, false)
-}
-
-public reset_skill(id, bool:reset_time)
-{
-	if( reset_time ) 
-		g_current_time[id] = g_heal_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST
-
-	g_can_heal[id] = reset_time ? 1 : 0
-}
-
-public zb3_user_spawned(id) 
-{
-	if(!zb3_get_user_zombie(id))
-		reset_skill(id, false)
-}
-
-public zb3_user_dead(id) 
-{
-	if(!zb3_get_user_zombie(id) || zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return;
-
-	reset_skill(id, false)
-}
-
 public fw_AddToFullPack_Post(es, e, ent, host, hostflags, player, pSet)
 {
 	if(!player)
@@ -181,7 +142,7 @@ public fw_AddToFullPack_Post(es, e, ent, host, hostflags, player, pSet)
 		return FMRES_IGNORED
 	if(zb3_get_user_zombie_class(host) != g_zombie_classid)
 		return FMRES_IGNORED
-	if(!zb3_get_user_nvg(host) || zb3_get_user_level(host) < 2)
+	if(!zb3_get_user_nvg(host))
 		return FMRES_IGNORED
 		
 	static Float:CurHealth, Float:MaxHealth
@@ -212,23 +173,13 @@ public fw_AddToFullPack_Post(es, e, ent, host, hostflags, player, pSet)
 }
 
 
-public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
 {
-	if(!is_user_alive(id))
-		return PLUGIN_CONTINUE	
-	if(!zb3_get_user_zombie(id))
-		return PLUGIN_CONTINUE
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return PLUGIN_CONTINUE
-	if(!g_can_heal[id])
-	{
-		client_print(id, print_center, "%L", LANG_PLAYER, "ZOMBIE_SKILL_NOT_READY", zclass_desc , floatround(get_cooldowntime(id) - g_current_time[id]))
-		return PLUGIN_HANDLED
-	}
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
 
 	Do_Heal(id)
-
-	return PLUGIN_HANDLED
+	return 1
 }
 
 public Do_Heal(id)
@@ -237,8 +188,6 @@ public Do_Heal(id)
 	static CurrentHealth, MaxHealth, RealHealth, PatientGender
 	static HealAmount, HealTotalAmount, HealSingle; 
 	i = RealHealth = CurrentHealth = PatientGender = MaxHealth = HealAmount = HealTotalAmount = HealSingle = 0
-	g_current_time[id] = 0.0
-	g_can_heal[id] = 0
 	
 	set_hudmessage(0, 255, 255, 0.7, 0.9, 0, 3.0, 3.0, 0.05, 3.0);
 
@@ -268,37 +217,16 @@ public Do_Heal(id)
 		if(id == i) Heal_Icon(i, 1)
 		else 
 		{
-			ShowSyncHudMsg(i, g_synchud2, "+ %i", HealSingle)
+			ShowSyncHudMsg(i, g_synchud1, "+ %i", HealSingle)
 			Heal_Icon(i, 0)
 			EmitSound(i, CHAN_AUTO, PatientGender == SEX_FEMALE ? HealSoundFemale : HealSoundMale)
 		}
 	}
 
 	if(HealTotalAmount > 0)
-		ShowSyncHudMsg(id, g_synchud2, "+ %i", HealTotalAmount)
+		ShowSyncHudMsg(id, g_synchud1, "+ %i", HealTotalAmount)
 
 	EmitSound(id, CHAN_AUTO, HealSkillSound)
-}
-
-public zb3_skill_show(id)
-{
-	if(!is_user_alive(id) || !zb3_get_user_zombie(id))
-		return
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
-		return 	
-		
-	if(g_current_time[id] < get_cooldowntime(id))
-		g_current_time[id]++
-	
-	static percent
-	percent = floatround(floatclamp((g_current_time[id] / get_cooldowntime(id)) * 100.0, 0.0, 100.0))
-
-	set_hudmessage(255, 255, 255, -1.0, 0.10, 0, 3.0, 3.0)
-	ShowSyncHudMsg(id, g_synchud1, "%L", LANG_PLAYER, "ZOMBIE_SKILL_SINGLE", zclass_desc, percent)
-
-	if(percent >= 99) {
-		if(!g_can_heal[id]) g_can_heal[id] = 1
-	}	
 }
 
 stock Heal_Icon(id, Healer)
@@ -315,11 +243,4 @@ stock EmitSound(id, chan, const file_sound[])
 		return
 		
 	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock Float:get_cooldowntime(id)
-{
-	if(!zb3_get_user_zombie(id))
-		return 0.0
-	return g_heal_cooldown[zb3_get_user_zombie_type(id)] // zb3_get_user_level(id) > 1 ? HEAL_COOLDOWN_ORIGIN : HEAL_COOLDOWN_HOST;
 }
