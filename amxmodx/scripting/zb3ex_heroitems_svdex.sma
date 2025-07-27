@@ -18,7 +18,7 @@
 #define ROF_CUSWPN 0.4
 #define RECOIL_CUSWPN 0.6
 #define ACCURACY_CUSWPN 0.5
-#define MAXAMMO_CUSWPN 180
+#define MAXAMMO_CUSWPN 240
 
 #define RELOAD_TIME 3.8
 
@@ -119,7 +119,8 @@ public plugin_init()
 	register_plugin("SVDEX", "", "406")
 
 	RegisterHam(Ham_Weapon_PrimaryAttack, STRN_BASEWPN, "Fw_Ham_Weapon_PrimaryAttack")
-	RegisterHam(Ham_Item_AddToPlayer, STRN_BASEWPN, "Fw_Ham_Item_AddToPlayer", 1)
+	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem", 1)
+	RegisterHookChain(RG_CBasePlayer_RemovePlayerItem, "Fw_RG_CBasePlayer_RemovePlayerItem", 1)
 
 	register_forward(FM_UpdateClientData, "Fw_FM_UpdateClientData_Post", 1)
 	register_touch(GRENADE_CLASSNAME, "*", "fw_GrenadeTouch");
@@ -129,7 +130,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayerWeapon_ItemPostFrame, "Fw_RG_CBasePlayerWeapon_ItemPostFrame")
 	RegisterHookChain(RG_CWeaponBox_SetModel, "Fw_RG_CWeaponBox_SetModel")
 
-	register_clcmd("svdex2", "give")
+	register_clcmd("svdex", "give")
 
 	register_clcmd(STRN_CUSWPN, "lastinv")
 }
@@ -167,14 +168,30 @@ public give(player)
 	set_member(pEntity, m_Weapon_iGlock18ShotsFired, GRENADE_MAXAMMO);
 	rg_set_iteminfo(pEntity, ItemInfo_iMaxClip, CLIP_CUSWPN)
 	rg_set_iteminfo(pEntity, ItemInfo_iMaxAmmo1, MAXAMMO_CUSWPN)
+	zb3_give_user_ammo(player, pEntity)
+
+	static Float:vuser4[3]
+	vuser4[0] = 510.0;
+	vuser4[1] = 0.65;
+	vuser4[2] = 0.0;
+	set_entvar(pEntity, var_vuser4, vuser4)
 }
 
-public Fw_Ham_Item_AddToPlayer(entity, player)
+public Fw_RG_CBasePlayer_AddPlayerItem(player, entity)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) 
-		return
+	if(!is_custom(entity, ID_CUSWPN))
+		return HC_CONTINUE;
 
 	MsgFunc_WeaponList(player, entity, STRN_CUSWPN, GRENADE_AMMOID, GRENADE_MAXAMMO)
+	return HC_CONTINUE;
+}
+public Fw_RG_CBasePlayer_RemovePlayerItem(player, entity)
+{
+	if(!is_custom(entity, ID_CUSWPN))
+		return HC_CONTINUE;
+
+	MsgFunc_WeaponList(player, entity, STRN_BASEWPN)
+	return HC_CONTINUE;
 }
 
 public Fw_RG_CBasePlayerWeapon_ItemPostFrame(const this)
@@ -216,7 +233,7 @@ public Fw_RG_CBasePlayerWeapon_DefaultReload(const this, iClipSize, iAnim, Float
 
 public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeaponModel[], iAnim, szAnimExt[], skiplocal)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) 
+	if(!is_custom(entity, ID_CUSWPN)) 
 		return
 	
 	SetHookChainArg( 2, ATYPE_STRING, WeaponModel[MODEL_VIEW])
@@ -243,7 +260,7 @@ public Fw_RG_CWeaponBox_SetModel(entity, const szModelName[])
 
 public Fw_Ham_Weapon_PrimaryAttack(entity)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) return HAM_IGNORED
+	if(!is_custom(entity, ID_CUSWPN)) return HAM_IGNORED
 
 	static iClip, iTraceLine, iPlaybackEvent, bool:bMode, Float:vPunch[3]
 

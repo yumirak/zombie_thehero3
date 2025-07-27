@@ -11,12 +11,12 @@
 #define ID_CUSWPN 1034689
 #define STRN_BASEWPN "weapon_m3"
 #define STRN_CUSWPN "weapon_qbarrel"
-#define DAMAGE_CUSWPN 270.0
+#define DAMAGE_CUSWPN 50.0
 #define CLIP_CUSWPN 4
 #define ROF_CUSWPN 0.4
 #define RECOIL_CUSWPN 0.5
 #define ACCURACY_CUSWPN 0.5
-#define MAXAMMO_CUSWPN 150
+#define MAXAMMO_CUSWPN 225
 
 #define RELOAD_TIME 3.0
 
@@ -84,7 +84,8 @@ public plugin_init()
 	register_plugin("QBARREL", "", "406")
 
 	RegisterHam(Ham_Weapon_PrimaryAttack, STRN_BASEWPN, "Fw_Ham_Weapon_PrimaryAttack")
-	RegisterHam(Ham_Item_AddToPlayer, STRN_BASEWPN, "Fw_Ham_Item_AddToPlayer", 1)
+	RegisterHookChain(RG_CBasePlayer_AddPlayerItem, "Fw_RG_CBasePlayer_AddPlayerItem", 1)
+	RegisterHookChain(RG_CBasePlayer_RemovePlayerItem, "Fw_RG_CBasePlayer_RemovePlayerItem", 1)
 
 	register_forward(FM_UpdateClientData, "Fw_FM_UpdateClientData_Post", 1)
 
@@ -130,14 +131,29 @@ public give(player)
 	rg_set_iteminfo(pEntity, ItemInfo_iMaxAmmo1, MAXAMMO_CUSWPN)
 
 	zb3_give_user_ammo(player, pEntity)
+
+	static Float:vuser4[3]
+	vuser4[0] = 1400.0;
+	vuser4[1] = 0.65;
+	vuser4[2] = 0.0;
+	set_entvar(pEntity, var_vuser4, vuser4)
 }
 
-public Fw_Ham_Item_AddToPlayer(entity, player)
+public Fw_RG_CBasePlayer_AddPlayerItem(player, entity)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) 
-		return
+	if(!is_custom(entity, ID_CUSWPN))
+		return HC_CONTINUE;
 
 	MsgFunc_WeaponList(player, entity, STRN_CUSWPN)
+	return HC_CONTINUE;
+}
+public Fw_RG_CBasePlayer_RemovePlayerItem(player, entity)
+{
+	if(!is_custom(entity, ID_CUSWPN))
+		return HC_CONTINUE;
+
+	MsgFunc_WeaponList(player, entity, STRN_BASEWPN)
+	return HC_CONTINUE;
 }
 
 public Fw_RG_CBasePlayerWeapon_ItemPostFrame(const this)
@@ -177,12 +193,13 @@ public Fw_RG_CBasePlayerWeapon_DefaultShotgunReload(const this, iAnim, iStartAni
 
 public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeaponModel[], iAnim, szAnimExt[], skiplocal)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) 
+	if(!is_custom(entity, ID_CUSWPN)) 
 		return
 	
 	SetHookChainArg( 2, ATYPE_STRING, WeaponModel[MODEL_VIEW])
 	SetHookChainArg( 3, ATYPE_STRING, WeaponModel[MODEL_PLAYER])
 	SetHookChainArg( 4, ATYPE_INTEGER, ANIM_DRAW)
+	SetHookChainArg( 5, ATYPE_STRING, "m249")
 }
 
 public Fw_RG_CWeaponBox_SetModel(entity, const szModelName[])
@@ -199,7 +216,7 @@ public Fw_RG_CWeaponBox_SetModel(entity, const szModelName[])
 
 public Fw_Ham_Weapon_PrimaryAttack(entity)
 {
-	if(get_entvar(entity, var_impulse) != ID_CUSWPN) return HAM_IGNORED
+	if(!is_custom(entity, ID_CUSWPN)) return HAM_IGNORED
 
 	static iClip, iTraceLine, iPlaybackEvent, Float:vPunch[3]
 
