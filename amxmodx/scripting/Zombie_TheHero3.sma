@@ -11,7 +11,7 @@
 
 #define LANG_OFFICIAL LANG_PLAYER
 // #define _DEBUG
-
+#define REAPI_DAMAGEIMPULSE
 // Configs
 new const SETTING_FILE[] = "zombie_thehero2/config.ini"
 new const MAP_FILE[] = "zombie_thehero2/maplist.ini"
@@ -147,7 +147,9 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayer_DeathSound, "Fw_RG_CBasePlayer_DeathSound");
 	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
 	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
-
+#if defined REAPI_DAMAGEIMPULSE
+	RegisterHookChain(RG_CBasePlayer_TakeDamageImpulse, "Fw_RG_CBasePlayer_TakeDamageImpulse");
+#endif
 	g_MaxPlayers = get_maxplayers()
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	
@@ -1279,7 +1281,15 @@ public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, d
 	if(g_gamestatus != STATUS_PLAY)
 	{
 		SetHookChainReturn(ATYPE_INTEGER, false)
-		return HC_SUPERCEDE;
+		return HC_BREAK;
+	}
+
+	if(is_user_alive(attacker) && is_user_alive(victim) 
+	&& g_zombie[attacker] && !g_zombie[victim] && inflictor == attacker)
+	{
+		set_user_zombie(victim, attacker, inflictor, false, false)
+		SetHookChainReturn(ATYPE_INTEGER, false)
+		return HC_BREAK;
 	}
 
 	SetHookChainReturn(ATYPE_INTEGER, true)
@@ -1288,35 +1298,30 @@ public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, d
 
 public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:damage, damagebits)
 {
-	if(!is_user_alive(attacker))
+	if(!is_user_alive(attacker) || fm_cs_get_user_team(attacker) == fm_cs_get_user_team(victim))
 	{
 		SetHookChainReturn(ATYPE_INTEGER, true)
 		return HC_CONTINUE;
 	}
-	if(fm_cs_get_user_team(attacker) == fm_cs_get_user_team(victim) || g_gamestatus != STATUS_PLAY)
-	{
-		SetHookChainReturn(ATYPE_INTEGER, false)
-		return HC_SUPERCEDE;
-	}
 
-	if(g_zombie[attacker] && !g_zombie[victim] && inflictor == attacker)
-	{
-		set_user_zombie(victim, attacker, inflictor, false, false)
-		SetHookChainReturn(ATYPE_INTEGER, false)
-		return HC_SUPERCEDE;
-	}
-
-	static Float:zb_class_dmgmulti; zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
+	static Float:zb_class_dmgmulti, bool:Knife; 
+	zb_class_dmgmulti = ArrayGetCell(zombie_dmgmulti, g_zombie_class[victim])
+	Knife = (get_user_weapon(attacker) == CSW_KNIFE)
 
 	if (zb_class_dmgmulti > 0.0)
 		damage *= zb_class_dmgmulti
 	if (damagebits & DMG_GRENADE)
 		damage *= grenade_default_power
-	if (damagebits & DMG_BULLET && g_gamemode == MODE_HERO)
+	if (!Knife && g_gamemode == MODE_HERO)
 		damage *= 1.0 + (g_level[attacker] * 0.1)
 
 	// SetHamParamFloat(4, damage)
 	SetHookChainArg(4, ATYPE_FLOAT, damage);
+
+#if defined _DEBUG
+	client_print(victim, print_chat, "%f, %f (%i) (%i/%i)", damage, 1.0 + (g_level[attacker] * 0.1), Knife, inflictor, attacker)
+	client_print(attacker, print_chat, "%f, %f (%i) (%i/%i)", damage, 1.0 + (g_level[attacker] * 0.1), Knife, inflictor, attacker)
+#endif
 
 	fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + floatround(damage) / 8, true)
 	fm_cs_set_user_money(victim, fm_cs_get_user_money(victim) + floatround(damage) / 16, true)
@@ -1334,13 +1339,19 @@ public Fw_RG_CBasePlayer_TakeDamage_Post(victim, inflictor, attacker, Float:dama
 			}
 		}
 	}
-
+#if !defined REAPI_DAMAGEIMPULSE
 	do_knockback(victim, attacker)
-
+#endif
 	SetHookChainReturn(ATYPE_INTEGER, true)
 	return HC_CONTINUE;
 }
-
+#if defined REAPI_DAMAGEIMPULSE
+public Fw_RG_CBasePlayer_TakeDamageImpulse(victim, attacker, Float:flKnockbackForce, Float:flVelModifier)
+{
+	static wpn_ent, Float:wpn_attribute[3], Float:temp_attribute[3], Float:zb_class_attribute[2] 
+	
+	wpn_attribute[0] = flKnockbackForce; wpn_attribute[1] = flVelModifier;
+#else
 // 0 - Knockback
 // 1 - Painshock
 public do_knockback(victim, attacker)
@@ -1348,6 +1359,7 @@ public do_knockback(victim, attacker)
 	static wpn_ent, Float:wpn_attribute[3], Float:temp_attribute[3], Float:zb_class_attribute[2] 
 	
 	wpn_attribute[0] = 170.0; wpn_attribute[1] = 0.5;
+#endif
 	wpn_ent = get_member(attacker, m_pActiveItem)
 
 	zb_class_attribute[0] = ArrayGetCell(zombie_knockback, g_zombie_class[victim])
@@ -1365,6 +1377,13 @@ public do_knockback(victim, attacker)
 
 	fake_knockback(victim, attacker, wpn_attribute[0])
 	set_member(victim, m_flVelocityModifier, wpn_attribute[1]);
+#if defined _DEBUG
+	client_print(victim, print_chat, "%f, %f", wpn_attribute[0], wpn_attribute[1])
+	client_print(attacker, print_chat, "%f, %f", wpn_attribute[0], wpn_attribute[1])
+#endif
+#if defined REAPI_DAMAGEIMPULSE
+	return HC_SUPERCEDE; 
+#endif
 }
 
 public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
