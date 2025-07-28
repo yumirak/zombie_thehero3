@@ -18,7 +18,6 @@ new const MAP_FILE[] = "zombie_thehero2/maplist.ini"
 new const CVAR_FILE[] = "zombie_thehero2/zth_server.cfg"
 new const LANG_FILE[] = "zombie_thehero2.txt"
 
-#define KNIFE_IMPULSE 25622
 #define DEF_COUNTDOWN 20
 #define MAX_ZOMBIECLASS 20
 
@@ -118,7 +117,6 @@ public plugin_init()
 	
 	// Game Events
 	register_event("HLTV", "Event_NewRound", "a", "1=0", "2=0")
-	register_event("CurWeapon", "Event_CheckWeapon", "be", "1=1")
 	register_event("TextMsg", "Event_GameRestart", "a", "2=#Game_will_restart_in")
 	
 	// Messages
@@ -136,6 +134,7 @@ public plugin_init()
 
 	// ReAPI Hooks
 	RegisterHookChain(RG_RoundEnd, "Fw_RG_RoundEnd");
+	RegisterHookChain(RG_CBasePlayerWeapon_DefaultDeploy, "Fw_RG_CBasePlayerWeapon_DefaultDeploy")
 	RegisterHookChain(RG_CSGameRules_OnRoundFreezeEnd, "Fw_RG_CSGameRules_OnRoundFreezeEnd");
 	RegisterHookChain(RG_CSGameRules_SendDeathMessage, "Fw_RG_CSGameRules_SendDeathMessage");
 	RegisterHookChain(RG_CSGameRules_PlayerSpawn, "Fw_RG_CSGameRules_PlayerSpawn_Post", 1);
@@ -1046,28 +1045,24 @@ public Event_GameRestart()
 {
 	g_gamestatus = STATUS_ENDROUND
 }
-
-public Event_CheckWeapon(id)
+public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeaponModel[], iAnim, szAnimExt[], skiplocal)
 {
-	if (!is_user_alive(id)) 
-		return
-	if(!g_zombie[id])
+	if(get_entvar(entity, var_impulse) != IMPULSE_KNIFE)
 		return
 	
-	static current_weapon; current_weapon = get_user_weapon(id)
-	static ViewModel[64], Buffer[128]
+	static pPlayer, ViewModel[64], Buffer[128]
+	pPlayer = get_member(entity, m_pPlayer)
 
-	ArrayGetString(g_zombie_type[id] == ZOMBIE_HOST ? zombie_clawsmodel_host : zombie_clawsmodel_origin, g_zombie_class[id], ViewModel, sizeof(ViewModel))
+	if(!is_user_alive(pPlayer))
+		return
+
+	ArrayGetString(g_zombie_type[pPlayer] == ZOMBIE_HOST ? zombie_clawsmodel_host : zombie_clawsmodel_origin, g_zombie_class[pPlayer], ViewModel, sizeof(ViewModel))
 	formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ViewModel)
 
-	switch(current_weapon)
-	{
-		case CSW_HEGRENADE,CSW_FLASHBANG,CSW_SMOKEGRENADE: return
-		case CSW_KNIFE: { set_pev(id, pev_viewmodel2, Buffer); set_pev(id, pev_weaponmodel2, "") ;}
-		default: { fm_reset_user_weapon(id); return; }
-	}
+	SetHookChainArg( 2, ATYPE_STRING, Buffer)
+	SetHookChainArg( 3, ATYPE_STRING, "")
+	SetHookChainArg( 4, ATYPE_INTEGER, 3)
 }
-
 public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const assister, const inflictor, const killerWeaponName[], const DeathMessageFlags:iDeathMessageFlags, const KillRarity:iRarityOfKill)
 {
 	static headshot;
@@ -2310,7 +2305,7 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
 	
 	fm_set_rendering(id)
-	fm_reset_user_weapon(id)
+	fm_reset_user_weapon(id, flag != INFECT_CHANGECLASS)
 	set_weapon_anim(id, 3)
 
 	if(reset_hp)
@@ -2327,7 +2322,6 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 	}
 
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
-	Event_CheckWeapon(id)
 }
 
 public set_human_model(id)
@@ -2608,7 +2602,7 @@ stock fm_reset_user_weapon(id, bool:strip = true)
 	{
 		case true: 
 		{
-			ent = rg_give_custom_item(id, "weapon_knife", GT_REPLACE, KNIFE_IMPULSE)
+			ent = rg_give_custom_item(id, "weapon_knife", GT_REPLACE, IMPULSE_KNIFE)
 
 			if(ent)
 			{

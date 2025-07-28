@@ -148,6 +148,12 @@ enum
 	WPN_REMOVE,
 	WPN_ADDAMMO
 }
+enum 
+{
+	IMPULSE_KNIFE = 168942,
+	IMPULSE_GRENADE,
+	IMPULSE_SMOKE, // NYI
+}
 // Natives
 native zb3_infect(id, attacker, origin_zombie, respawn); // Infect a Player
 

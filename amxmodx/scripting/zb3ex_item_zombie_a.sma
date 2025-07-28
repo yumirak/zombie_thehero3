@@ -44,9 +44,8 @@ public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 
-	register_event("TextMsg", "event_restart", "a", "2=#Game_will_restart_in")
-	register_event("CurWeapon", "event_CurWeapon", "be", "1=1")
 	register_forward(FM_SetModel, "fw_SetModel")
+	RegisterHookChain(RG_CBasePlayerWeapon_DefaultDeploy, "Fw_RG_CBasePlayerWeapon_DefaultDeploy")
 	
 	RegisterHam(Ham_Think, "grenade", "fw_ThinkGrenade")
 }
@@ -157,19 +156,9 @@ public zb3_game_start(start_type)
 		g_x_health_armor_used[i] = 0
 }
 
-public event_restart()
-{
-	for(new i = 1; i < MAX_PLAYERS;i++)
-	{
-		reset_value(i)
-	}
-}
-
 public zb3_item_selected_post(id, itemid)
 {
-	if(itemid == g_x_health_armor)
-		x_health_armor_handle(id)
-	else if(itemid == zombie_grenade) {
+	if(itemid == zombie_grenade) {
 		zombie_grenade_handle(id)
 	} else if(itemid == g_im_respawn) {
 		zb3_set_user_respawn_time(id, 0)
@@ -178,7 +167,12 @@ public zb3_item_selected_post(id, itemid)
 	}
 }
 
-public zb3_user_infected(id)
+public zb3_user_infected(id, infector, infect_flag)
+{
+	if(infect_flag != INFECT_CHANGECLASS)
+		reset_item(id)  
+}
+public reset_item(id)
 {
 	x_health_armor_handle(id)
 	zombie_grenade_handle(id)
@@ -186,34 +180,6 @@ public zb3_user_infected(id)
 	respawn_time_handle(id)
 }
 
-#if 0 // Needed ?
-public zb3_zombie_evolution(id, level)
-{
-	if(level > 1)
-	{
-		if(g_had_zombie_grenade[id] && get_user_weapon(id) == CSW_HEGRENADE)
-		{
-			new model[64]
-			ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
-			
-			set_pev(id, pev_viewmodel2, model)
-			set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
-		}
-	}
-}
-
-public zb3_user_change_class(id, class)
-{
-	if(g_had_zombie_grenade[id] && get_user_weapon(id) == CSW_HEGRENADE)
-	{
-		new model[64]
-		ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
-		
-		set_pev(id, pev_viewmodel2, model)
-		set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
-	}	
-}
-#endif 
 public client_putinserver(id)
 {
 	reset_value(id)
@@ -273,7 +239,7 @@ public zombie_grenade_handle(id)
 	if(!zb3_get_own_item(id, zombie_grenade))
 		return	
 	
-	rg_give_item(id, "weapon_hegrenade")
+	rg_give_custom_item(id, "weapon_hegrenade", GT_REPLACE, IMPULSE_GRENADE)
 	rg_switch_best_weapon(id)
 }
 public infect_mod_handle(id)
@@ -416,21 +382,21 @@ stock shake_screen(id)
 	write_short(1<<13)
 	message_end()
 }
-
-public event_CurWeapon(id)
+ 
+public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeaponModel[], iAnim, szAnimExt[], skiplocal)
 {
-	if (!is_user_alive(id)) return;
+	if(get_entvar(entity, var_impulse) != IMPULSE_GRENADE)
+		return
 	
-	new plrWeapId = get_user_weapon(id)
-	if (plrWeapId == CSW_HEGRENADE && zb3_get_own_item(id, zombie_grenade))
-	{
-		if(zb3_get_user_zombie(id))
-		{
-			new model[64]
-			ArrayGetString(zb3_get_user_zombie_type(id) ? model_origin : model_host, zb3_get_user_zombie_class(id), model, charsmax(model))
-			
-			set_pev(id, pev_viewmodel2, model)
-			set_pev(id, pev_weaponmodel2, ZOMBIEBOM_P_MODEL)
-		}
-	}
+	static pPlayer, ViewModel[64]
+	pPlayer = get_member(entity, m_pPlayer)
+
+	if(!is_user_alive(pPlayer))
+		return
+
+	ArrayGetString(zb3_get_user_zombie_type(pPlayer) ? model_origin : model_host, zb3_get_user_zombie_class(pPlayer), ViewModel, charsmax(ViewModel))
+
+	SetHookChainArg( 2, ATYPE_STRING, ViewModel)
+	SetHookChainArg( 3, ATYPE_STRING, ZOMBIEBOM_P_MODEL)
+	SetHookChainArg( 4, ATYPE_INTEGER, 3)
 }
