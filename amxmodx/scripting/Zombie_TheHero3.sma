@@ -656,8 +656,17 @@ public native_reset_user_speed(id)
 {
 	if(!is_user_alive(id))
 		return	
-	
-	rg_reset_maxspeed(id)
+
+	if(!g_zombie[id])
+	{
+		rg_reset_maxspeed(id)
+		return
+	}
+
+	static Float:speed
+	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
+
+	set_entvar(id, var_maxspeed, speed)
 }
 
 public native_set_nvg(id, on, auto_on, give, remove)
@@ -1388,13 +1397,9 @@ public do_knockback(victim, attacker)
 
 public Fw_RG_CBasePlayer_ResetMaxSpeed(id)
 {
-	if(!g_zombie[id])
+	if(!g_zombie[id] || g_gamestatus != STATUS_PLAY)
 		return HC_CONTINUE;
 
-	static Float:speed
-	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
-
-	set_entvar(id, var_maxspeed, speed)
 	return HC_SUPERCEDE;
 }
 

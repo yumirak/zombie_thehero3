@@ -167,7 +167,11 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SPR_EXPLO", CoffinExpSpr, sizeof(CoffinExpSpr), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "COFFIN_SPR_SLOW", CoffinSlow, sizeof(CoffinSlow), DummyArray);
 }
-
+public client_PostThink(id)
+{
+	if(task_exists(id+TASK_FREEZING))
+		if(pev(id, pev_maxspeed) != g_coffin_victim_velocity) zb3_set_user_speed(id, g_coffin_victim_velocity)
+}
 public zb3_user_infected(id, infector, infect_flag)
 {
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
@@ -188,6 +192,7 @@ public reset_skill(id)
 {
 	g_stamping[id] = 0
 	if(task_exists(id+TASK_STAMPING)) remove_task(id+TASK_STAMPING)
+	if(task_exists(id+TASK_FREEZING)) remove_task(id+TASK_FREEZING)
 }
 
 public zb3_user_spawned(id) 
@@ -308,6 +313,8 @@ public Create_Coffin(id)
 			// Freeze Player
 			zb3_set_user_speed(Victim, g_coffin_victim_velocity)
 			zb3_set_head_attachment(Victim, CoffinSlow, g_coffin_victim_time, 1.0, 1.0, 0)
+			
+			if(task_exists(id+TASK_FREEZING)) remove_task(id+TASK_FREEZING)
 			set_task(g_coffin_victim_time, "ResetFreeze", Victim+TASK_FREEZING)
 		}
 	}
@@ -325,6 +332,7 @@ public CheckStuck(ent)
 
 public ResetFreeze(id)
 {
+	remove_task(id)
 	id -= TASK_FREEZING
 	
 	if(!is_user_connected(id) || zb3_get_user_zombie(id))

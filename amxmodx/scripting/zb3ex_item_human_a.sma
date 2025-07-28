@@ -26,7 +26,7 @@ new g_wb_cost, Float:g_wb_gravity
 new g_double_grenade, g_double_grenade_name[24], g_double_grenade_desc[24], g_dg_cost, g_doubled_grenade[33]
 
 // Sprint
-new g_sprint, g_sprint_name[24], g_sprint_desc[24], g_sprint_cost, Float:fastrun_time, Float:fastrun_speed, Float:slowrun_speed, Float:slowrun_time
+new g_sprint, g_sprint_name[24], g_sprint_desc[24], g_sprint_cost, Float:fastrun_time[2], Float:fastrun_speed[2]
 new g_can_use_sprint[33], g_using_sprint[33], g_sprint_status[33]
 new sound_fastrun_start[64], sound_fastrun_heartbeat[64], sound_breath_male[64], sound_breath_female[64]
 
@@ -97,10 +97,10 @@ public load_cfg()
 	formatex(g_p30_damage_desc, charsmax(g_p30_damage_desc), "%L", LANG_SERVER, "ITEM_DMG_DESC")
 
 	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "COST", buffer, sizeof(buffer), DummyArray); g_sprint_cost = str_to_num(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_SPEED", buffer, sizeof(buffer), DummyArray); fastrun_speed = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_TIME", buffer, sizeof(buffer), DummyArray); fastrun_time = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_SPEED", buffer, sizeof(buffer), DummyArray); slowrun_speed = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_TIME", buffer, sizeof(buffer), DummyArray); slowrun_time = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_SPEED", buffer, sizeof(buffer), DummyArray); fastrun_speed[0] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "FASTRUN_TIME", buffer, sizeof(buffer), DummyArray); fastrun_time[0] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_SPEED", buffer, sizeof(buffer), DummyArray); fastrun_speed[1] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SLOWRUN_TIME", buffer, sizeof(buffer), DummyArray); fastrun_time[1] = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_CAST", sound_fastrun_start, sizeof(sound_fastrun_start), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_BEAT", sound_fastrun_heartbeat, sizeof(sound_fastrun_heartbeat), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, "Sprint", "SOUND_BREATH_MALE", sound_breath_male, sizeof(sound_breath_male), DummyArray);
@@ -233,12 +233,7 @@ public client_PostThink(id)
 	
 	if(g_using_sprint[id])
 	{
-		if(g_sprint_status[id] == 1)
-		{
-			if(pev(id, pev_maxspeed) != fastrun_speed) zb3_set_user_speed(id, floatround(fastrun_speed))
-		} else if(g_sprint_status[id] == 2) {
-			if(pev(id, pev_maxspeed) != slowrun_speed) zb3_set_user_speed(id, floatround(slowrun_speed))
-		}
+		if(pev(id, pev_maxspeed) != fastrun_speed[g_sprint_status[id] - 1]) zb3_set_user_speed(id, floatround(fastrun_speed[g_sprint_status[id] - 1]))
 	}
 }
 
@@ -387,9 +382,9 @@ public do_fastrun(id)
 		g_sprint_status[id] = 1
 		
 		remove_task(id+TASK_REMOVE_FASTRUN)
-		set_task(fastrun_time, "task_remove_fastrun", id+TASK_REMOVE_FASTRUN)
+		set_task(fastrun_time[0], "task_remove_fastrun", id+TASK_REMOVE_FASTRUN)
 		
-		zb3_set_user_speed(id, floatround(fastrun_speed))
+		zb3_set_user_speed(id, floatround(fastrun_speed[0]))
 		
 		emit_sound(id, CHAN_AUTO, sound_fastrun_start, 1.0, ATTN_NORM, 0, PITCH_NORM)
 		
@@ -457,10 +452,10 @@ public task_remove_fastrun(id)
 	g_sprint_status[id] = 2
 	
 	remove_task(id+TASK_REMOVE_SLOWRUN)
-	set_task(slowrun_time, "task_remove_slowrun", id+TASK_REMOVE_SLOWRUN)
+	set_task(fastrun_time[1], "task_remove_slowrun", id+TASK_REMOVE_SLOWRUN)
 	
 	zb3_reset_user_speed(id)
-	zb3_set_user_speed(id, floatround(slowrun_speed))
+	zb3_set_user_speed(id, floatround(fastrun_speed[1]))
 }
 
 public task_remove_slowrun(id)
