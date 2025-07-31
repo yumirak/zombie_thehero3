@@ -2296,7 +2296,8 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 	if(!g_zombie[id])
 		return
 	
-	static PlayerModel[64]
+	static PlayerModel[64], oldclass
+	oldclass = g_zombie_class[id]
 	g_zombie_class[id] = idclass
 
 	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id]))
@@ -2315,11 +2316,8 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 		fm_cs_set_user_armor(id, g_StartArmor[id], ARMOR_KEVLAR)
 	}
 	
-	if(flag != INFECT_RESPAWN)
-	{
-		g_zombie_cooldown[id] = ArrayGetCell(g_zombie_type[id] ? zombie_cooldown_origin : zombie_cooldown_host , g_zombie_class[id])
-		g_zombie_cooldown_progress[id] = g_zombie_cooldown[id]
-	}
+	g_zombie_cooldown[id] = ArrayGetCell(g_zombie_type[id] ? zombie_cooldown_origin : zombie_cooldown_host , g_zombie_class[id])
+	if(oldclass != idclass || flag == INFECT_VICTIM) g_zombie_cooldown_progress[id] = g_zombie_cooldown[id]
 
 	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
 }
