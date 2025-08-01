@@ -55,6 +55,8 @@ public plugin_init()
 
 	register_touch(BAT_CLASSNAME, "*", "fw_Bat_Touch")
 	register_think(BAT_CLASSNAME, "fw_Bat_Think")	
+
+	RegisterHookChain(RG_CBasePlayer_SetAnimation, "Fw_RG_CBasePlayer_SetAnimation");
 	g_Msg_Shake = get_user_msgid("ScreenShake")
 }
 
@@ -152,6 +154,15 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_SPR_EXPLO", BatExpSpr, sizeof(BatExpSpr), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BAT_MODEL", BatModel, sizeof(BatModel), DummyArray);
 }
+public Fw_RG_CBasePlayer_SetAnimation(id, PLAYER_ANIM:playerAnim)
+{
+	if(zb3_get_user_zombie(id) 
+	&& zb3_get_user_zombie_class(id) == g_zombie_classid 
+	&& g_skilling[id] > 1)
+		return HC_SUPERCEDE;
+		
+	return HC_CONTINUE;
+}
 public zb3_user_infected(id, infector, infect_flag)
 {
 	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
@@ -241,7 +252,8 @@ public Do_Skill(id)
 	set_member(id, m_flNextAttack, 99999.0)
 	
 	rg_weapon_send_animation(id, BAT_ANIM)
-	set_entity_anim(id, BAT_PLAYERANIM, 0.35)
+	rg_set_animation(id, PLAYER_ATTACK2)
+	// set_entity_anim(id, BAT_PLAYERANIM, 0.35)
 	
 	EmitSound(id, CHAN_ITEM, BatFireSound)
 	set_task(g_bat_starttime, "Skilling", id+TASK_SKILLING)
@@ -259,6 +271,8 @@ public Skilling(id)
 		return 
 	
 	CreateBat(id)
+	g_skilling[id] = 2
+	// set_entity_anim(id, 113, 1.0)
 }
 
 public CreateBat(id)

@@ -207,11 +207,11 @@ public zb3_do_skill(id, class, skullnum)
 public Do_Tentacle(id)
 {
 	set_member(id, m_flTimeWeaponIdle, g_tentacle_starttime + 3.0);
-	set_member(id, m_flNextAttack, g_tentacle_starttime)
+	set_member(id, m_flNextAttack, g_tentacle_starttime + 1.0)
 	
 	rg_weapon_send_animation(id, TENTACLE_ANIM)
 	set_entity_anim(id, TENTACLE_PLAYERANIM, 1.0)
-	set_pev(id, pev_sequence, TENTACLE_PLAYERANIM)
+	rg_set_animation(id, PLAYER_ATTACK2);
 	
 	EmitSound(id, CHAN_ITEM, TentacleSound)
 	Check_Tentacle(id)

@@ -156,9 +156,9 @@ public zb3_do_skill(id, class, skullnum)
 public Do_Skill(id)
 {
 	set_member(id, m_flTimeWeaponIdle, g_shock_starttime + 3.0);
-	set_member(id, m_flNextAttack, g_shock_starttime)
+	set_member(id, m_flNextAttack, g_shock_starttime + 1.0)
 	rg_weapon_send_animation(id, SHOCK_ANIM)
-	set_pev(id, pev_sequence, SHOCK_PLAYERANIM)
+	rg_set_animation(id, PLAYER_ATTACK2);
 	
 	EmitSound(id, CHAN_ITEM, SkillStart)
 

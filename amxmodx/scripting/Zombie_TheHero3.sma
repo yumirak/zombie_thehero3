@@ -146,6 +146,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayer_DeathSound, "Fw_RG_CBasePlayer_DeathSound");
 	RegisterHookChain(RG_CBasePlayer_PreThink, "Fw_RG_CBasePlayer_PreThink");
 	RegisterHookChain(RG_CBasePlayer_GetIntoGame, "Fw_RG_CBasePlayer_GetIntoGame");
+	RegisterHookChain(RG_CBasePlayer_SetAnimation, "Fw_RG_CBasePlayer_SetAnimation");
 #if defined REAPI_DAMAGEIMPULSE
 	RegisterHookChain(RG_CBasePlayer_TakeDamageImpulse, "Fw_RG_CBasePlayer_TakeDamageImpulse");
 #endif
@@ -1280,6 +1281,32 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 
 	return
 }
+public Fw_RG_CBasePlayer_SetAnimation(id, PLAYER_ANIM:playerAnim)
+{
+	if(!g_zombie[id])
+		return HC_CONTINUE;
+	if(playerAnim != PLAYER_FLINCH && playerAnim != PLAYER_LARGE_FLINCH)
+		return HC_CONTINUE;
+
+	static ducking, anim, Float:framerate, szAnim[32]
+	ducking = (get_entvar(id, var_flags) & FL_DUCKING && FL_ONGROUND)
+
+	if(!ducking) 
+		return HC_CONTINUE;
+
+	anim = -1; szAnim[0] = '^0'
+	formatex(szAnim, sizeof(szAnim), "%s%s", playerAnim == PLAYER_FLINCH ? "gut" : "head", "_flinch_crouch_idle")
+	anim = lookup_sequence(id, szAnim, framerate)
+
+	if(anim > 0) 
+	{
+		set_entity_anim(id, anim, framerate, false)
+		return HC_SUPERCEDE;
+	}
+
+	return HC_CONTINUE;
+}
+
 public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, damagebits)
 {
 	if(g_gamestatus != STATUS_PLAY)
@@ -2769,6 +2796,19 @@ public SendScenarioMsg(id, num)
 	write_string(hostage) // sprite
 	write_byte(255)
 	message_end()
+}
+
+stock set_entity_anim(ent, anim, Float:framerate, bool:bLoop)
+{
+	if(!is_entity(ent))
+		return
+		
+	set_member(ent, m_fSequenceLoops, bLoop);
+	set_entvar(ent, var_framerate, framerate)
+	set_entvar(ent, var_sequence, anim)
+				
+	set_member(ent, m_fSequenceFinished, 0);
+	set_member(ent, m_flLastEventCheck, get_gametime());
 }
 
 // pev->velocity += (pev->origin - pAttacker->pev->origin).Normalize() * flKnockbackForce;
