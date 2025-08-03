@@ -14,14 +14,12 @@
 #define GAMESYSTEMNAME "zombie_thehero2"
 
 // Enum
-enum
-{
-	ZB3_KFL_NONE = 0,
-	ZB3_KFL_IGNOREZ = (1<<0),
-	ZB3_KFL_IGNORE_VEL = (1<<1),
-	ZB3_KFL_IGNORE_CURVEL = (1<<2),
-	ZB3_KFL_PULL = (1<<3)
-}
+
+#define ZB3_KFL_NONE (1<<0)
+#define ZB3_KFL_IGNOREZ (1<<1)
+#define ZB3_KFL_IGNORE_VEL (1<<2)
+#define ZB3_KFL_IGNORE_CURVEL (1<<3)
+#define ZB3_KFL_PULL (1<<4)
 
 enum iGameCurStatus
 {
