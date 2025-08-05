@@ -30,7 +30,8 @@ enum (+= 50)
 {
 	TASK_CHOOSECLASS = 10000,
 	TASK_NVGCHANGE,
-	TASK_COUNTDOWN
+	TASK_COUNTDOWN,
+	TASK_HEADSHOT
 }
 
 #define MAX_SYNCHUD 6
@@ -38,7 +39,7 @@ enum (+= 50)
 new g_gamemode, g_randomizer, g_evo_need_infect[2]
 // Game Vars
 new iGameCurStatus:g_gamestatus, g_MaxPlayers,
-g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time,
+g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time, g_headshot_count, g_headshot_time,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
 g_firstzombie, g_firsthuman
 
@@ -1009,7 +1010,7 @@ public Fw_RG_CSGameRules_OnRoundFreezeEnd()
 	g_roundstart_time = get_gametime()
 	g_gamestatus = STATUS_COUNTDOWN
 	g_countdown_count = g_countdown_time
-	set_task(1.0, "handle_countdown", TASK_COUNTDOWN, _, _, "b")
+	set_task(0.1, "handle_countdown", TASK_COUNTDOWN, _, _, "b")
 
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_COUNTING)
 }
@@ -1065,8 +1066,10 @@ public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeap
 }
 public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const assister, const inflictor, const killerWeaponName[], const DeathMessageFlags:iDeathMessageFlags, const KillRarity:iRarityOfKill)
 {
-	static headshot;
-	headshot = (iRarityOfKill == KILLRARITY_HEADSHOT)
+	static bool:headshot; headshot = false
+	if(iRarityOfKill & KILLRARITY_HEADSHOT) headshot = true
+	if(g_headshot_count > 0) headshot = false
+
 	set_user_nightvision(victim, 0, 1, 1)
 
 	if(!is_user_alive(victim) && g_gamemode == MODE_HERO)
@@ -1076,7 +1079,7 @@ public Fw_RG_CSGameRules_SendDeathMessage(const attacker, const victim, const as
 			UpdateFrags(attacker, victim, headshot ? 3 : 0, headshot ? 3 : 0, headshot ? 1 : 1)
 
 			if(headshot) client_print(victim, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_NORESPAWN")
-			else set_member(victim, m_flRespawnPending, get_gametime() + float(g_RespawnTime[victim]) + 1.0);
+			else set_member(victim, m_flRespawnPending, get_gametime() + float(g_RespawnTime[victim]));
 
 			if(is_user_connected(attacker) && !g_zombie[attacker]) 
 				UpdateLevelTeamHuman()
@@ -1886,15 +1889,20 @@ public start_game_now()
 	g_gamestatus = STATUS_PLAY
 
 	get_random_zombie()
-	if(g_gamemode == MODE_HERO) get_random_hero()
 
-	set_task(3.0, "play_ambience_sound")
+	if(g_gamemode == MODE_HERO) 
+	{
+		get_random_hero()
+			
+		if(g_headshot_time > 0)
+		{
+			g_headshot_count = min(get_member_game(m_iRoundTimeSecs) - g_countdown_time - 20, g_headshot_time);
+			set_task(0.1, "handle_headshot", TASK_HEADSHOT, _, _, "b")
+		}
+	}
+
+	PlaySound(0, sound_ambience)
 	ExecuteForward(g_Forwards[FWD_GAME_START], g_fwResult, GAMESTART_ZOMBIEAPPEAR)	
-}
-
-public play_ambience_sound()
-{
-	PlaySound(0, sound_ambience)	
 }
 
 public get_random_zombie()
@@ -2152,6 +2160,7 @@ public handle_countdown()
 		return
 	}
 
+	change_task(TASK_COUNTDOWN)
 	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
 
 	static sound[64]
@@ -2186,7 +2195,28 @@ public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
 		}
 	}
 }
+public handle_headshot()
+{
+	if(g_gamestatus != STATUS_PLAY)
+	{
+		remove_task(TASK_HEADSHOT)
+		return
+	}
 
+	if(g_headshot_count <= 0)
+	{
+		set_hudmessage(255, 255, 255, -1.0, MAIN_HUD_Y, 0, 5.0, 5.0)
+		ShowSyncHudMsg(0, g_SyncHud[SYNCHUD_NOTICE], "%L", LANG_PLAYER, "ZOMBIE_FORCE_RESPAWN_END")
+		remove_task(TASK_HEADSHOT)
+		return
+	}
+
+	change_task(TASK_HEADSHOT)
+	set_hudmessage(255, 165, 0, 1.0, 0.0, 0, 2.0, 2.0)
+	ShowSyncHudMsg(0, g_SyncHud[SYNCHUD_NOTICE], "%L", LANG_PLAYER, "ZOMBIE_FORCE_RESPAWN_TIME", g_headshot_count)
+
+	g_headshot_count--
+}
 public show_menu_zombieclass(id, page)
 {
 	if(!is_user_connected(id) || is_user_bot(id))
@@ -2877,6 +2907,7 @@ public load_config_file()
 
 	// GamePlay Configs
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "COUNTDOWN", buffer, sizeof(buffer), DummyArray); g_countdown_time = str_to_num(buffer)
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "HEADSHOT_PROTECT", buffer, sizeof(buffer), DummyArray); g_headshot_time = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level2_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV3_HEALTH", buffer, sizeof(buffer), DummyArray); zombie_level3_health = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZB_LV2_ARMOR", buffer, sizeof(buffer), DummyArray); zombie_level2_armor = str_to_num(buffer)

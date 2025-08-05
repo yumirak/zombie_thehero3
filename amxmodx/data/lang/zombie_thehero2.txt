@@ -62,6 +62,10 @@ ZOMBIE_SKILL = [G] %s %0.1f%% (%0.0f/%0.0f)
 ZOMBIE_SKILL_SINGLE = [G] %s %i%%
 ZOMBIE_SKILL_DOUBLE = [G] %s %i%%^n[R] %s %i%%
 
+ZOMBIE_FORCE_RESPAWN_TIME = Force Respawn: %i
+ZOMBIE_FORCE_RESPAWN_START = You can now revive even when you die from a headshot for a set duration.
+ZOMBIE_FORCE_RESPAWN_END = You can no longer revive when killed by a headshot.
+
 ZCLASS_REGULAR_NAME = Regular
 ZCLASS_REGULAR_DESC = Berserk
 
