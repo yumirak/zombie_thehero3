@@ -48,7 +48,7 @@ g_zombie_class[33], g_next_zombie_class[33], g_zombie_type[33], g_level[33], g_R
 g_can_choose_class[33], g_restore_health[33], g_iMaxLevel[33], Float:g_iEvolution[33], Float:g_zombie_cooldown[33], Float:g_zombie_cooldown_progress[33]
 
 new zombie_level2_health, zombie_level2_armor, zombie_level3_health, zombie_level3_armor, zombie_minhealth, zombie_minarmor,
-grenade_default_power, human_health, human_armor,
+grenade_default_power, human_health, human_armor, Float:zombie_claw_range[2], 
 g_respawn_time, g_respawn_icon[64], g_respawn_iconid, Float:g_health_reduce_percent, Float:g_flinfect_multi[33]
 
 new Float:g_roundstart_time;
@@ -60,9 +60,9 @@ Array:sound_zombie_coming, Array:sound_zombie_comeback, sound_ambience[64], soun
 sound_remain_time[64]
 
 new Array:zombie_name, Array:zombie_desc, Array:zombie_sex, Array:zombie_lockcost, Array:zombie_model_host, Array:zombie_model_origin,
-Array:zombie_gravity, Array:zombie_speed_host, Array:zombie_speed_origin, Array:zombie_knockback, Array:zombie_dmgmulti,
-Array:zombie_painshock, Array:zombie_sound_death1, Array:zombie_sound_death2, Array:zombie_sound_hurt1,
-Array:zombie_sound_hurt2, Array:zombie_clawsmodel_host, Array:zombie_clawsmodel_origin, Array:zombie_claw_distance1, Array:zombie_claw_distance2,
+Array:zombie_gravity, Array:zombie_speed, Array:zombie_knockback, Array:zombie_dmgmulti,
+Array:zombie_painshock, Array:zombie_sound_death1, Array:zombie_sound_hurt1,
+Array:zombie_clawsmodel_host, Array:zombie_clawsmodel_origin,
 Array:zombie_cooldown_host, Array:zombie_cooldown_origin
 	
 new Array:zombie_sound_heal, Array:zombie_sound_evolution, Array:sound_zombie_attack,
@@ -101,6 +101,7 @@ new g_MsgScreenFade
 
 #define MAX_RETRY 33
 
+new szBuffer[256]
 // ======================== PLUGINS FORWARDS ======================
 // ================================================================
 public plugin_init()
@@ -266,19 +267,14 @@ public plugin_precache()
 	zombie_model_host = ArrayCreate(64, 1)
 	zombie_model_origin = ArrayCreate(64, 1)
 	zombie_gravity = ArrayCreate(1, 1)
-	zombie_speed_host = ArrayCreate(1, 1)
-	zombie_speed_origin = ArrayCreate(1, 1)
+	zombie_speed = ArrayCreate(1, 1)
 	zombie_knockback = ArrayCreate(1, 1)
 	zombie_dmgmulti = ArrayCreate(1, 1)
 	zombie_painshock = ArrayCreate(1, 1)
 	zombie_sound_death1 = ArrayCreate(64, 1)
-	zombie_sound_death2 = ArrayCreate(64, 1)
 	zombie_sound_hurt1 = ArrayCreate(64, 1)
-	zombie_sound_hurt2 = ArrayCreate(64, 1)
 	zombie_clawsmodel_host = ArrayCreate(64, 1)
 	zombie_clawsmodel_origin = ArrayCreate(64, 1)
-	zombie_claw_distance1 = ArrayCreate(1, 1)
-	zombie_claw_distance2 = ArrayCreate(1, 1)
 	zombie_cooldown_host = ArrayCreate(1, 1)
 	zombie_cooldown_origin = ArrayCreate(1, 1)	
 	
@@ -505,7 +501,12 @@ public plugin_natives()
 	register_native("zb3_reset_user_infect_mod", "native_reset_infect_multiplier", 1)
 
 	register_native("zb3_register_zombie_class", "native_register_zombie_class", 1)
-	register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
+
+	register_native("zb3_set_zombie_class_model", "native_set_zombie_class_model", 1)
+	register_native("zb3_set_zombie_class_viewmodel", "native_set_zombie_class_viewmodel", 1)
+	register_native("zb3_set_zombie_class_sound", "native_set_zombie_class_sound", 1)
+
+	// register_native("zb3_set_zombie_class_data", "native_set_zombie_class_data", 1)
 	register_native("zb3_register_zcooldown", "native_register_zcooldown", 1)
 
 	register_native("zb3_give_user_ammo", "native_give_user_ammo", 1)
@@ -517,7 +518,7 @@ public plugin_cfg()
 	new cfgdir[32]
 	get_configsdir(cfgdir, charsmax(cfgdir))
 	
-	server_cmd("exec %s/%s", cfgdir, CVAR_FILE)
+	server_cmd("exec %s/%s/%s", cfgdir, GAMESYSTEMNAME, CVAR_FILE)
 	server_exec()
 	
 	// Load New Round
@@ -664,7 +665,7 @@ public native_reset_user_speed(id)
 	}
 
 	static Float:speed
-	speed = ArrayGetCell(g_level[id] > 1 ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id])
+	speed = ArrayGetCell(zombie_speed, g_zombie_class[id])
 
 	set_entvar(id, var_maxspeed, speed)
 }
@@ -883,7 +884,7 @@ public native_do_knockback(attacker, victim, Float:flKnockbackForce, const iFlag
 }
 
 public native_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, 
-Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2)
+Float:Speed, Float:KnockBack, Float:DmgMulti, Float:PainShock)
 {
 	param_convert(1)
 	param_convert(2)
@@ -894,19 +895,16 @@ Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainS
 	ArrayPushCell(zombie_lockcost, LockCost)
 	
 	ArrayPushCell(zombie_gravity, Gravity)
-	ArrayPushCell(zombie_speed_host, SpeedHost)
-	ArrayPushCell(zombie_speed_origin, SpeedOrigin)
+	ArrayPushCell(zombie_speed, Speed)
 	ArrayPushCell(zombie_knockback, KnockBack)
 	ArrayPushCell(zombie_painshock, PainShock)
 	ArrayPushCell(zombie_dmgmulti, DmgMulti)
-
-	ArrayPushCell(zombie_claw_distance1, ClawsDistance1)
-	ArrayPushCell(zombie_claw_distance2, ClawsDistance2)
 
 	g_zombieclass_i++
 	return g_zombieclass_i - 1
 }
 
+/*
 public native_set_zombie_class_data(const ModelHost[], const ModelOrigin[], const ClawsModel_Host[], const ClawsModel_Origin[],
 const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[], const HealSound[], const EvolSound[])
 {
@@ -957,6 +955,56 @@ const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[]
 	ArrayPushString(zombie_sound_evolution, EvolSound)
 	engfunc(EngFunc_PrecacheSound, EvolSound)
 }
+*/
+
+public native_set_zombie_class_model(const ModelHost[], const ModelOrigin[])
+{
+	param_convert(1)
+	param_convert(2)
+	
+	ArrayPushString(zombie_model_host, ModelHost)
+	formatex(szBuffer, sizeof(szBuffer), "models/player/%s/%s.mdl", ModelHost, ModelHost)
+	engfunc(EngFunc_PrecacheModel, szBuffer)
+	
+	ArrayPushString(zombie_model_origin, ModelOrigin)
+	formatex(szBuffer, sizeof(szBuffer), "models/player/%s/%s.mdl", ModelOrigin, ModelOrigin)
+	engfunc(EngFunc_PrecacheModel, szBuffer)	
+}
+
+public native_set_zombie_class_viewmodel(const ClawsModel_Host[], const ClawsModel_Origin[])
+{
+	param_convert(1)
+	param_convert(2)
+	
+	ArrayPushString(zombie_clawsmodel_host, ClawsModel_Host)
+	formatex(szBuffer, sizeof(szBuffer), "models/%s/%s", GAMEDIR, ClawsModel_Host)
+	engfunc(EngFunc_PrecacheModel, szBuffer)	
+	
+	ArrayPushString(zombie_clawsmodel_origin, ClawsModel_Origin)	
+	formatex(szBuffer, sizeof(szBuffer), "models/%s/%s", GAMEDIR, ClawsModel_Origin)
+	engfunc(EngFunc_PrecacheModel, szBuffer)	
+}
+
+public native_set_zombie_class_sound(const DeathSound1[], const HurtSound1[], const HealSound[], const EvolSound[])
+{
+	param_convert(1)
+	param_convert(2)
+	param_convert(3)
+	param_convert(4)
+	
+	ArrayPushString(zombie_sound_death1, DeathSound1)
+	engfunc(EngFunc_PrecacheSound, DeathSound1)
+	
+	ArrayPushString(zombie_sound_hurt1, HurtSound1)
+	engfunc(EngFunc_PrecacheSound, HurtSound1)
+	
+	ArrayPushString(zombie_sound_heal, HealSound)
+	engfunc(EngFunc_PrecacheSound, HealSound)
+	
+	ArrayPushString(zombie_sound_evolution, EvolSound)
+	engfunc(EngFunc_PrecacheSound, EvolSound)	
+}
+
 public native_register_zcooldown(cooldown_host, cooldown_origin)
 {
 	ArrayPushCell(zombie_cooldown_host, cooldown_host)
@@ -1518,7 +1566,7 @@ public Fw_RG_CBasePlayer_Pain(id)
 		return HC_CONTINUE;
 
 	static sound[64]
-	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_hurt1 : zombie_sound_hurt2, g_zombie_class[id], sound, charsmax(sound))
+	ArrayGetString(zombie_sound_hurt1, g_zombie_class[id], sound, charsmax(sound))
 
 	EmitSound(id, CHAN_BODY, sound)
 	return HC_SUPERCEDE;
@@ -1530,7 +1578,7 @@ public Fw_RG_CBasePlayer_DeathSound(id, lastHitGroup, bool:hasArmour)
 		return HC_CONTINUE;
 
 	static sound[64]
-	ArrayGetString(random_num(1, 2) == 1 ? zombie_sound_death1 : zombie_sound_death2, g_zombie_class[id], sound, charsmax(sound))
+	ArrayGetString(zombie_sound_death1, g_zombie_class[id], sound, charsmax(sound))
 
 	EmitSound(id, CHAN_BODY, sound)
 	return HC_SUPERCEDE;
@@ -2345,7 +2393,7 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 	oldclass = g_zombie_class[id]
 	g_zombie_class[id] = idclass
 
-	fm_set_user_speed(id, ArrayGetCell(g_zombie_type[id] ? zombie_speed_origin : zombie_speed_host, g_zombie_class[id]))
+	fm_set_user_speed(id, ArrayGetCell(zombie_speed, g_zombie_class[id]))
 	ArrayGetString(g_zombie_type[id] ? zombie_model_origin : zombie_model_host, g_zombie_class[id], PlayerModel, sizeof(PlayerModel))
 	set_model(id, PlayerModel)
 	set_pev(id, pev_gravity, ArrayGetCell(zombie_gravity, g_zombie_class[id]))
@@ -2637,30 +2685,19 @@ stock fm_reset_user_weapon(id, bool:strip = true)
 	if(!is_user_alive(id))
 		return
 
-	static ent, Float:distance, Float:scalar;
-
-	if(strip)
-		rg_remove_all_items(id, false)
+	if(strip) rg_remove_all_items(id, false)
 
 	switch(g_zombie[id])
 	{
 		case true: 
 		{
+			static ent
 			ent = rg_give_custom_item(id, "weapon_knife", GT_REPLACE, IMPULSE_KNIFE)
 
 			if(ent)
 			{
-				distance = get_member(ent, m_Knife_flSwingDistance)
-				scalar = ArrayGetCell(zombie_claw_distance1, g_zombie_class[id])
-
-				if(scalar > 0.0)
-					set_member(ent, m_Knife_flSwingDistance, distance * scalar)
-
-				distance = get_member(ent, m_Knife_flStabDistance)
-				scalar = ArrayGetCell(zombie_claw_distance2,  g_zombie_class[id])
-
-				if(scalar > 0.0)
-					set_member(ent, m_Knife_flStabDistance, distance * scalar)
+				set_member(ent, m_Knife_flSwingDistance, zombie_claw_range[0])
+				set_member(ent, m_Knife_flStabDistance, zombie_claw_range[1])
 			}
 		}
 		case false: rg_give_default_items(id)
@@ -2922,6 +2959,9 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "HUMAN_ARMOR", buffer, sizeof(buffer), DummyArray); human_armor = str_to_num(buffer)
 	
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "CLASS_CHOOSE_TIME", buffer, sizeof(buffer), DummyArray); g_classchoose_time = str_to_num(buffer)
+
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_KNIFE_SLASH_RANGE", buffer, charsmax(buffer), DummyArray); zombie_claw_range[0] = str_to_float(buffer)
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_KNIFE_STAB_RANGE", buffer, charsmax(buffer), DummyArray); zombie_claw_range[1] = str_to_float(buffer)
 
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_TIME", buffer, sizeof(buffer), DummyArray); g_respawn_time = str_to_num(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_RESPAWN_SPR", g_respawn_icon, sizeof(g_respawn_icon), DummyArray)

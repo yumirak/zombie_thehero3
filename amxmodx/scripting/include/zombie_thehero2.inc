@@ -187,8 +187,10 @@ native zb3_get_user_starthealth(id);
 native zb3_set_user_startarmor(id, Health);
 native zb3_get_user_startarmor(id);
 
-native zb3_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, Float:SpeedHost, Float:SpeedOrigin, Float:KnockBack, Float:DmgMulti, Float:PainShock, Float:ClawsDistance1, Float:ClawsDistance2);
-native zb3_set_zombie_class_data(const ModelHost[], const ModelOrigin[], const ClawsModel_Host[], const ClawsModel_Origin[], const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[], const HealSound[], const EvolSound[]);
+native zb3_register_zombie_class(const Name[], const Desc[], Sex, LockCost, Float:Gravity, Float:Speed, Float:KnockBack, Float:DmgMulti, Float:PainShock);
+native zb3_set_zombie_class_model(const ModelHost[], const ModelOrigin[])
+native zb3_set_zombie_class_viewmodel(const ClawsModel_Host[], const ClawsModel_Origin[])
+native zb3_set_zombie_class_sound(const DeathSound1[], const HurtSound1[], const HealSound[], const EvolSound[])
 
 native zb3_register_item(const name[], const desc[], cost, team, permanent_buy);
 native zb3_get_own_item(id, item);

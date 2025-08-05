@@ -20,10 +20,10 @@ new const SETTING_SKILL[] = "Skill"
 new zclass_sex, zclass_lockcost
 new zclass_name[32], zclass_desc[32], zclass_desc2[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
 new zombiegrenade_modelhost[64], zombiegrenade_modelorigin[64], HealSound[64], EvolSound[64]
-new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Float:zclass_knockback
-new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
-new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
-new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
+new Float:zclass_gravity, Float:zclass_speed, Float:zclass_knockback
+new Float:zclass_dmgmulti, Float:zclass_painshock
+new DeathSound[64], HurtSound[64]
+
 new Float:g_tentacle_cooldown[2], Float:g_tentacle_range[2], Float:g_tentacle_starttime, Float:g_jump_cooldown[2], Float:g_jump_gravity[2], Float:g_jump_starttime, Float:g_jump_time[2]
 new TentacleSound[64], HeavyJumpSound[64]
 
@@ -54,25 +54,17 @@ public plugin_init()
 public plugin_precache()
 {
 	register_dictionary(LANG_FILE)
-	
-	DeathSound = ArrayCreate(64, 1)
-	HurtSound = ArrayCreate(64, 1)
 
 	load_cfg()
 
-	ArrayGetString(DeathSound, 0, DeathSoundString1, charsmax(DeathSoundString1))
-	ArrayGetString(DeathSound, 1, DeathSoundString2, charsmax(DeathSoundString2))
-	ArrayGetString(HurtSound, 0, HurtSoundString1, charsmax(HurtSoundString1))
-	ArrayGetString(HurtSound, 1, HurtSoundString2, charsmax(HurtSoundString2))
-
 	// Register Zombie Class
 	g_zombie_classid = zb3_register_zombie_class(zclass_name, zclass_desc, zclass_sex, zclass_lockcost, 
-	zclass_gravity, zclass_speedhost, zclass_speedorigin, zclass_knockback, zclass_dmgmulti, zclass_painshock, 
-	ClawsDistance1, ClawsDistance2)
-	
-	zb3_set_zombie_class_data(zclass_hostmodel, zclass_originmodel, zclass_clawsmodelhost, zclass_clawsmodelorigin, 
-	DeathSoundString1, DeathSoundString2, HurtSoundString1, HurtSoundString2, HealSound, EvolSound)
-	
+	zclass_gravity, zclass_speed, zclass_knockback, zclass_dmgmulti, zclass_painshock)
+
+	zb3_set_zombie_class_model(zclass_hostmodel, zclass_originmodel)
+	zb3_set_zombie_class_viewmodel(zclass_clawsmodelhost, zclass_clawsmodelorigin)
+	zb3_set_zombie_class_sound(DeathSound, HurtSound, HealSound, EvolSound)
+
 	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
 	zb3_register_zcooldown(g_tentacle_cooldown[ZOMBIE_HOST], g_tentacle_cooldown[ZOMBIE_ORIGIN]);
 	
@@ -95,14 +87,11 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "COST", buffer, sizeof(buffer), DummyArray); zclass_lockcost = str_to_num(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GENDER", buffer, sizeof(buffer), DummyArray); zclass_sex = str_to_num(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GRAVITY", buffer, sizeof(buffer), DummyArray); zclass_gravity = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_ORIGIN", buffer, sizeof(buffer), DummyArray); zclass_speedorigin = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED_HOST", buffer, sizeof(buffer), DummyArray); zclass_speedhost = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED", buffer, sizeof(buffer), DummyArray); zclass_speed = str_to_float(buffer)
+
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "KNOCKBACK", buffer, sizeof(buffer), DummyArray); zclass_knockback = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "DAMAGE_MULTIPLIER", buffer, sizeof(buffer), DummyArray); zclass_dmgmulti = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "PAINSHOCK", buffer, sizeof(buffer), DummyArray); zclass_painshock = str_to_float(buffer)
-
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SLASH_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance1 = str_to_float(buffer)
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "STAB_DISTANCE", buffer, sizeof(buffer), DummyArray); ClawsDistance2 = str_to_float(buffer)
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_ORIGIN", zclass_originmodel, sizeof(zclass_originmodel), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_HOST", zclass_hostmodel, sizeof(zclass_hostmodel), DummyArray);
@@ -113,8 +102,8 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_ORIGIN", zombiegrenade_modelorigin, sizeof(zombiegrenade_modelorigin), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_HOST", zombiegrenade_modelhost, sizeof(zombiegrenade_modelhost), DummyArray);
 
-	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "DEATH", buffer, 0, DeathSound);
-	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "HURT", buffer, 0, HurtSound);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "DEATH", DeathSound, sizeof(DeathSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HURT", HurtSound, sizeof(HurtSound), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
 
