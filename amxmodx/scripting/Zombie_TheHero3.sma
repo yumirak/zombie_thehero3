@@ -572,13 +572,8 @@ public native_infect(id, attacker, origin_zombie, respawn)
 		return
 	if(!is_user_connected(attacker))
 		attacker = -1
-
-	static weapon; weapon = 0;
-
-	if(is_user_alive(id))
-		weapon = get_user_weapon(attacker)
 		
-	set_user_zombie(id, attacker, weapon, origin_zombie, respawn)
+	set_user_zombie(id, attacker, origin_zombie, respawn)
 }
 
 public native_get_user_zombie(id)
@@ -1254,7 +1249,7 @@ public Fw_RG_CSGameRules_PlayerSpawn_Post(id)
 
 	if(g_zombie[id] && g_gamestatus >= STATUS_PLAY)
 	{
-		set_user_zombie(id, -1, 0, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
+		set_user_zombie(id, -1, g_zombie_type[id] == ZOMBIE_ORIGIN ? 1 : 0, 1)
 		do_random_spawn(id, MAX_RETRY / 2)
 		EmitSound(id, CHAN_AUTO, "items/suitchargeok1.wav")
 		ExecuteForward(g_Forwards[FWD_USER_SPAWN], g_fwResult, id)
@@ -1325,7 +1320,7 @@ public Fw_RG_CBasePlayer_TakeDamage(victim, inflictor, attacker, Float:damage, d
 	if(is_user_alive(attacker) && is_user_alive(victim) 
 	&& g_zombie[attacker] && !g_zombie[victim] && inflictor == attacker)
 	{
-		set_user_zombie(victim, attacker, inflictor, false, false)
+		set_user_zombie(victim, attacker, false, false)
 		SetHookChainReturn(ATYPE_INTEGER, false)
 		return HC_BREAK;
 	}
@@ -1922,7 +1917,7 @@ public get_random_zombie()
 	
 	// Get and Set Zombie
 	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
-		set_user_zombie(GetRandomAlive(), -1, 0, 1, 0)
+		set_user_zombie(GetRandomAlive(), -1, 1, 0)
 }
 public get_random_hero()
 {
@@ -2002,7 +1997,7 @@ public Lock_Hero(id)
 	g_hero_locked[id] = 1
 }
 
-public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
+public set_user_zombie(id, attacker, Origin_Zombie, Respawn)
 {
 	if(!is_user_alive(id))
 		return
@@ -2011,16 +2006,13 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 
 	static DeathSound[64]
 	static zombie_maxhealth, zombie_maxarmor;
-	static start_zombie_health[2], start_zombie_armor[2] , respawn_zombie_health, respawn_zombie_armor
+	static start_zombie_health[2], start_zombie_armor[2] , respawn_zombie_health, respawn_zombie_armor, idclass
 
 	if(is_user_alive(attacker))
 	{
-		if(pev_valid(inflictor))
-		{
-			rg_death_notice(id, attacker, inflictor);
-			UpdateFrags(attacker, id, 1, 1, 1)
-			fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
-		}
+		rg_death_notice(id, attacker, attacker);
+		UpdateFrags(attacker, id, 1, 1, 1)
+		fm_cs_set_user_money(attacker, fm_cs_get_user_money(attacker) + 500, true)
 		
 		switch(g_gamemode)
 		{
@@ -2038,43 +2030,52 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 
 	reset_player(id, 0, Respawn)
 	g_zombie[id] = true
-	g_can_choose_class[id] = 1
-	if(g_next_zombie_class[id] >= 0)
+	g_can_choose_class[id] = (g_gamemode >= MODE_MUTATION)
+	idclass = g_zombie_class[id]
+
+	if(g_next_zombie_class[id] >= 0 && g_can_choose_class[id] >= 1)
 	{
-		g_zombie_class[id] = g_next_zombie_class[id]
+		idclass = g_next_zombie_class[id]
 		g_next_zombie_class[id] = -1
+		g_can_choose_class[id] = 0
 	}
+
+	if(g_randomizer || is_user_bot(id))
+	{
+		idclass = random_num(0, g_zombieclass_i - 1)
+		g_can_choose_class[id] = 0
+	}
+
+	if(g_can_choose_class[id])
+		show_menu_zombieclass(id, 0)
 	
 	// Zombie Class
-	if(!Respawn)
+	switch(Respawn)
 	{
-		if(Origin_Zombie)
+		case true: client_print(id, print_center, "%L", LANG_OFFICIAL, "ZOMBIE_RESPAWNED")
+		default:
 		{
-			g_level[id] = 2
+			if(Origin_Zombie)
+			{
+				set_dhudmessage(0, 160, 0, MAIN_HUD_X, MAIN_HUD_Y_BOTTOM , 2, 1.0, 3.0, 0.005 , 0.1)
+				show_dhudmessage(id, "%L", LANG_PLAYER, "ZOMBIE_COMING")
+			}
 
-			set_dhudmessage(0, 160, 0, MAIN_HUD_X, MAIN_HUD_Y_BOTTOM , 2, 1.0, 3.0, 0.005 , 0.1)
-			show_dhudmessage(id, "%L", LANG_PLAYER, "ZOMBIE_COMING")
+			switch(g_sex[id])
+			{
+				case SEX_MALE: ArrayGetString(sound_infect_male, get_random_array(sound_infect_male), DeathSound, sizeof(DeathSound))
+				case SEX_FEMALE: ArrayGetString(sound_infect_female, get_random_array(sound_infect_female), DeathSound, sizeof(DeathSound))
+			}
+
+			g_level[id] = Origin_Zombie ? 2 : 1
+			g_iEvolution[id] = 0.0
+			
+			EmitSound(id, CHAN_VOICE, DeathSound)
 		}
-		else
-			g_level[id] = 1
-		g_iEvolution[id] = 0.0
-		
-		if (g_gamemode >= MODE_MUTATION)
-			set_menu_zombieclass(id)
 	}
-	
+
 	// Fix "Dead" Atrib
 	set_scoreboard_attrib(id, 0)
-	
-	switch(g_sex[id])
-	{
-		case SEX_MALE: ArrayGetString(sound_infect_male, get_random_array(sound_infect_male), DeathSound, sizeof(DeathSound))
-		case SEX_FEMALE: ArrayGetString(sound_infect_female, get_random_array(sound_infect_female), DeathSound, sizeof(DeathSound))
-	}
-	
-	if(!Respawn)
-		EmitSound(id, CHAN_VOICE, DeathSound)
-		
 	zombie_appear_sound(Respawn)	
 		
 	// Set Health
@@ -2097,13 +2098,12 @@ public set_user_zombie(id, attacker, inflictor, Origin_Zombie, Respawn)
 	g_StartHealth[id] = Respawn ? respawn_zombie_health : start_zombie_health[ g_zombie_type[id] ]
 	g_StartArmor[id]  = Respawn ? respawn_zombie_armor  : start_zombie_armor [ g_zombie_type[id] ]
 
-
 	set_zombie_nvg(id, 1)
 
 	if(g_gamemode == MODE_MUTATION)
 		SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
 
-	set_zombie_class(id, g_zombie_class[id], attacker, true, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
+	set_zombie_class(id, idclass, attacker, true, Respawn ? INFECT_RESPAWN : INFECT_VICTIM)
 
 	gameplay_check()
 }
@@ -2193,27 +2193,15 @@ public handle_respawn_countdown(id, Float:gametime, Float:respawntime)
 	}
 }
 
-public set_menu_zombieclass(id)
-{
-	if(!is_user_bot(id) && !g_randomizer)
-	{
-		show_menu_zombieclass(id, 0)
-		return
-	}
-
-	static classid
-	classid = random_num(0, g_zombieclass_i - 1)
-
-	ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
-	set_zombie_class(id, classid, -1, false, INFECT_VICTIM)
-}
 public show_menu_zombieclass(id, page)
 {
-	if(!is_user_connected(id))
+	if(!is_user_connected(id) || is_user_bot(id))
 		return
 	if(g_gamemode <= MODE_ORIGINAL)
 		return
-		
+	if(g_randomizer)
+		return	
+
 	if(pev_valid(id) == 2) set_member(id, m_iMenu, CS_Menu_OFF)
 
 	static i, class_name[128], class_desc[128], class_id[128], String[2][64], menuwpn_title[64], temp_string[128]
@@ -2390,6 +2378,7 @@ public reset_player(id, new_player, zombie_respawn)
 		g_hero_locked[id] = g_HasNvg[id] = g_hero[id] = 0
 		g_level[id] = 0		
 		g_iEvolution[id] = 0.0
+		g_next_zombie_class[id] = -1
 	} else {
 		g_hero[id] = 0
 		g_hero_locked[id] = g_HasNvg[id] = 0
