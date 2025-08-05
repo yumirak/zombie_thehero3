@@ -31,21 +31,18 @@ new const WeaponModel[][] =
 
 new const WeaponSounds[][] = 
 {
-	"weapons/dmp7-1.wav",
-	"weapons/dmp7_draw.wav",
-	"weapons/dmp7_drop.wav",
-	"weapons/mp7_foley2.wav",
-	"weapons/mp7_foley4.wav"
-}
-new const WeaponSprites[][] = 
-{
-	"sprites/640hud7_2.spr",
-	"sprites/640hud21_2.spr"
+	"weapons/dmp7-1.wav"
 }
 
 new const WeaponGeneric[][] = 
 {
-	"sprites/weapon_mp7a1d.txt"
+	"sprites/640hud7_2.spr",
+	"sprites/640hud21_2.spr",
+	"sprites/weapon_mp7a1d.txt",
+	"sound/weapons/dmp7_draw.wav",
+	"sound/weapons/dmp7_drop.wav",
+	"sound/weapons/mp7_foley2.wav",
+	"sound/weapons/mp7_foley4.wav"
 }
 
 enum
@@ -80,8 +77,6 @@ public plugin_precache()
 
 	for(i=0;i< sizeof WeaponSounds;i++)
 		engfunc(EngFunc_PrecacheSound, WeaponSounds[i])
-	for(i=0;i< sizeof WeaponSprites;i++)
-		engfunc(EngFunc_PrecacheModel, WeaponSprites[i])
 	for(i=0;i< sizeof WeaponModel;i++)
 		engfunc(EngFunc_PrecacheModel, WeaponModel[i])
 	for(i=0;i< sizeof WeaponGeneric;i++)
@@ -103,7 +98,7 @@ public plugin_init()
 
 	g_item1 = zb3_register_supply_item(g_item1_name);
 
-	register_clcmd("mp7a1d", "give")
+	// register_clcmd("mp7a1d", "give")
 	register_clcmd(STRN_CUSWPN, "lastinv")
 }
 

@@ -31,22 +31,20 @@ new const WeaponModel[][] =
 
 new const WeaponSounds[][] = 
 {
-	"weapons/dde-1.wav",
-	"weapons/dde_clipin.wav",
-	"weapons/dde_clipout.wav",
-	"weapons/dde_clipoff.wav",
-	"weapons/dde_twirl.wav",
-	"weapons/dde_load.wav"
-}
-new const WeaponSprites[][] = 
-{
-	"sprites/640hud7_2.spr",
-	"sprites/640hud32_2.spr"
+	"weapons/dde-1.wav"
+
 }
 
 new const WeaponGeneric[][] = 
 {
-	"sprites/weapon_deagled.txt"
+	"sprites/640hud7_2.spr",
+	"sprites/640hud32_2.spr",
+	"sprites/weapon_deagled.txt",
+	"sound/weapons/dde_clipin.wav",
+	"sound/weapons/dde_clipout.wav",
+	"sound/weapons/dde_clipoff.wav",
+	"sound/weapons/dde_twirl.wav",
+	"sound/weapons/dde_load.wav"
 }
 
 enum
@@ -91,8 +89,6 @@ public plugin_precache()
 
 	for(i=0;i< sizeof WeaponSounds;i++)
 		engfunc(EngFunc_PrecacheSound, WeaponSounds[i])
-	for(i=0;i< sizeof WeaponSprites;i++)
-		engfunc(EngFunc_PrecacheModel, WeaponSprites[i])
 	for(i=0;i< sizeof WeaponModel;i++)
 		engfunc(EngFunc_PrecacheModel, WeaponModel[i])
 	for(i=0;i< sizeof WeaponGeneric;i++)
@@ -112,10 +108,15 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayerWeapon_DefaultDeploy, "Fw_RG_CBasePlayerWeapon_DefaultDeploy")
 	RegisterHookChain(RG_CWeaponBox_SetModel, "Fw_RG_CWeaponBox_SetModel")
 
-	register_clcmd("deagled", "give")
+	// register_clcmd("deagled", "give")
 	register_clcmd(STRN_CUSWPN, "lastinv")
 
 	g_item1 = zb3_register_supply_item(g_item1_name);
+}
+
+public zb3_user_become_hero(id, hero_type)
+{
+	give(id);
 }
 
 public zb3_supply_item_give(id, wpnid)

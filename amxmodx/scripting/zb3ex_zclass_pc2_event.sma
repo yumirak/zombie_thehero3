@@ -1,5 +1,6 @@
 #include <amxmodx>
 #include <engine>
+#include <fakemeta_util>
 #include <reapi>
 #include <zombie_thehero2>
 
@@ -30,6 +31,7 @@ new m_usCreateSmokeEvent
 public plugin_init() 
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
+	register_forward(FM_PrecacheEvent, "Fw_FM_PrecacheEvent", 1)
 }
 
 public plugin_precache()
@@ -99,20 +101,11 @@ public load_cfg()
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "SMOKE_START", sound_smoke, sizeof(sound_smoke), DummyArray);
 }
-public zb3_user_infected(id, infector, really_infect)
+
+public Fw_FM_PrecacheEvent(type, const name[])
 {
-	if(!m_usCreateSmokeEvent)
-	{
-		if(!is_user_alive(id))
-			return
-		static ent;
-		ent = rg_give_custom_item(id, "weapon_smokegrenade", GT_REPLACE, IMPULSE_SMOKE)
-		if(ent)
-		{
-			m_usCreateSmokeEvent = get_member(ent, m_SmokeGrenade_usCreate) // precache_event(1, "events/createsmoke.sc");
-			rg_remove_entity(ent);
-		}
-	}
+	if(equal("events/createsmoke.sc", name))
+		m_usCreateSmokeEvent = get_orig_retval()
 }
 
 // public cmd_drop(id)

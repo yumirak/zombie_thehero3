@@ -14,15 +14,6 @@ new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"
 new const SETTING_SKILL[] = "Skill"
 
-new const zombi_death_sound[][] = // temp until we have global precache list
-{
-	"zombi/zombi_female_breath.wav",
-	"zombi/zombi_female_headdown.wav",
-	"zombi/zombi_female_headup.wav",
-	"zombi/zombi_female_laugh.wav",
-	"zombi/zombi_female_scream.wav"
-}
-
 new zclass_sex, zclass_lockcost
 new zclass_name[32], zclass_desc[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
 new zombiegrenade_modelhost[64], zombiegrenade_modelorigin[64], zclass_clawsinvisible[64], HealSound[64], EvolSound[64]
@@ -30,10 +21,11 @@ new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Floa
 new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
 new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
+new Array:GenericSound
 new Float:g_invis_time[2], Float:g_invis_cooldown[2], g_invis_speed[2], invisible_startsound[64]
 
 new g_zombie_classid, g_invis[33]
-
+new buffer[128]
 #define LANG_OFFICIAL LANG_PLAYER
 
 // Task
@@ -60,6 +52,7 @@ public plugin_precache()
 
 	DeathSound = ArrayCreate(64, 1)
 	HurtSound = ArrayCreate(64, 1)
+	GenericSound = ArrayCreate(64, 1)
 
 	load_cfg()
 
@@ -83,14 +76,18 @@ public plugin_precache()
 	engfunc(EngFunc_PrecacheSound, invisible_startsound)
 	engfunc(EngFunc_PrecacheModel, zclass_clawsinvisible)
 
-	size = sizeof(zombi_death_sound)
+	size = ArraySize(GenericSound)
 	for(i = 0; i < size; i++)
-		engfunc(EngFunc_PrecacheSound, zombi_death_sound[i])
+	{
+		ArrayGetString(GenericSound, i, buffer, charsmax(buffer))
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
+	}
 }
 
 public load_cfg()
 {
-	static buffer[128], Array:DummyArray
+	static Array:DummyArray
 
 	formatex(zclass_name, charsmax(zclass_name), "%L", LANG_OFFICIAL, "ZCLASS_SPEED_NAME")
 	formatex(zclass_desc, charsmax(zclass_desc), "%L", LANG_OFFICIAL, "ZCLASS_SPEED_DESC")
@@ -119,7 +116,8 @@ public load_cfg()
 	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "DEATH", buffer, 0, DeathSound);
 	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "HURT", buffer, 0, HurtSound);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
-	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);\
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "GENERIC", buffer, 0, GenericSound);
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "INVISIBLE_VIEWMODEL", zclass_clawsinvisible, sizeof(zclass_clawsinvisible), DummyArray);
 

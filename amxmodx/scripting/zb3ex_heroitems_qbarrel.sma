@@ -30,23 +30,19 @@ new const WeaponModel[][] =
 
 new const WeaponSounds[][] = 
 {
-	"weapons/qbarrel_shoot.wav",
-	"weapons/qbarrel_clipin1.wav",
-	"weapons/qbarrel_clipin2.wav",
-	"weapons/qbarrel_clipout1.wav",
-	"weapons/qbarrel_draw.wav"
-}
-
-new const WeaponSprites[][] = 
-{
-	"sprites/640hud7_2.spr",
-	"sprites/640hud36_2.spr",
-	"sprites/640hud41_2.spr"
+	"weapons/qbarrel_shoot.wav"
 }
 
 new const WeaponGeneric[][] = 
 {
-	"sprites/weapon_qbarrel.txt"
+	"sprites/640hud7_2.spr",
+	"sprites/640hud36_2.spr",
+	"sprites/640hud41_2.spr",
+	"sprites/weapon_qbarrel.txt",
+	"sound/weapons/qbarrel_clipin1.wav",
+	"sound/weapons/qbarrel_clipin2.wav",
+	"sound/weapons/qbarrel_clipout1.wav",
+	"sound/weapons/qbarrel_draw.wav"
 }
 
 enum
@@ -71,8 +67,6 @@ public plugin_precache()
 {
 	for(i=0;i< sizeof WeaponSounds;i++)
 		engfunc(EngFunc_PrecacheSound, WeaponSounds[i])
-	for(i=0;i< sizeof WeaponSprites;i++)
-		engfunc(EngFunc_PrecacheModel, WeaponSprites[i])
 	for(i=0;i< sizeof WeaponModel;i++)
 		engfunc(EngFunc_PrecacheModel, WeaponModel[i])
 	for(i=0;i< sizeof WeaponGeneric;i++)
@@ -94,7 +88,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayerWeapon_ItemPostFrame, "Fw_RG_CBasePlayerWeapon_ItemPostFrame")
 	RegisterHookChain(RG_CWeaponBox_SetModel, "Fw_RG_CWeaponBox_SetModel")
 
-	register_clcmd("qbarrel", "give")
+	// register_clcmd("qbarrel", "give")
 
 	register_clcmd(STRN_CUSWPN, "lastinv")
 }

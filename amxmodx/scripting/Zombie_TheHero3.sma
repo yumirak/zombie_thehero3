@@ -353,34 +353,41 @@ public plugin_precache()
 	for (i = 0; i < ArraySize(sound_game_start); i++)
 	{
 		ArrayGetString(sound_game_start, i, buffer, charsmax(buffer))
-		engfunc(EngFunc_PrecacheSound, buffer)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
 	for (i = 0; i < ArraySize(sound_zombie_coming); i++)
 	{
 		ArrayGetString(sound_zombie_coming, i, buffer, charsmax(buffer))
-		engfunc(EngFunc_PrecacheSound, buffer)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}		
 	for (i = 0; i < ArraySize(sound_zombie_comeback); i++)
 	{
 		ArrayGetString(sound_zombie_comeback, i, buffer, charsmax(buffer))
-		engfunc(EngFunc_PrecacheSound, buffer)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
 	
-	for (new i = 1; i <= 10; i++)
+	for (new i = 1; i <= g_countdown_time; i++)
 	{
-		new sound_count[64]
-		format(sound_count, sizeof sound_count - 1, sound_game_count, i)
-		engfunc(EngFunc_PrecacheSound, sound_count)
+		format(buffer, charsmax(buffer) -1, sound_game_count, i)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		
+		if(file_exists(buffer, true))
+			engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
 	for (i = 0; i < ArraySize(sound_win_zombie); i++)
 	{
 		ArrayGetString(sound_win_zombie, i, buffer, charsmax(buffer))
-		engfunc(EngFunc_PrecacheSound, buffer)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}
 	for (i = 0; i < ArraySize(sound_win_human); i++)
 	{
 		ArrayGetString(sound_win_human, i, buffer, charsmax(buffer))
-		engfunc(EngFunc_PrecacheSound, buffer)
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
 	
 	for (i = 0; i < ArraySize(sound_zombie_attack); i++)

@@ -24,16 +24,12 @@ new Float:zclass_gravity, Float:zclass_speedhost, Float:zclass_speedorigin, Floa
 new Float:zclass_dmgmulti, Float:zclass_painshock, Float:ClawsDistance1, Float:ClawsDistance2
 new Array:DeathSound, DeathSoundString1[64], DeathSoundString2[64]
 new Array:HurtSound, HurtSoundString1[64], HurtSoundString2[64]
+new Array:GenericSound
 new CoffinModel[64], CoffinExp[64], CoffinHitSound[64], CoffinExpSpr[64], CoffinSlow[64], StampingSound[64]
 new Float:g_coffin_cooldown[2], g_coffin_livetime[2], Float:g_coffin_range, g_coffin_health, Float:g_coffin_knockback
 new Float:g_coffin_starttime, g_coffin_damage, g_coffin_victim_velocity, Float:g_coffin_victim_time
 
-new const HandSound[2][] =
-{
-	"zombi/zombi_stamper_clap.wav",
-	"zombi/zombi_stamper_glove.wav"
-}
-
+new buffer[128]
 new g_zombie_classid
 
 const UNIT_SECOND = (1<<12)
@@ -76,6 +72,7 @@ public plugin_precache()
 
 	DeathSound = ArrayCreate(64, 1)
 	HurtSound = ArrayCreate(64, 1)
+	GenericSound = ArrayCreate(64, 1)
 
 	load_cfg()
 
@@ -106,14 +103,18 @@ public plugin_precache()
 	g_SprBlast_Id = precache_model(CoffinExpSpr)
 	precache_model(CoffinSlow)
 	
-	for(new i = 0; i < sizeof(HandSound); i++)
-		engfunc(EngFunc_PrecacheSound, HandSound[i])
+	for(new i = 0; i < ArraySize(GenericSound); i++)
+	{
+		ArrayGetString(GenericSound, i, buffer, charsmax(buffer))
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
+	}
 }
 
 
 public load_cfg()
 {
-	static buffer[128], Array:DummyArray
+	static Array:DummyArray
 
 	formatex(zclass_name, charsmax(zclass_name), "%L", LANG_OFFICIAL, "ZCLASS_STAMPER_NAME")
 	formatex(zclass_desc, charsmax(zclass_desc), "%L", LANG_OFFICIAL, "ZCLASS_STAMPER_DESC")
@@ -143,6 +144,7 @@ public load_cfg()
 	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "HURT", buffer, 0, HurtSound);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
+	zb3_load_setting_string(true,  SETTING_FILE, SETTING_SOUNDS, "GENERIC", buffer, 0, GenericSound);
 
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "STAMPING_COOLDOWN_ORIGIN", buffer, sizeof(buffer), DummyArray); g_coffin_cooldown[ZOMBIE_ORIGIN] = str_to_float(buffer)
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "STAMPING_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_coffin_cooldown[ZOMBIE_HOST] = str_to_float(buffer)

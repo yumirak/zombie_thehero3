@@ -33,14 +33,11 @@ new const WeaponSounds[][] =
 {
 	"weapons/ak47_60r_shoot.wav"
 }
-new const WeaponSprites[][] = 
-{
-	"sprites/640hud7_2.spr",
-	"sprites/640hud32_2.spr"
-}
 
 new const WeaponGeneric[][] = 
 {
+	"sprites/640hud7_2.spr",
+	"sprites/640hud32_2.spr",
 	"sprites/weapon_ak47l.txt"
 }
 
@@ -78,8 +75,6 @@ public plugin_precache()
 
 	for(i=0;i< sizeof WeaponSounds;i++)
 		engfunc(EngFunc_PrecacheSound, WeaponSounds[i])
-	for(i=0;i< sizeof WeaponSprites;i++)
-		engfunc(EngFunc_PrecacheModel, WeaponSprites[i])
 	for(i=0;i< sizeof WeaponModel;i++)
 		engfunc(EngFunc_PrecacheModel, WeaponModel[i])
 	for(i=0;i< sizeof WeaponGeneric;i++)
@@ -100,7 +95,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayerWeapon_DefaultDeploy, "Fw_RG_CBasePlayerWeapon_DefaultDeploy")
 	RegisterHookChain(RG_CBasePlayerWeapon_ItemPostFrame, "Fw_RG_CBasePlayerWeapon_ItemPostFrame")
 	RegisterHookChain(RG_CWeaponBox_SetModel, "Fw_RG_CWeaponBox_SetModel")
-	register_clcmd("ak47l", "give")
+	// register_clcmd("ak47l", "give")
 	register_clcmd(STRN_CUSWPN, "lastinv")
 
 	g_item1 = zb3_register_supply_item(g_item1_name);

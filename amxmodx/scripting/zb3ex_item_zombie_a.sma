@@ -119,7 +119,8 @@ public plugin_precache()
 	for(i = 0; i < size; i++)
 	{
 		ArrayGetString(viewmodel_sound, i, Temp_String, charsmax(Temp_String))
-		engfunc(EngFunc_PrecacheSound, Temp_String)
+		format(Temp_String, charsmax(Temp_String), "sound/%s", Temp_String)
+		engfunc(EngFunc_PrecacheGeneric, Temp_String)
 	}
 
 	if(zb3_get_mode() >= MODE_ORIGINAL) 

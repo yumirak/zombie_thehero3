@@ -45,30 +45,30 @@ new const WeaponModel[][] =
 new const WeaponSounds[][] = 
 {
 	"weapons/svdex-1.wav",
-	"weapons/svdex-2.wav",
-	"weapons/svdex_clipin.wav",
-	"weapons/svdex_clipout.wav",
-	"weapons/svdex_clipon.wav",
-	"weapons/svdex_draw.wav",
-	"weapons/svdex_foley1.wav",
-	"weapons/svdex_foley2.wav",
-	"weapons/svdex_foley3.wav",
-	"weapons/svdex_foley4.wav"
+	"weapons/svdex-2.wav"
 }
 
 new const WeaponSprites[][] = 
 {
 	"sprites/laserbeam.spr",
 	"sprites/zerogxplode.spr",
-	"sprites/steam1.spr",
-	"sprites/640hud7_2.spr",
-	"sprites/640hud36_2.spr",
-	"sprites/640hud41_2.spr"
+	"sprites/steam1.spr"
 }
 
 new const WeaponGeneric[][] = 
 {
-	"sprites/weapon_svdex.txt"
+	"sprites/640hud7_2.spr",
+	"sprites/640hud36_2.spr",
+	"sprites/640hud41_2.spr",
+	"sprites/weapon_svdex.txt",
+	"sound/weapons/svdex_clipin.wav",
+	"sound/weapons/svdex_clipout.wav",
+	"sound/weapons/svdex_clipon.wav",
+	"sound/weapons/svdex_draw.wav",
+	"sound/weapons/svdex_foley1.wav",
+	"sound/weapons/svdex_foley2.wav",
+	"sound/weapons/svdex_foley3.wav",
+	"sound/weapons/svdex_foley4.wav"
 }
 
 enum
@@ -130,7 +130,7 @@ public plugin_init()
 	RegisterHookChain(RG_CBasePlayerWeapon_ItemPostFrame, "Fw_RG_CBasePlayerWeapon_ItemPostFrame")
 	RegisterHookChain(RG_CWeaponBox_SetModel, "Fw_RG_CWeaponBox_SetModel")
 
-	register_clcmd("svdex", "give")
+	// register_clcmd("svdex", "give")
 
 	register_clcmd(STRN_CUSWPN, "lastinv")
 }
