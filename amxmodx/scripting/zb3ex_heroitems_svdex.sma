@@ -36,10 +36,10 @@
 
 new const WeaponModel[][] = 
 {
-	"models/zombie_thehero/hero_wpn/v_svdex.mdl",
-	"models/zombie_thehero/hero_wpn/p_svdex.mdl",
-	"models/zombie_thehero/hero_wpn/w_svdex.mdl",
-	"models/zombie_thehero/hero_wpn/shell_svdex.mdl",
+	"models/zombi/hero_wpn/v_svdex.mdl",
+	"models/zombi/hero_wpn/p_svdex.mdl",
+	"models/zombi/hero_wpn/w_svdex.mdl",
+	"models/zombi/hero_wpn/shell_svdex.mdl",
 }
 
 new const WeaponSounds[][] = 

@@ -8,7 +8,7 @@
 #define AUTHOR "Dias"
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
-new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/light.ini"
+new const SETTING_FILE[] = "zclasscfg/light.ini"
 new const SETTING_CONFIG[] = "Config"
 new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"
@@ -16,11 +16,11 @@ new const SETTING_SKILL[] = "Skill"
 
 new const zombi_death_sound[][] = // temp until we have global precache list
 {
-	"zombie_thehero/zombi_female_breath.wav",
-	"zombie_thehero/zombi_female_headdown.wav",
-	"zombie_thehero/zombi_female_headup.wav",
-	"zombie_thehero/zombi_female_laugh.wav",
-	"zombie_thehero/zombi_female_scream.wav"
+	"zombi/zombi_female_breath.wav",
+	"zombi/zombi_female_headdown.wav",
+	"zombi/zombi_female_headup.wav",
+	"zombi/zombi_female_laugh.wav",
+	"zombi/zombi_female_scream.wav"
 }
 
 new zclass_sex, zclass_lockcost
@@ -257,7 +257,7 @@ public Remove_Invisible(id)
 	
 	// Remove Invisible Claws
 	new Claws[128]
-	formatex(Claws, sizeof(Claws), "models/zombie_thehero/%s", zb3_get_user_level(id) > 1 ? zclass_clawsmodelorigin : zclass_clawsmodelhost)
+	formatex(Claws, sizeof(Claws), "models/%s/%s", GAMEDIR, zb3_get_user_level(id) > 1 ? zclass_clawsmodelorigin : zclass_clawsmodelhost)
 	set_pev(id, pev_viewmodel2, Claws)
 
 	zb3_reset_user_speed(id)	

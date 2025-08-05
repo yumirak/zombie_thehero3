@@ -14,7 +14,7 @@
 #define MAX_CLASS 20
 #define DELAY_TIME 2.0
 new const LANG_FILE[] = "zombie_thehero2.txt"
-new const SETTING_FILE[] = "zombie_thehero2/items.ini"
+new const SETTING_FILE[] = "items.ini"
 
 /// ============== CONFIGS ===================
 new Array:model_host, Array:model_origin
@@ -90,8 +90,8 @@ public plugin_precache()
 
 	load_cfg()
 	
-	format(ZOMBIEBOM_P_MODEL, charsmax(ZOMBIEBOM_P_MODEL), "models/zombie_thehero/p_%s.mdl", g_zombie_grenade_model)
-	format(ZOMBIEBOM_W_MODEL, charsmax(ZOMBIEBOM_W_MODEL), "models/zombie_thehero/w_%s.mdl", g_zombie_grenade_model)
+	formatex(ZOMBIEBOM_P_MODEL, charsmax(ZOMBIEBOM_P_MODEL), "models/%s/p_%s.mdl", GAMEDIR, g_zombie_grenade_model)
+	formatex(ZOMBIEBOM_W_MODEL, charsmax(ZOMBIEBOM_W_MODEL), "models/%s/w_%s.mdl", GAMEDIR, g_zombie_grenade_model)
 	
 	precache_model(ZOMBIEBOM_P_MODEL)
 	precache_model(ZOMBIEBOM_W_MODEL)
@@ -140,14 +140,18 @@ public plugin_natives()
 
 public native_reg_zbgr_model(const v_model_host[], const v_model_origin[])
 {
+	static Buffer[128]
+
 	param_convert(1)
 	param_convert(2)	
-	
+
 	ArrayPushString(model_host, v_model_host)
-	ArrayPushString(model_origin, v_model_origin)
+	formatex(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, v_model_host)
+	engfunc(EngFunc_PrecacheModel, Buffer)	
 	
-	precache_model(v_model_host)
-	precache_model(v_model_origin)
+	ArrayPushString(model_origin, v_model_origin)	
+	formatex(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, v_model_origin)
+	engfunc(EngFunc_PrecacheModel, Buffer)	
 }
 
 public zb3_game_start(start_type)
@@ -388,15 +392,16 @@ public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeap
 	if(get_entvar(entity, var_impulse) != IMPULSE_GRENADE)
 		return
 	
-	static pPlayer, ViewModel[64]
+	static pPlayer, ViewModel[64], Buffer[128]
 	pPlayer = get_member(entity, m_pPlayer)
 
 	if(!is_user_alive(pPlayer))
 		return
 
 	ArrayGetString(zb3_get_user_zombie_type(pPlayer) ? model_origin : model_host, zb3_get_user_zombie_class(pPlayer), ViewModel, charsmax(ViewModel))
+	format(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, ViewModel)
 
-	SetHookChainArg( 2, ATYPE_STRING, ViewModel)
+	SetHookChainArg( 2, ATYPE_STRING, Buffer)
 	SetHookChainArg( 3, ATYPE_STRING, ZOMBIEBOM_P_MODEL)
 	SetHookChainArg( 4, ATYPE_INTEGER, 3)
 }

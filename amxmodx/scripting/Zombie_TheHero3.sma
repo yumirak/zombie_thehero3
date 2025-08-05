@@ -13,9 +13,9 @@
 // #define _DEBUG
 #define REAPI_DAMAGEIMPULSE
 // Configs
-new const SETTING_FILE[] = "zombie_thehero2/config.ini"
-new const MAP_FILE[] = "zombie_thehero2/maplist.ini"
-new const CVAR_FILE[] = "zombie_thehero2/zth_server.cfg"
+new const SETTING_FILE[] = "config.ini"
+new const MAP_FILE[] = "maplist.ini"
+new const CVAR_FILE[] = "zth_server.cfg"
 new const LANG_FILE[] = "zombie_thehero2.txt"
 
 #define DEF_COUNTDOWN 20
@@ -74,7 +74,7 @@ new g_sky[32], g_light[2]
 new g_NvgColor[PlayerTeams][3], g_NvgAlpha, g_nvg[33], g_HasNvg[33]
 new const sound_nvg[2][] = {"items/nvg_off.wav", "items/nvg_on.wav"}
 
-new const HealerSpr[] = "sprites/zombie_thehero/zombihealer.spr" // temp
+new const HealerSpr[] = "sprites/zombi/zombihealer.spr" // temp
 
 // Block Round Event
 new g_BlockedObj_Forward
@@ -932,11 +932,11 @@ const DeathSound1[], const DeathSound2[], const HurtSound1[], const HurtSound2[]
 	engfunc(EngFunc_PrecacheModel, Buffer)	
 	
 	ArrayPushString(zombie_clawsmodel_host, ClawsModel_Host)
-	formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ClawsModel_Host)
+	formatex(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, ClawsModel_Host)
 	engfunc(EngFunc_PrecacheModel, Buffer)	
 	
 	ArrayPushString(zombie_clawsmodel_origin, ClawsModel_Origin)	
-	formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ClawsModel_Origin)
+	formatex(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, ClawsModel_Origin)
 	engfunc(EngFunc_PrecacheModel, Buffer)	
 		
 	ArrayPushString(zombie_sound_death1, DeathSound1)
@@ -1058,7 +1058,7 @@ public Fw_RG_CBasePlayerWeapon_DefaultDeploy(const entity, szViewModel[], szWeap
 		return
 
 	ArrayGetString(g_zombie_type[pPlayer] == ZOMBIE_HOST ? zombie_clawsmodel_host : zombie_clawsmodel_origin, g_zombie_class[pPlayer], ViewModel, sizeof(ViewModel))
-	formatex(Buffer, sizeof(Buffer), "models/zombie_thehero/%s", ViewModel)
+	formatex(Buffer, sizeof(Buffer), "models/%s/%s", GAMEDIR, ViewModel)
 
 	SetHookChainArg( 2, ATYPE_STRING, Buffer)
 	SetHookChainArg( 3, ATYPE_STRING, "")
@@ -2989,7 +2989,7 @@ public amx_load_setting_string( bool:IsArray ,const filename[], const setting_se
 	// Build customization file path
 	new path[256]
 	get_configsdir(path, charsmax(path))
-	format(path, charsmax(path), "%s/%s", path, filename)
+	format(path, charsmax(path), "%s/%s/%s", path, GAMESYSTEMNAME, filename)
 	
 	// File not present
 	if (!file_exists(path))

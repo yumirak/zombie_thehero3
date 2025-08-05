@@ -11,7 +11,7 @@
 #define AUTHOR "Dias"
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
-new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/stamper.ini"
+new const SETTING_FILE[] = "zclasscfg/stamper.ini"
 new const SETTING_CONFIG[] = "Config"
 new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"
@@ -30,8 +30,8 @@ new Float:g_coffin_starttime, g_coffin_damage, g_coffin_victim_velocity, Float:g
 
 new const HandSound[2][] =
 {
-	"zombie_thehero/zombi_stamper_clap.wav",
-	"zombie_thehero/zombi_stamper_glove.wav"
+	"zombi/zombi_stamper_clap.wav",
+	"zombi/zombi_stamper_glove.wav"
 }
 
 new g_zombie_classid

@@ -12,7 +12,7 @@
 
 #define GAMENAME "Zombie: The Hero"
 #define GAMESYSTEMNAME "zombie_thehero2"
-
+#define GAMEDIR "zombi"
 // Enum
 
 #define ZB3_KFL_NONE (1<<0)

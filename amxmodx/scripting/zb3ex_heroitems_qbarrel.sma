@@ -23,9 +23,9 @@
 
 new const WeaponModel[][] = 
 {
-	"models/zombie_thehero/hero_wpn/v_qbarrel.mdl",
-	"models/zombie_thehero/hero_wpn/p_qbarrel.mdl",
-	"models/zombie_thehero/hero_wpn/w_qbarrel.mdl"
+	"models/zombi/hero_wpn/v_qbarrel.mdl",
+	"models/zombi/hero_wpn/p_qbarrel.mdl",
+	"models/zombi/hero_wpn/w_qbarrel.mdl"
 }
 
 new const WeaponSounds[][] = 

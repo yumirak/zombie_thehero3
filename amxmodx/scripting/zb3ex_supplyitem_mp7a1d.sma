@@ -24,9 +24,9 @@ new const LANG_FILE[] = "zombie_thehero2.txt"
 
 new const WeaponModel[][] = 
 {
-	"models/zombie_thehero/supplybox_item/v_dual_mp7a1.mdl",
-	"models/zombie_thehero/supplybox_item/p_dual_mp7a1.mdl",
-	"models/zombie_thehero/supplybox_item/w_dual_mp7a1.mdl"
+	"models/zombi/supplybox_item/v_dual_mp7a1.mdl",
+	"models/zombi/supplybox_item/p_dual_mp7a1.mdl",
+	"models/zombi/supplybox_item/w_dual_mp7a1.mdl"
 }
 
 new const WeaponSounds[][] = 

@@ -8,7 +8,7 @@
 #define AUTHOR "Dias"
 
 new const LANG_FILE[] = "zombie_thehero2.txt"
-new const SETTING_FILE[] = "zombie_thehero2/zclasscfg/metus.ini"
+new const SETTING_FILE[] = "zclasscfg/metus.ini"
 new const SETTING_CONFIG[] = "Config"
 new const SETTING_MODELS[] = "Models"
 new const SETTING_SOUNDS[] = "Sounds"

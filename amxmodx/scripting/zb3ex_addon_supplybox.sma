@@ -9,7 +9,7 @@
 #define VERSION "2.0"
 #define AUTHOR "Dias"
 
-new const SETTING_FILE[] = "zombie_thehero2/config.ini"
+new const SETTING_FILE[] = "config.ini"
 new const SETTING_CONFIG[] = "Supply Box"
 
 #define SUPPLYBOX_IMPULSE 9124678

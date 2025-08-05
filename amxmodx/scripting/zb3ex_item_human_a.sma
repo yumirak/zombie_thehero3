@@ -12,7 +12,7 @@
 
 #define DELAY_TIME 2.0
 new const LANG_FILE[] = "zombie_thehero2.txt"
-new const SETTING_FILE[] = "zombie_thehero2/items.ini"
+new const SETTING_FILE[] = "items.ini"
 
 /// ===== Configs
 new g_sync_hud1, g_sync_hud2
