@@ -158,17 +158,14 @@ public plugin_init()
 	formatex(g_WinText[TEAM_ALL], 63, "#Round_Draw")
 	formatex(g_WinText[TEAM_START], 63, "#Game_Commencing")	
 	
-	g_Forwards[FWD_USER_INFECT] = CreateMultiForward("zb3_user_infected", ET_IGNORE, FP_CELL, FP_CELL, FP_CELL)
-	g_Forwards[FWD_USER_CHANGE_CLASS] = CreateMultiForward("zb3_user_change_class", ET_IGNORE, FP_CELL, FP_CELL, FP_CELL)
+	g_Forwards[FWD_USER_INFECT] = CreateMultiForward("zb3_user_infected", ET_IGNORE, FP_CELL, FP_CELL, FP_CELL, FP_CELL, FP_CELL)
 	g_Forwards[FWD_USER_SPAWN] = CreateMultiForward("zb3_user_spawned", ET_IGNORE, FP_CELL)
 	g_Forwards[FWD_USER_DEAD] = CreateMultiForward("zb3_user_dead", ET_IGNORE, FP_CELL, FP_CELL, FP_CELL)
 	g_Forwards[FWD_GAME_START] = CreateMultiForward("zb3_game_start", ET_IGNORE, FP_CELL)
 	g_Forwards[FWD_GAME_END] = CreateMultiForward("zb3_game_end", ET_IGNORE, FP_CELL)
-	g_Forwards[FWD_USER_EVOLUTION] = CreateMultiForward("zb3_zombie_evolution", ET_IGNORE, FP_CELL, FP_CELL)
 	g_Forwards[FWD_USER_HERO] = CreateMultiForward("zb3_user_become_hero", ET_IGNORE, FP_CELL, FP_CELL)
 	g_Forwards[FWD_TIME_CHANGE] = CreateMultiForward("zb3_time_change", ET_IGNORE)
 	g_Forwards[FWD_USER_SKILL] = CreateMultiForward("zb3_do_skill", ET_CONTINUE, FP_CELL, FP_CELL, FP_CELL)
-	g_Forwards[FWD_SKILL_HUD] = CreateMultiForward("zb3_skill_show", ET_IGNORE, FP_CELL)
 	
 	g_SyncHud[SYNCHUD_NOTICE] = CreateHudSyncObj(SYNCHUD_NOTICE)
 	g_SyncHud[SYNCHUD_HUMANZOMBIE_ITEM] = CreateHudSyncObj(SYNCHUD_HUMANZOMBIE_ITEM)
@@ -1606,7 +1603,7 @@ public UpdateLevelZombie(id)
 	g_level[id]++ //= g_level[id] == 1 ? 2 : 3
 
 	g_zombie_type[id] = ZOMBIE_ORIGIN
-	set_zombie_class(id, g_zombie_class[id], -1, true, INFECT_CHANGECLASS)
+	set_zombie_class(id, g_zombie_class[id], -1, true, INFECT_EVOLUTION)
 
 	// Play Evolution Sound
 	new sound[64]
@@ -1622,9 +1619,6 @@ public UpdateLevelZombie(id)
 	
 	if(g_gamemode == MODE_MUTATION)
 		SendScenarioMsg(id, g_evo_need_infect[g_zombie_type[id]] - floatround(g_iEvolution[id]))
-
-	// Exec Forward
-	ExecuteForward(g_Forwards[FWD_USER_EVOLUTION], g_fwResult, id, g_level[id])
 }
 
 public UpdateLevelTeamHuman()
@@ -2282,7 +2276,6 @@ public menu_selectclass_handle(id, menu, item)
 
 	if(!ArrayGetCell(zombie_lockcost, classid) || g_unlocked_class[id][classid] )
 	{
-		ExecuteForward(g_Forwards[FWD_USER_CHANGE_CLASS], g_fwResult, id, g_zombie_class[id], classid)
 		set_zombie_class(id, classid, -1, false, INFECT_CHANGECLASS)
 
 		menu_destroy(menu)	
@@ -2341,7 +2334,7 @@ public set_zombie_class(id, idclass, attacker, bool:reset_hp, flag)
 	g_zombie_cooldown[id] = ArrayGetCell(g_zombie_type[id] ? zombie_cooldown_origin : zombie_cooldown_host , g_zombie_class[id])
 	if(oldclass != idclass || flag == INFECT_VICTIM) g_zombie_cooldown_progress[id] = g_zombie_cooldown[id]
 
-	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag)
+	ExecuteForward(g_Forwards[FWD_USER_INFECT], g_fwResult, id, attacker, flag, g_zombie_class[id], oldclass)
 }
 
 public set_human_model(id)

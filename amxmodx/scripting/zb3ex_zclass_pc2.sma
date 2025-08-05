@@ -132,13 +132,6 @@ public zb3_user_infected(id, infector, infect_flag)
 		}
 	}
 }
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id)
-}
 
 public reset_skill(id)
 {

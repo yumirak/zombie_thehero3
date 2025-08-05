@@ -133,22 +133,30 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "INVISIBLE_START", invisible_startsound, sizeof(invisible_startsound), DummyArray);
 
 }
-public zb3_user_infected(id, infector, infect_flag)
+public zb3_user_infected(id, infector, infect_flag, newclass, oldclass)
 {
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+	if(newclass != g_zombie_classid)
+	{
+		if(oldclass != g_zombie_classid)
+			return
+
+		reset_skill(id)
 		return;
+	}
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id) 
+		case INFECT_CHANGECLASS..INFECT_EVOLUTION:
+		{
+			if(!g_invis[id])
+				return
+
+			zb3_set_user_rendering(id, kRenderFxNone, 0, 0, 0, kRenderTransColor, 16)
+			zb3_set_user_speed(id, g_invis_speed[zb3_get_user_zombie_type(id)])
+			set_pev(id, pev_viewmodel2, zclass_clawsinvisible)
+		}
+		default: reset_skill(id)
 	}
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id)
 }
 
 public reset_skill(id)

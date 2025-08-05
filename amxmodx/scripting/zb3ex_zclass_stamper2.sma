@@ -53,7 +53,6 @@ enum (+= 50)
 #define STAMPING_PLAYERANIM 10
 new g_SprBeam_Id, g_SprExp_Id, g_SprBlast_Id
 new g_msg_ScreenShake
-new g_stamping[33]
 
 
 public plugin_init() 
@@ -174,25 +173,26 @@ public client_PostThink(id)
 	if(task_exists(id+TASK_FREEZING))
 		if(pev(id, pev_maxspeed) != g_coffin_victim_velocity) zb3_set_user_speed(id, g_coffin_victim_velocity)
 }
-public zb3_user_infected(id, infector, infect_flag)
+public zb3_user_infected(id, infector, infect_flag, newclass, oldclass)
 {
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+	if(newclass != g_zombie_classid)
+	{
+		if(oldclass != g_zombie_classid)
+			return
+
+		reset_skill(id)
 		return;
+	}
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id)  
+		case INFECT_CHANGECLASS..INFECT_EVOLUTION: {}
+		default: reset_skill(id)
 	}
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id)
 }
 
 public reset_skill(id)
 {
-	g_stamping[id] = 0
 	if(task_exists(id+TASK_STAMPING)) remove_task(id+TASK_STAMPING)
 	if(task_exists(id+TASK_FREEZING)) remove_task(id+TASK_FREEZING)
 }

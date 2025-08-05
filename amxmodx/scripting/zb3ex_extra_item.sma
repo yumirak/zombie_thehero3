@@ -81,8 +81,10 @@ public reset_value_handle(id)
 		g_bought_item[id][i] = is_user_bot(id) ? 1 : 0
 }
 
-public zb3_round_start_post() g_zombie_appear = 0
-public zb3_random_zombie_post() g_zombie_appear = 1
+public zb3_game_start(start_type)
+{
+	g_zombie_appear = (start_type == GAMESTART_ZOMBIEAPPEAR)
+} 
 
 public fw_Spawn_Post(id)
 {
@@ -96,15 +98,13 @@ public fw_Spawn_Post(id)
 
 public cmd_openmenu(id)
 {
-	if(!is_user_connected(id) || !is_user_alive(id))
+	if(!is_user_connected(id))
 		return PLUGIN_CONTINUE
 	if(cs_get_user_team(id) == CS_TEAM_CT)
 	{
 		if(!g_zombie_appear)
 		{
-			if(!zb3_get_user_hero(id))
-				open_menu_shop(id, TEAM2_HUMAN)
-				
+			open_menu_shop(id, TEAM2_HUMAN)
 			return PLUGIN_HANDLED
 		} else {
 			client_printc(id, "%L", LANG_PLAYER, "SHOP_BUY_START")

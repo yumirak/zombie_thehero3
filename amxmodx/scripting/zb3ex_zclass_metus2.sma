@@ -59,7 +59,7 @@ public plugin_precache()
 
 	for(new i; i < 3; i++)
 	{
-		static szTemp[3]
+		static szTemp[4]
 		ArrayGetString(ShellColor, i, szTemp, charsmax(szTemp)) // ArrayGetCell(ShellColor, i)
 		g_beserk_shell_color[i] = str_to_num(szTemp)
 	}
@@ -124,22 +124,29 @@ public load_cfg()
 	zb3_load_setting_string(true, SETTING_FILE, SETTING_SKILL, "SHELL_COLOR", buffer, 0, ShellColor);
 
 }
-public zb3_user_infected(id, infector, infect_flag)
+public zb3_user_infected(id, infector, infect_flag, newclass, oldclass)
 {
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+	if(newclass != g_zombie_classid)
+	{
+		if(oldclass != g_zombie_classid)
+			return
+
+		reset_skill(id)
 		return;
+	}
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id)  
+		case INFECT_CHANGECLASS..INFECT_EVOLUTION:
+		{
+			if(!g_berserking[id])
+				return
+
+			zb3_set_user_rendering(id, kRenderFxGlowShell, g_beserk_shell_color[0], g_beserk_shell_color[1], g_beserk_shell_color[2], kRenderNormal, 0)
+			zb3_set_user_speed(id, g_beserk_speed)
+		}
+		default: reset_skill(id)
 	}
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id)
 }
 
 public reset_skill(id)

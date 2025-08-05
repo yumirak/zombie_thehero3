@@ -139,23 +139,28 @@ public load_cfg()
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "TENTACLE_SOUND", TentacleSound, sizeof(TentacleSound), DummyArray);
 	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "HEAVYJUMP_SOUND", HeavyJumpSound, sizeof(HeavyJumpSound), DummyArray);
 }
-
-public zb3_user_infected(id, infector, infect_flag)
+public zb3_user_infected(id, infector, infect_flag, newclass, oldclass)
 {
-	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+	if(newclass != g_zombie_classid)
+	{
+		if(oldclass != g_zombie_classid)
+			return
+
+		reset_skill(id)
 		return;
+	}
 
 	switch(infect_flag)
 	{
-		case INFECT_VICTIM: reset_skill(id) 
+		case INFECT_CHANGECLASS..INFECT_EVOLUTION:
+		{
+			if(!g_hj_ing[id])
+				return 
+			
+			zb3_set_user_gravity(id, g_jump_gravity[zb3_get_user_zombie_type(id)])
+		}
+		default: reset_skill(id)
 	}
-}
-public zb3_user_change_class(id, oldclass, newclass)
-{
-	if(newclass == g_zombie_classid && oldclass != newclass)
-		reset_skill(id)
-	if(oldclass == g_zombie_classid)
-		reset_skill(id)
 }
 
 public reset_skill(id)

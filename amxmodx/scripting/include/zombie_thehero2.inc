@@ -98,6 +98,7 @@ enum
 {
 	INFECT_VICTIM = 0,
 	INFECT_CHANGECLASS,
+	INFECT_EVOLUTION,
 	INFECT_RESPAWN
 }
 
@@ -127,16 +128,13 @@ enum
 enum
 {
 	FWD_USER_INFECT = 0,
-	FWD_USER_CHANGE_CLASS,
 	FWD_USER_SPAWN,
 	FWD_USER_DEAD,
 	FWD_GAME_START,
 	FWD_GAME_END,
-	FWD_USER_EVOLUTION,
 	FWD_USER_HERO,
 	FWD_USER_SKILL,
 	FWD_TIME_CHANGE,
-	FWD_SKILL_HUD,
 	FWD_MAX
 }
 enum 
@@ -233,8 +231,7 @@ native zb3_register_zcooldown(cooldown_host, cooldown_origin);
 // END NEW NATIVES
 
 // Forwards
-forward zb3_user_infected(id, infector, really_infect); // Call when a guy get infect
-forward zb3_user_change_class(id, oldclass, newclass);
+forward zb3_user_infected(id, infector, flag, newclass, oldclass); // Call when a guy get infect
 forward zb3_user_spawned(id); // Call when a guy Respawn
 forward zb3_user_dead(id, attacker, headshot); // Call when a guy got Killed
 forward zb3_game_start(start_type); // Call when New Round (0), Counting (1), Zombie Appear (2)
