@@ -41,7 +41,7 @@ new g_gamemode, g_randomizer, g_evo_need_infect[2]
 new iGameCurStatus:g_gamestatus, g_MaxPlayers,
 g_Forwards[FWD_MAX], g_WinText[PlayerTeams][64], g_countdown_count, g_countdown_time, g_headshot_count, g_headshot_time,
 g_zombieclass_i, g_fwResult, g_classchoose_time, Float:g_Delay_ComeSound, g_SyncHud[MAX_SYNCHUD],
-g_firstzombie, g_firsthuman
+g_firstzombie, g_firsthuman, g_zombie_loop_human, g_hero_loop_human
 
 new bool:g_zombie[33], g_hero[33], g_hero_locked[33], g_sex[33], g_StartHealth[33], g_StartArmor[33],
 g_zombie_class[33], g_next_zombie_class[33], g_zombie_type[33], g_level[33], g_RespawnTime[33], g_unlocked_class[33][MAX_ZOMBIECLASS],
@@ -1959,11 +1959,11 @@ public get_random_zombie()
 	static Required_Zombie, Total_Player
 
 	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
-	Required_Zombie = floatround(float(Total_Player + 1) / 8, floatround_ceil)
+	Required_Zombie = floatround(float(Total_Player) / g_zombie_loop_human, floatround_ceil)
 
 	// used for consistent first zombie health
 	g_firstzombie = Required_Zombie
-	g_firsthuman  = Total_Player - Required_Zombie
+	g_firsthuman  = Total_Player
 	
 	// Get and Set Zombie
 	while(GetTotalPlayer(TEAM_ZOMBIE, 1) < Required_Zombie)
@@ -1975,7 +1975,7 @@ public get_random_hero()
 	szName[0] = szHeroNames[0] = FullText[0] = '^0';
 
 	Total_Player = GetTotalPlayer(TEAM_HUMAN, 1)
-	Required_Hero = Total_Player / 9 // max 2 heroes
+	Required_Hero = floatround(float(Total_Player) / g_hero_loop_human, floatround_floor)
 
 	// Get and Set Hero
 	for(i = 0; i < Required_Hero; i++)
@@ -2162,6 +2162,8 @@ public handle_zcooldown(id)
 {
 	if(g_zombie_cooldown_progress[id] < g_zombie_cooldown[id])
 		g_zombie_cooldown_progress[id]++
+	if(g_zombie_cooldown_progress[id] > g_zombie_cooldown[id])
+		g_zombie_cooldown_progress[id] = g_zombie_cooldown[id]
 
 	static Float:percent, Float:cooldown, Float:cooldown_progress, class_desc[16]
 
@@ -2959,6 +2961,9 @@ public load_config_file()
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "HUMAN_ARMOR", buffer, sizeof(buffer), DummyArray); human_armor = str_to_num(buffer)
 	
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "CLASS_CHOOSE_TIME", buffer, sizeof(buffer), DummyArray); g_classchoose_time = str_to_num(buffer)
+
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_FOR_EVERY_HUMAN", buffer, charsmax(buffer), DummyArray); g_zombie_loop_human = str_to_num(buffer)
+	amx_load_setting_string( false, SETTING_FILE, "Config Value", "HERO_FOR_EVERY_HUMAN", buffer, charsmax(buffer), DummyArray); g_hero_loop_human = str_to_num(buffer)
 
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_KNIFE_SLASH_RANGE", buffer, charsmax(buffer), DummyArray); zombie_claw_range[0] = str_to_float(buffer)
 	amx_load_setting_string( false, SETTING_FILE, "Config Value", "ZOMBIE_KNIFE_STAB_RANGE", buffer, charsmax(buffer), DummyArray); zombie_claw_range[1] = str_to_float(buffer)
