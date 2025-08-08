@@ -1,0 +1,235 @@
+#include <amxmodx>
+#include <fakemeta>
+#include <hamsandwich>
+#include <zombie_thehero2>
+
+#define PLUGIN "[ZB3] China"
+#define VERSION "2.0"
+#define AUTHOR "Dias"
+
+new const LANG_FILE[] = "zombie_thehero2.txt"
+new const SETTING_FILE[] = "zclasscfg/china.ini"
+new const SETTING_CONFIG[] = "Config"
+new const SETTING_MODELS[] = "Models"
+new const SETTING_SOUNDS[] = "Sounds"
+new const SETTING_SKILL[] = "Skill"
+// Zombie Configs
+new zclass_sex, zclass_lockcost
+new zclass_name[32], zclass_desc[32], zclass_hostmodel[32], zclass_originmodel[32], zclass_clawsmodelhost[32], zclass_clawsmodelorigin[32]
+new zombiegrenade_modelhost[64], zombiegrenade_modelorigin[64], HealSound[64], EvolSound[64]
+new Float:zclass_gravity, Float:zclass_speed, Float:zclass_knockback
+new Float:zclass_dmgmulti, Float:zclass_painshock
+new DeathSound[64], HurtSound[64]
+
+new Array:ShellColor, g_beserk_shell_color[3]
+new berserk_startsound[64]
+new Float:g_beserk_time[2], Float:g_beserk_cooldown[2], g_beserk_speed //, Float:g_beserk_gravity
+
+new g_zombie_classid, g_berserking[33]
+
+#define LANG_OFFICIAL LANG_PLAYER
+
+#define BERSERK_COLOR_R 255
+#define BERSERK_COLOR_G 3
+#define BERSERK_COLOR_B 0
+
+#define FASTRUN_FOV 110
+
+#define TASK_BERSERKING 33000
+
+public plugin_init() 
+{
+	register_plugin(PLUGIN, VERSION, AUTHOR)
+	RegisterHam(Ham_TakeDamage, "player", "fw_takedamage", false);
+}
+
+public plugin_precache()
+{
+	register_dictionary(LANG_FILE)
+
+	ShellColor = ArrayCreate(4, 1)
+
+	load_cfg()
+
+	for(new i; i < 3; i++)
+	{
+		static szTemp[4]
+		ArrayGetString(ShellColor, i, szTemp, charsmax(szTemp)) // ArrayGetCell(ShellColor, i)
+		g_beserk_shell_color[i] = str_to_num(szTemp)
+	}
+
+	// Precache Class Resource
+	engfunc(EngFunc_PrecacheSound, berserk_startsound)
+	
+	g_zombie_classid = zb3_register_zombie_class(zclass_name, zclass_desc, zclass_sex, zclass_lockcost, 
+	zclass_gravity, zclass_speed, zclass_knockback, zclass_dmgmulti, zclass_painshock)
+
+	zb3_set_zombie_class_model(zclass_hostmodel, zclass_originmodel)
+	zb3_set_zombie_class_viewmodel(zclass_clawsmodelhost, zclass_clawsmodelorigin)
+	zb3_set_zombie_class_sound(DeathSound, HurtSound, HealSound, EvolSound)
+
+	zb3_register_zbgre_model(zombiegrenade_modelhost, zombiegrenade_modelorigin)
+	zb3_register_zcooldown(g_beserk_cooldown[ZOMBIE_HOST], g_beserk_cooldown[ZOMBIE_ORIGIN]);
+}
+public load_cfg()
+{
+	static buffer[128], Array:DummyArray
+
+	formatex(zclass_name, charsmax(zclass_name), "%L", LANG_OFFICIAL, "ZCLASS_CHINA_NAME")
+	formatex(zclass_desc, charsmax(zclass_desc), "%L", LANG_OFFICIAL, "ZCLASS_CHINA_DESC")
+	
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "COST", buffer, sizeof(buffer), DummyArray); zclass_lockcost = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GENDER", buffer, sizeof(buffer), DummyArray); zclass_sex = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "GRAVITY", buffer, sizeof(buffer), DummyArray); zclass_gravity = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "SPEED", buffer, sizeof(buffer), DummyArray); zclass_speed = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "KNOCKBACK", buffer, sizeof(buffer), DummyArray); zclass_knockback = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "DAMAGE_MULTIPLIER", buffer, sizeof(buffer), DummyArray); zclass_dmgmulti = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_CONFIG, "PAINSHOCK", buffer, sizeof(buffer), DummyArray); zclass_painshock = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_ORIGIN", zclass_originmodel, sizeof(zclass_originmodel), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "PLAYERMODEL_HOST", zclass_hostmodel, sizeof(zclass_hostmodel), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_ORIGIN", zclass_clawsmodelorigin, sizeof(zclass_clawsmodelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "VIEWMODEL_HOST", zclass_clawsmodelhost, sizeof(zclass_clawsmodelhost), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_ORIGIN", zombiegrenade_modelorigin, sizeof(zombiegrenade_modelorigin), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_MODELS, "GRENADE_VIEWMODEL_HOST", zombiegrenade_modelhost, sizeof(zombiegrenade_modelhost), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "DEATH", DeathSound, sizeof(DeathSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HURT", HurtSound, sizeof(HurtSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "HEAL", HealSound, sizeof(HealSound), DummyArray);
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SOUNDS, "EVOL", EvolSound, sizeof(EvolSound), DummyArray);
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BERSERK_TIME_ORIGIN", buffer, sizeof(buffer), DummyArray); g_beserk_time[ZOMBIE_ORIGIN] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BERSERK_TIME_HOST", buffer, sizeof(buffer), DummyArray); g_beserk_time[ZOMBIE_HOST] = str_to_float(buffer)
+
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BERSERK_COOLDOWN_ORIGIN", buffer, sizeof(buffer), DummyArray); g_beserk_cooldown[ZOMBIE_ORIGIN] = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BERSERK_COOLDOWN_HOST", buffer, sizeof(buffer), DummyArray); g_beserk_cooldown[ZOMBIE_HOST] = str_to_float(buffer)
+
+	// zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "GRAVITY", buffer, sizeof(buffer), DummyArray); g_beserk_gravity = str_to_float(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "SPEED", buffer, sizeof(buffer), DummyArray); g_beserk_speed = str_to_num(buffer)
+	zb3_load_setting_string(false, SETTING_FILE, SETTING_SKILL, "BESERK_START", berserk_startsound, sizeof(berserk_startsound), DummyArray);
+	zb3_load_setting_string(true, SETTING_FILE, SETTING_SKILL, "SHELL_COLOR", buffer, 0, ShellColor);
+
+}
+public zb3_user_infected(id, infector, infect_flag, newclass, oldclass)
+{
+	if(newclass != g_zombie_classid)
+	{
+		if(oldclass != g_zombie_classid)
+			return
+
+		reset_skill(id)
+		return;
+	}
+
+	switch(infect_flag)
+	{
+		case INFECT_CHANGECLASS..INFECT_EVOLUTION:
+		{
+			if(!g_berserking[id])
+				return
+
+			zb3_set_user_rendering(id, kRenderFxGlowShell, g_beserk_shell_color[0], g_beserk_shell_color[1], g_beserk_shell_color[2], kRenderNormal, 0)
+			zb3_set_user_speed(id, g_beserk_speed)
+		}
+		default: reset_skill(id)
+	}
+}
+
+public reset_skill(id)
+{
+	g_berserking[id] = 0
+	
+	if(task_exists(id+TASK_BERSERKING)) remove_task(id+TASK_BERSERKING)
+}
+
+public zb3_user_spawned(id) 
+{
+	if(!zb3_get_user_zombie(id))
+		reset_skill(id)
+}
+
+public zb3_user_dead(id) 
+{
+	if(!zb3_get_user_zombie(id))
+		return;
+	if( zb3_get_user_zombie_class(id) != g_zombie_classid)
+		return;
+
+	reset_skill(id)
+}
+
+public fw_takedamage(victim, inflictor, attacker, Float: damage)
+{
+	if(!is_user_alive(victim))
+		return HAM_IGNORED;
+	if(!zb3_get_user_zombie(victim))
+		return HAM_IGNORED;
+	if( zb3_get_user_zombie_class(victim) != g_zombie_classid)
+		return HAM_IGNORED;
+	if(!g_berserking[victim])
+		return HAM_IGNORED;
+	
+	damage *= 2.0;
+	SetHamParamFloat(4, damage);
+	
+	return HAM_HANDLED;
+}
+
+// public cmd_drop(id)
+public zb3_do_skill(id, class, skullnum)
+{
+	if(class != g_zombie_classid || skullnum != 0)
+		return 0
+	if(g_berserking[id])
+		return 0
+		
+	Do_Berserk(id)
+	return 1
+}
+
+public Do_Berserk(id)
+{
+	zb3_reset_user_speed(id)
+		
+	// Set Vars
+	g_berserking[id] = 1
+
+	zb3_set_user_rendering(id, kRenderFxGlowShell, g_beserk_shell_color[0], g_beserk_shell_color[1], g_beserk_shell_color[2], kRenderNormal, 0)
+	zb3_set_user_speed(id, g_beserk_speed)
+	EmitSound(id, CHAN_VOICE, berserk_startsound)
+	
+	if(task_exists(id+TASK_BERSERKING)) remove_task(id+TASK_BERSERKING)
+	set_task(g_beserk_time[zb3_get_user_zombie_type(id)], "Remove_Berserk", id+TASK_BERSERKING)
+}
+
+public Remove_Berserk(id)
+{
+	id -= TASK_BERSERKING
+
+	if(!is_user_alive(id))
+		return
+	if(!zb3_get_user_zombie(id))
+		return
+	if(zb3_get_user_zombie_class(id) != g_zombie_classid)
+		return 
+	if(!g_berserking[id])
+		return	
+
+	// Set Vars
+	g_berserking[id] = 0
+	
+	// Reset Rendering
+	zb3_set_user_rendering(id)
+	zb3_reset_user_speed(id)
+}
+stock EmitSound(id, chan, const file_sound[])
+{
+	if(!is_user_connected(id))
+		return
+		
+	emit_sound(id, chan, file_sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
+}
+

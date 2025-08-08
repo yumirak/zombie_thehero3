@@ -97,6 +97,12 @@ ZCLASS_RESIDENT_NAME = Sting Finger
 ZCLASS_RESIDENT_DESC = Penetration
 ZCLASS_RESIDENT_DESC2 = Heavenly Jump
 
+ZCLASS_VENOM_NAME = Venom Guard
+ZCLASS_VENOM_DESC = Hardening
+
+ZCLASS_CHINA_NAME = Jiang Shi
+ZCLASS_CHINA_DESC = Evil Dead
+
 ITEM_SPRINT_NAME = Sprint
 ITEM_DS_NAME = Deadly Shot
 ITEM_BB_NAME = Bloody Blade
