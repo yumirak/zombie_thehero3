@@ -55,7 +55,7 @@ new Float:g_roundstart_time;
 // Array
 new Array:human_model_male, Array:human_model_female, Array:hero_model_male, Array:hero_model_female,
 Array:sound_infect_male, Array:sound_infect_female
-new Array:sound_game_start, sound_game_count[64], Array:sound_win_human, Array:sound_win_zombie,
+new Array:sound_game_start, Array:sound_game_count, Array:sound_win_human, Array:sound_win_zombie,
 Array:sound_zombie_coming, Array:sound_zombie_comeback, sound_ambience[64], sound_human_levelup[64],
 sound_remain_time[64]
 
@@ -293,6 +293,7 @@ public plugin_precache()
 	sound_infect_female = ArrayCreate(64, 1)
 	
 	sound_game_start = ArrayCreate(64, 1)
+	sound_game_count = ArrayCreate(64, 1)
 	sound_zombie_coming = ArrayCreate(64, 1)
 	sound_zombie_comeback = ArrayCreate(64, 1)
 	sound_win_human = ArrayCreate(64, 1)
@@ -350,6 +351,12 @@ public plugin_precache()
 		format(buffer, charsmax(buffer), "sound/%s", buffer)
 		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
+	for (i = 0; i < ArraySize(sound_game_count); i++)
+	{
+		ArrayGetString(sound_game_count, i, buffer, charsmax(buffer))
+		format(buffer, charsmax(buffer), "sound/%s", buffer)
+		engfunc(EngFunc_PrecacheGeneric, buffer)
+	}
 	for (i = 0; i < ArraySize(sound_zombie_coming); i++)
 	{
 		ArrayGetString(sound_zombie_coming, i, buffer, charsmax(buffer))
@@ -363,14 +370,6 @@ public plugin_precache()
 		engfunc(EngFunc_PrecacheGeneric, buffer)
 	}	
 	
-	for (new i = 1; i <= g_countdown_time; i++)
-	{
-		format(buffer, charsmax(buffer) -1, sound_game_count, i)
-		format(buffer, charsmax(buffer), "sound/%s", buffer)
-		
-		if(file_exists(buffer, true))
-			engfunc(EngFunc_PrecacheGeneric, buffer)
-	}	
 	for (i = 0; i < ArraySize(sound_win_zombie); i++)
 	{
 		ArrayGetString(sound_win_zombie, i, buffer, charsmax(buffer))
@@ -2213,10 +2212,13 @@ public handle_countdown()
 	change_task(TASK_COUNTDOWN)
 	client_print(0, print_center, "%L", LANG_OFFICIAL, "GAME_COUNTDOWN", g_countdown_count)
 
-	static sound[64]
-	format(sound, charsmax(sound), sound_game_count, g_countdown_count)
-					
-	PlaySound(0, sound)
+	if(g_countdown_count > 0 && g_countdown_count <= ArraySize(sound_game_count))
+	{
+		static sound[64]
+		ArrayGetString(sound_game_count, g_countdown_count - 1, sound, sizeof(sound))
+		PlaySound(0, sound)
+	}
+	
 	g_countdown_count--
 }
 
@@ -3005,7 +3007,7 @@ public load_config_file()
 	
 	// Load Sounds
 	amx_load_setting_string( true, SETTING_FILE, "Sounds", "ZOMBIE_START", buffer, 0, sound_game_start)
-	amx_load_setting_string( false, SETTING_FILE, "Sounds", "ZOMBIE_COUNT", sound_game_count, sizeof(sound_game_count), DummyArray)
+	amx_load_setting_string( true, SETTING_FILE, "Sounds", "ZOMBIE_COUNT", buffer, 0, sound_game_count)
 	amx_load_setting_string( false, SETTING_FILE, "Sounds", "REMAINING_TIME", sound_remain_time, sizeof(sound_remain_time), DummyArray)
 	
 	amx_load_setting_string( true, SETTING_FILE, "Sounds", "ZOMBIE_COMING", buffer, 0, sound_zombie_coming)
