@@ -98,7 +98,7 @@ public fw_Spawn_Post(id)
 
 public cmd_openmenu(id)
 {
-	if(!is_user_connected(id))
+	if(!is_user_connected(id) || !is_user_alive(id))
 		return PLUGIN_CONTINUE
 	if(cs_get_user_team(id) == CS_TEAM_CT)
 	{
